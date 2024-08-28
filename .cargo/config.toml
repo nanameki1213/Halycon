@@ -1,0 +1,9 @@
+[build]
+target = "riscv64imac-unknown-none-elf"
+rustflags = ["-C", "link-arg=-Thypervisor.ld", "-C", "soft-float=yes"]
+
+[unstable]
+build-std = ["core", "compiler_builtins"]
+
+[target.riscv64imac-unknown-none-elf]
+runner="./run.sh"
