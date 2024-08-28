@@ -1,3 +1,3 @@
 # Halycon
 
-Halycon is a hypervisor that runs on top of RISCV-64
+Halycon is a hypervisor that runs on RISCV-64
