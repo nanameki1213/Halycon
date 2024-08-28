@@ -1,0 +1,3 @@
+env set autostart y
+fatload virtio 0 0x84000000 hypervisor
+bootelf 0x84000000
