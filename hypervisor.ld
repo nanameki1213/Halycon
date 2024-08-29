@@ -4,8 +4,9 @@ ENTRY(main)
 SECTIONS
 {
   . = 0x80200000; 
-  
+
   .text : {
+    *(.main)
     *(.text)
   }
   
@@ -25,5 +26,7 @@ SECTIONS
   }
 
   . = ALIGN(4);
-  
+  . += 128 * 1024; /* 128KB */
+  __stack_top = .;
+
 }

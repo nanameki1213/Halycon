@@ -5,18 +5,7 @@ mv $1 ./bin/disk
 
 $QEMU \
   -M virt \
-  -smp 1 -bios ~/u-boot/u-boot.bin \
-  -nographic -m 2G \
-  -device virtio-blk-device,drive=disk \
-  -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=disk \
-  -global virtio-mmio.force-legacy=false \
-  -cdrom ~/alpine-virt-3.20.2-aarch64.iso
-  
-  # -kernel bin/disk/hypervisor \
-  # -serial mon:stdio \
-  # --no-reboot \
-  # -device virtio-net-device,netdev=usernet,bus=virtio-mmio-bus.0 \
-  # -object filter-dump,id=f1,netdev=usernet,file=dump.dat
-  # -netdev user,id=usernet,net=192.168.11.13/24 \
-  # -device virtio-blk-device,drive=disk \
-  # -drive file=fat:rw:bin/,format=raw,if=none,media=disk,id=disk \
+  -smp 1 \
+  -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin \
+  -nographic -m 4G \
+  -kernel bin/disk/hypervisor
