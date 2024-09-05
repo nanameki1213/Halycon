@@ -33,8 +33,8 @@ timer_handler:
 
 external_handler:
     j external_handler
-");
-    
+"
+);
 
 pub fn setup_vector() {
     extern "C" {

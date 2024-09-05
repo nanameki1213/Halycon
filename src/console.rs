@@ -1,5 +1,5 @@
-use core::fmt;
 use crate::mmio::ns16550::putc;
+use core::fmt;
 
 pub struct Console();
 

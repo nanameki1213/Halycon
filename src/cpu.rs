@@ -7,6 +7,11 @@ pub const MTVEC_VECTORED: usize = 1;
 
 pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 
+pub const HGATP_PPN_MASK: usize = (1 << 22) - 1;
+pub const HGATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
+
+pub const MSTATUS_TVM_OFFSET: usize = 20;
+
 #[inline(always)]
 pub fn get_hgatp() -> u64 {
     let hgatp: u64;
@@ -60,6 +65,18 @@ pub fn get_mtvec() -> u64 {
 #[inline(always)]
 pub fn set_mtvec(mtvec: u64) {
     unsafe { asm!("csrw mtvec, {}", in(reg) mtvec ) };
+}
+
+#[inline(always)]
+pub fn get_mstatus() -> u64 {
+    let mstatus: u64;
+    unsafe { asm!("csrr {}, mstatus", out(reg) mstatus ) };
+    mstatus
+}
+
+#[inline(always)]
+pub fn set_mstatus(mstatus: u64) {
+    unsafe { asm!("csrw mstatus, {}", in(reg) mstatus ) };
 }
 
 pub fn halt_loop() -> ! {
