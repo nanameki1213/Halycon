@@ -13,6 +13,7 @@ mod mmio {
 
 use mmio::ns16550::putc;
 use vector::setup_vector;
+use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
 
 use crate::cpu::*;
 
@@ -40,6 +41,9 @@ extern "C" fn main() -> ! {
     mstatus = mstatus | MSTATUS_TVM_OFFSET as u64;
 
     set_mstatus(mstatus);
+
+    init_stage_2_paging(DEFAULT_TABLE_LEVEL);
+    map_address_stage2(0x0, 0x0, 0x0, true, true);
 
     loop {}
 }

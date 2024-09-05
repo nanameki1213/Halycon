@@ -5,6 +5,8 @@ use core::usize;
 use crate::cpu::*;
 use crate::println;
 
+pub const DEFAULT_TABLE_LEVEL: i8 = 4;
+
 pub const PAGE_SHIFT: usize = 12;
 pub const PAGE_SIZE: usize = 1 << PAGE_SHIFT;
 pub const PAGE_MASK: usize = PAGE_SIZE - 1;
@@ -54,6 +56,7 @@ pub fn map_address_stage2(
         return Err(());
     }
     let hgatp = get_hgatp();
+    println!("hgatp: {:#X}", hgatp);
     let page_table_address = (hgatp & HGATP_PPN_MASK as u64) as usize;
     let mode = ((hgatp & HGATP_MODE_MASK as u64) >> 60) as usize;
 
@@ -70,6 +73,7 @@ pub fn map_address_stage2(
     }
 
     let table_address = unsafe { alloc_memory_for_paging(table_level).unwrap() };
+    println!("table_address: {:#X}", table_address);
 
     let top_level_stage_2_num_of_entries = unsafe { powf16(2.0, 11.0) as usize };
 
@@ -84,6 +88,24 @@ pub fn map_address_stage2(
     );
 
     return Ok(());
+}
+
+pub fn init_stage_2_paging(table_level: i8) {
+    if table_level == 0 {
+        println!("Bare mode.");
+        return;
+    }
+    let mut hgatp = get_hgatp();
+    
+    hgatp |= match table_level {
+        3 => (0b1000 << 60),
+        4 => (0b1001 << 60),
+        5 => (0b1010 << 60),
+        _ => unreachable!()
+    };
+    
+    set_hgatp(hgatp);
+
 }
 
 unsafe extern "C" fn alloc_memory_for_paging(table_level: i8) -> Result<usize, ()> {

@@ -24,7 +24,7 @@ SECTIONS
     *(COMMON)
   }
 
-  . = ALIGN(1024);
+  . = ALIGN(4096);
   _free_area = . ;
 
 }
