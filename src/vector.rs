@@ -1,4 +1,4 @@
-use crate::{bitmask, cpu::*};
+use crate::cpu::*;
 use core::arch::global_asm;
 
 global_asm!(

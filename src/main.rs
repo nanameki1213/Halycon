@@ -7,13 +7,14 @@ mod cpu;
 mod console;
 mod paging;
 mod vector;
+mod memory;
 mod mmio {
     pub mod ns16550;
 }
 
-use mmio::ns16550::putc;
 use vector::setup_vector;
 use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
+use memory::{init_allocation, allocate_memory};
 
 use crate::cpu::*;
 
@@ -24,11 +25,9 @@ macro_rules! bitmask {
     };
 }
 
-fn intr_disable() {
-    set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
-}
-
-fn init() {}
+// fn intr_disable() {
+//     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
+// }
 
 #[no_mangle]
 extern "C" fn main() -> ! {
@@ -42,8 +41,11 @@ extern "C" fn main() -> ! {
 
     set_mstatus(mstatus);
 
+    unsafe {
+        init_allocation()
+    };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
-    map_address_stage2(0x0, 0x0, 0x0, true, true);
+    let _ = map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true);
 
     loop {}
 }

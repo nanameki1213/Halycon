@@ -2,10 +2,9 @@ use core::arch::asm;
 
 pub const MIE_MEIE_OFFSET: usize = 11;
 
-pub const MTVEC_DIRECT: usize = 0;
 pub const MTVEC_VECTORED: usize = 1;
 
-pub const MISA_EXTENSION_H_OFFSET: usize = 7;
+// pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 
 pub const HGATP_PPN_MASK: usize = (1 << 22) - 1;
 pub const HGATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
