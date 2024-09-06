@@ -83,6 +83,13 @@ pub fn set_misa(misa: u64) {
     unsafe { asm!("csrw misa, {}", in(reg) misa ) };
 }
 
+#[inline(always)]
+pub fn get_mtinst() -> u64 {
+    let mtinst: u64;
+    unsafe { asm!("csrr {}, mtinst", out(reg) mtinst ) };
+    mtinst
+}
+
 pub fn halt_loop() -> ! {
     loop {
         unsafe { asm!("wfi") };

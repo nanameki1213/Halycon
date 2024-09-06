@@ -33,9 +33,16 @@ macro_rules! bitmask {
 extern "C" fn main() {
 
     let mut misa = get_misa();
-    misa |= 1 << MISA_EXTENSION_H_OFFSET;
+    //misa |= 1 << MISA_EXTENSION_H_OFFSET;
 
-    set_misa(misa);
+    //set_misa(misa);
+
+    if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
+        println!("this implimentesion is not support hypervisor extension.");
+        return;
+    }
+
+    println!("misa: {:#X}", misa);
 
     set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
     setup_vector();
@@ -47,21 +54,26 @@ extern "C" fn main() {
 
     set_mstatus(mstatus);
 
+    println!("mstatus: {:#X}", mstatus);
+
     unsafe {
         init_allocation()
     };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
 
-    map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true).expect("Failed to mapping");
+    map_address_stage2(0x80000000, 0x90000000, 0x10000000, true, true).expect("Failed to mapping");
 
     let func: fn() = vs_main;
 
     let stack_address = unsafe {
         allocate_memory(2).unwrap() + (2 << paging::PAGE_SHIFT)
     };
+    println!("vs_main addr: {:#X}", func as usize);
     
-//    hs_to_vs(func as usize, stack_address);
+    hs_to_vs(func as usize, stack_address);
+    loop {
 
+    }
 }
 
 fn vs_main() {
@@ -74,20 +86,20 @@ fn vs_main() {
     }
 }
 
-// fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {
-//     unsafe {
-//         asm!("
-//             csrw sstatus, {tmp}
-//             la sp, {stack_pointer}
-//             csrw sepc, {entry_point}
-//             sret", 
-//         tmp = in(reg) 0,
-//         stack_pointer = in(reg) vs_stack_pointer,
-//         entry_point = in(reg) vs_entry_point,
-//         options(noreturn)
-//         )
-//     };
-// }
+fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {
+    unsafe {
+        asm!("
+            csrs sstatus, {tmp1}
+            csrs hstatus, {tmp2}
+            csrw sepc, {entry_point}
+            sret", 
+        tmp1 = in(reg) 0x8000000800 as u64,
+        tmp2 = in(reg) 0x80 as u64,
+        entry_point = in(reg) vs_entry_point,
+        options(noreturn)
+        )
+    };
+}
 
 #[panic_handler]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
