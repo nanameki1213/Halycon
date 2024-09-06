@@ -4,7 +4,7 @@ pub const MIE_MEIE_OFFSET: usize = 11;
 
 pub const MTVEC_VECTORED: usize = 1;
 
-// pub const MISA_EXTENSION_H_OFFSET: usize = 7;
+pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 
 pub const HGATP_PPN_MASK: usize = (1 << 22) - 1;
 pub const HGATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
@@ -33,13 +33,6 @@ pub fn get_vsatp() -> u64 {
 #[inline(always)]
 pub fn set_vsatp(vsatp: u64) {
     unsafe { asm!("csrw vsatp, {}", in(reg) vsatp ) };
-}
-
-#[inline(always)]
-pub fn get_misa() -> u64 {
-    let misa: u64;
-    unsafe { asm!("csrr {}, misa", out(reg) misa ) };
-    misa
 }
 
 #[inline(always)]
@@ -76,6 +69,18 @@ pub fn get_mstatus() -> u64 {
 #[inline(always)]
 pub fn set_mstatus(mstatus: u64) {
     unsafe { asm!("csrw mstatus, {}", in(reg) mstatus ) };
+}
+
+#[inline(always)]
+pub fn get_misa() -> u64 {
+    let misa: u64;
+    unsafe { asm!("csrr {}, misa", out(reg) misa ) };
+    misa
+}
+
+#[inline(always)]
+pub fn set_misa(misa: u64) {
+    unsafe { asm!("csrw misa, {}", in(reg) misa ) };
 }
 
 pub fn halt_loop() -> ! {
