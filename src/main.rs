@@ -5,18 +5,18 @@
 
 mod cpu;
 mod console;
+mod memory;
 mod paging;
 mod vector;
-mod memory;
 mod mmio {
     pub mod ns16550;
 }
 
-use vector::setup_vector;
-use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
-use memory::{init_allocation, allocate_memory};
-use core::arch::asm;
 use crate::cpu::*;
+use core::arch::asm;
+use memory::{allocate_memory, init_allocation};
+use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
+use vector::setup_vector;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -31,7 +31,6 @@ macro_rules! bitmask {
 
 #[no_mangle]
 extern "C" fn main() {
-
     let mut misa = get_misa();
     //misa |= 1 << MISA_EXTENSION_H_OFFSET;
 
@@ -56,33 +55,25 @@ extern "C" fn main() {
 
     println!("mstatus: {:#X}", mstatus);
 
-    unsafe {
-        init_allocation()
-    };
+    unsafe { init_allocation() };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
 
     map_address_stage2(0x80000000, 0x90000000, 0x10000000, true, true).expect("Failed to mapping");
 
     let func: fn() = vs_main;
 
-    let stack_address = unsafe {
-        allocate_memory(2).unwrap() + (2 << paging::PAGE_SHIFT)
-    };
+    let stack_address = unsafe { allocate_memory(2).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("vs_main addr: {:#X}", func as usize);
-    
-    hs_to_vs(func as usize, stack_address);
-    loop {
 
-    }
+    hs_to_vs(func as usize, stack_address);
+    loop {}
 }
 
 fn vs_main() {
     println!("Hello, World from Virtual Supervisor Mode!");
 
     loop {
-        unsafe {
-            asm!("wfi")
-        };
+        unsafe { asm!("wfi") };
     }
 }
 
@@ -93,8 +84,9 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {
             csrs hstatus, {tmp2}
             csrw sepc, {entry_point}
             sret", 
-        tmp1 = in(reg) 0x8000000800 as u64,
+        tmp1 = in(reg) 0x100 as u64,
         tmp2 = in(reg) 0x80 as u64,
+//        stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         options(noreturn)
         )

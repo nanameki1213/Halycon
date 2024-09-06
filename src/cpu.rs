@@ -90,6 +90,11 @@ pub fn get_mtinst() -> u64 {
     mtinst
 }
 
+#[inline(always)]
+pub fn set_mtinst(mtinst: u64) {
+    unsafe { asm!("csrw mtinst, {}", in(reg) mtinst ) };
+}
+
 pub fn halt_loop() -> ! {
     loop {
         unsafe { asm!("wfi") };

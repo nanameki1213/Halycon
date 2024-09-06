@@ -1,8 +1,8 @@
 use core::intrinsics::powf16;
 use core::usize;
 
-use crate::cpu::*;
 use crate::allocate_memory;
+use crate::cpu::*;
 use crate::println;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
@@ -30,7 +30,6 @@ impl TableEntry {
     const A_OFFSET: usize = 6;
     const D_OFFSET: usize = 7;
 
-
     pub const fn new() -> Self {
         Self(0)
     }
@@ -38,19 +37,19 @@ impl TableEntry {
     pub fn init(&mut self) {
         *self = Self::new();
     }
-    
+
     pub fn get_next_table_address(&mut self) -> usize {
         return (self.0 & Self::PPN_MASK as u64) as usize;
-   }
+    }
 
     pub fn set_output_address(&mut self, address: usize) {
-        self.0 |= ((address & Self::PPN_MASK) << Self::PPN_OFFSET ) as u64;
+        self.0 |= ((address & Self::PPN_MASK) << Self::PPN_OFFSET) as u64;
     }
 
     pub fn set_permission(&mut self, permission: u64) {
         self.0 |= permission & Self::PERMISSION_MASK as u64;
     }
-    
+
     pub fn set_non_leaf_permission(&mut self) {
         self.0 |= Self::V_OFFSET as u64;
         self.0 &= !(Self::R_OFFSET | Self::W_OFFSET | Self::X_OFFSET) as u64;
@@ -104,9 +103,7 @@ fn _map_address_stage2(
         e.set_non_leaf_permission();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            next_table_address = unsafe {
-                allocate_memory(1).unwrap()
-            };
+            next_table_address = unsafe { allocate_memory(1).unwrap() };
             e.set_output_address(next_table_address);
         }
 
@@ -117,7 +114,7 @@ fn _map_address_stage2(
             next_table_address,
             permission,
             table_level - 1,
-            512
+            512,
         );
 
         if *remaining_size == 0 {
@@ -190,21 +187,18 @@ pub fn init_stage_2_paging(table_level: i8) {
         return;
     }
     let mut hgatp = get_hgatp();
-    
+
     hgatp |= match table_level {
         3 => 0b1000 << 60,
         4 => 0b1001 << 60,
         5 => 0b1010 << 60,
-        _ => unreachable!()
+        _ => unreachable!(),
     };
 
-    let table_address = unsafe {
-        alloc_memory_for_paging().unwrap()
-    };
+    let table_address = unsafe { alloc_memory_for_paging().unwrap() };
     hgatp |= (table_address >> 12) as u64 & HGATP_PPN_MASK as u64;
-    
-    set_hgatp(hgatp);
 
+    set_hgatp(hgatp);
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {

@@ -91,9 +91,8 @@ pub fn setup_vector() {
 
 #[no_mangle]
 pub fn exception_handler(stack_pointer: usize) {
-    panic!("synchronous exception.");
-    
     let mtinst = get_mtinst();
     println!("mtinst: {:#X}", mtinst);
     println!("stack pointer: {:#X}", stack_pointer);
+    panic!("synchronous exception.");
 }
