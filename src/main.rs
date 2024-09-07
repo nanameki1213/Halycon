@@ -14,7 +14,7 @@ mod mmio {
 
 use crate::cpu::*;
 use core::arch::asm;
-use memory::{allocate_memory, init_allocation};
+use memory::{allocate_memory, init_allocation, set_pmp};
 use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
 use vector::setup_vector;
 
@@ -46,6 +46,8 @@ extern "C" fn main() {
     set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
     setup_vector();
 
+    set_pmp();
+
     println!("hello, world!");
 
     let mut mstatus = get_mstatus();
@@ -54,6 +56,9 @@ extern "C" fn main() {
     set_mstatus(mstatus);
 
     println!("mstatus: {:#X}", mstatus);
+
+    let pmpcfg0 = get_pmpcfg0();
+    println!("pmpcfg0: {:#X}", pmpcfg0);
 
     unsafe { init_allocation() };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);

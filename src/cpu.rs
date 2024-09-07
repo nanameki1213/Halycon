@@ -11,6 +11,19 @@ pub const HGATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
 
 pub const MSTATUS_TVM_OFFSET: usize = 20;
 
+// #[inline(always)]
+// pub fn get_csr(csr_addr: usize) -> u64 {
+//     let csr: u64;
+//     let str = csr_addr.to_string();
+//     unsafe { asm!("csrr {tmp}, {number}", tmp = out(reg) csr, number = sym csr_addr.to_string()) }
+//     csr
+// }
+// 
+// #[inline(always)]
+// pub fn set_csr(csr_addr: usize, csr_value: u64) {
+//     unsafe { asm!("csrw {number}, {tmp}", number = in(reg) csr_addr, tmp = in(reg) csr_value) }
+// }
+
 #[inline(always)]
 pub fn get_hgatp() -> u64 {
     let hgatp: u64;
@@ -93,6 +106,42 @@ pub fn get_mtinst() -> u64 {
 #[inline(always)]
 pub fn set_mtinst(mtinst: u64) {
     unsafe { asm!("csrw mtinst, {}", in(reg) mtinst ) };
+}
+
+#[inline(always)]
+pub fn get_htinst() -> u64 {
+    let htinst: u64;
+    unsafe { asm!("csrr {}, htinst", out(reg) htinst ) };
+    htinst
+}
+
+#[inline(always)]
+pub fn set_htinst(htinst: u64) {
+    unsafe { asm!("csrw htinst, {}", in(reg) htinst ) };
+}
+
+#[inline(always)]
+pub fn get_pmpcfg0() -> u64 {
+    let pmpcfg0: u64;
+    unsafe { asm!("csrr {}, pmpcfg0", out(reg) pmpcfg0 ) };
+    pmpcfg0
+}
+
+#[inline(always)]
+pub fn set_pmpcfg0(pmpcfg0: u64) {
+    unsafe { asm!("csrw pmpcfg0, {}", in(reg) pmpcfg0 ) };
+}
+
+#[inline(always)]
+pub fn get_pmpaddr0() -> u64 {
+    let pmpaddr0: u64;
+    unsafe { asm!("csrr {}, pmpaddr0", out(reg) pmpaddr0 ) };
+    pmpaddr0
+}
+
+#[inline(always)]
+pub fn set_pmpaddr0(pmpaddr0: u64) {
+    unsafe { asm!("csrw pmpaddr0, {}", in(reg) pmpaddr0 ) };
 }
 
 pub fn halt_loop() -> ! {
