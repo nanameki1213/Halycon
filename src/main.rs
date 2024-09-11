@@ -60,10 +60,13 @@ extern "C" fn main() {
     let pmpcfg0 = get_pmpcfg0();
     println!("pmpcfg0: {:#X}", pmpcfg0);
 
+    let pmpcfg2 = get_pmpcfg2();
+    println!("pmpcfg2: {:#X}", pmpcfg2);
+
     unsafe { init_allocation() };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
 
-    map_address_stage2(0x80000000, 0x90000000, 0x10000000, true, true).expect("Failed to mapping");
+    map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true).expect("Failed to mapping");
 
     let func: fn() = vs_main;
 
@@ -75,11 +78,11 @@ extern "C" fn main() {
 }
 
 fn vs_main() {
-    println!("Hello, World from Virtual Supervisor Mode!");
+    // println!("Hello, World from Virtual Supervisor Mode!");
 
-    loop {
-        unsafe { asm!("wfi") };
-    }
+    // loop {
+    //     unsafe { asm!("wfi") };
+    // }
 }
 
 fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {

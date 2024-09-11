@@ -199,6 +199,8 @@ pub fn init_stage_2_paging(table_level: i8) {
     hgatp |= (table_address >> 12) as u64 & HGATP_PPN_MASK as u64;
 
     set_hgatp(hgatp);
+
+    sfence();
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {
