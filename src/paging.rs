@@ -200,7 +200,6 @@ pub fn init_stage_2_paging(table_level: i8) {
 
     set_hgatp(hgatp);
 
-    sfence();
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {

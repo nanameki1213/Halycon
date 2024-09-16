@@ -31,10 +31,7 @@ macro_rules! bitmask {
 
 #[no_mangle]
 extern "C" fn main() {
-    let mut misa = get_misa();
-    //misa |= 1 << MISA_EXTENSION_H_OFFSET;
-
-    //set_misa(misa);
+    let misa = get_misa();
 
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
         println!("this implimentesion is not support hypervisor extension.");
@@ -46,14 +43,16 @@ extern "C" fn main() {
     set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
     setup_vector();
 
-    set_pmp();
-
     println!("hello, world!");
 
     let mut mstatus = get_mstatus();
-    mstatus = mstatus | MSTATUS_TVM_OFFSET as u64;
+    mstatus |= (1 << MSTATUS_TVM_OFFSET) as u64;
 
     set_mstatus(mstatus);
+
+    let func: fn() = vs_main;
+
+    set_pmp(func as usize + 0x1000, func as usize, true, true, true);
 
     println!("mstatus: {:#X}", mstatus);
 
@@ -63,12 +62,13 @@ extern "C" fn main() {
     let pmpcfg2 = get_pmpcfg2();
     println!("pmpcfg2: {:#X}", pmpcfg2);
 
+    let pmpaddr0 = get_pmpaddr0();
+    println!("pmpaddr0: {:#X}", pmpaddr0);
+
     unsafe { init_allocation() };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
 
-    map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true).expect("Failed to mapping");
-
-    let func: fn() = vs_main;
+    map_address_stage2(0x20000000, 0x20000000, 0xA0000000, true, true).expect("Failed to mapping");
 
     let stack_address = unsafe { allocate_memory(2).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("vs_main addr: {:#X}", func as usize);
@@ -78,11 +78,11 @@ extern "C" fn main() {
 }
 
 fn vs_main() {
-    // println!("Hello, World from Virtual Supervisor Mode!");
+    println!("Hello, World from Virtual Supervisor Mode!");
 
-    // loop {
-    //     unsafe { asm!("wfi") };
-    // }
+    loop {
+        unsafe { asm!("wfi") };
+    }
 }
 
 fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {

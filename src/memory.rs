@@ -22,22 +22,14 @@ pub unsafe fn allocate_memory(num_of_pages: usize) -> Result<usize, ()> {
     Ok(top_address)
 }
 
-pub fn set_pmp() {
+pub fn set_pmp(top_address: usize, bottom_address: usize,
+               is_readable: bool, is_writable: bool, is_executable: bool) {
+    let pmp1cfg = (is_readable as u8) << 0 |
+                  (is_writable as u8) << 1 |
+                  (is_executable as u8) << 2 |
+                  (PMP_A_FIELD_TOR as u8) << PMP_A_FIELD_OFFSET;
 
-    // for i in 0x3A0..0x3AF {
-    //     let pmpcfg = get_csr(i);
-    //     println!("pmpcfg{}: {:#X}", i, pmpcfg);
-    // }
-
-    // for i in 0x3B0..0x3EF {
-    //     let pmpaddr = get_csr(i);
-    //     println!("pmpaddr{}: {:#X}", i, pmpaddr);
-    // }
-
-    let mut pmpcfg0 = get_pmpcfg0();
-    pmpcfg0 |= 0b00010111;
-    set_pmpcfg0(pmpcfg0);
-
-    let addr = 0x80000000;
-    set_pmpaddr0(addr);
+    set_pmpcfg0(pmp1cfg as u64);
+    set_pmpaddr0(bottom_address as u64);
+    set_pmpaddr1(top_address as u64);
 }

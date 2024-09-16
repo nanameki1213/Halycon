@@ -8,8 +8,13 @@ pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 
 pub const HGATP_PPN_MASK: usize = (1 << 44) - 1;
 pub const HGATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
+pub const HGATP_VMID_MASK: usize = ((1 << 14) - 1) << 44;
 
 pub const MSTATUS_TVM_OFFSET: usize = 20;
+
+pub const PMP_1_CFG_OFFSET: usize = 8;
+pub const PMP_A_FIELD_OFFSET: usize = 3;
+pub const PMP_A_FIELD_TOR: usize = 1;
 
 // #[inline(always)]
 // pub fn get_csr(csr_addr: usize) -> u64 {
@@ -144,6 +149,11 @@ pub fn set_pmpaddr0(pmpaddr0: u64) {
 }
 
 #[inline(always)]
+pub fn set_pmpaddr1(pmpaddr1: u64) {
+    unsafe { asm!("csrw pmpaddr1, {}", in(reg) pmpaddr1) };
+}
+
+#[inline(always)]
 pub fn get_pmpcfg2() -> u64 {
     let pmpcfg2: u64;
     unsafe { asm!("csrr {}, pmpcfg2", out(reg) pmpcfg2 ) };
@@ -156,81 +166,14 @@ pub fn set_pmpcfg2(pmpcfg2: u64) {
 }
 
 #[inline(always)]
-pub fn get_pmpcfg4() -> u64 {
-    let pmpcfg4: u64;
-    unsafe { asm!("csrr {}, pmpcfg4", out(reg) pmpcfg4 ) };
-    pmpcfg4
-}
-
-#[inline(always)]
-pub fn set_pmpcfg4(pmpcfg4: u64) {
-    unsafe { asm!("csrw pmpcfg4, {}", in(reg) pmpcfg4 ) };
-}
-
-#[inline(always)]
-pub fn get_pmpcfg6() -> u64 {
-    let pmpcfg6: u64;
-    unsafe { asm!("csrr {}, pmpcfg6", out(reg) pmpcfg6 ) };
-    pmpcfg6
-}
-
-#[inline(always)]
-pub fn set_pmpcfg6(pmpcfg6: u64) {
-    unsafe { asm!("csrw pmpcfg6, {}", in(reg) pmpcfg6 ) };
-}
-
-#[inline(always)]
-pub fn get_pmpcfg8() -> u64 {
-    let pmpcfg8: u64;
-    unsafe { asm!("csrr {}, pmpcfg8", out(reg) pmpcfg8 ) };
-    pmpcfg8
-}
-
-#[inline(always)]
-pub fn set_pmpcfg8(pmpcfg8: u64) {
-    unsafe { asm!("csrw pmpcfg8, {}", in(reg) pmpcfg8 ) };
-}
-
-#[inline(always)]
-pub fn get_pmpcfg10() -> u64 {
-    let pmpcfg10: u64;
-    unsafe { asm!("csrr {}, pmpcfg10", out(reg) pmpcfg10 ) };
-    pmpcfg10
-}
-
-#[inline(always)]
-pub fn set_pmpcfg10(pmpcfg10: u64) {
-    unsafe { asm!("csrw pmpcfg10, {}", in(reg) pmpcfg10 ) };
-}
-
-#[inline(always)]
-pub fn get_pmpcfg12() -> u64 {
-    let pmpcfg12: u64;
-    unsafe { asm!("csrr {}, pmpcfg12", out(reg) pmpcfg12 ) };
-    pmpcfg12
-}
-
-#[inline(always)]
-pub fn set_pmpcfg12(pmpcfg12: u64) {
-    unsafe { asm!("csrw pmpcfg12, {}", in(reg) pmpcfg12 ) };
-}
-
-#[inline(always)]
-pub fn get_pmpcfg14() -> u64 {
-    let pmpcfg14: u64;
-    unsafe { asm!("csrr {}, pmpcfg14", out(reg) pmpcfg14 ) };
-    pmpcfg14
-}
-
-#[inline(always)]
-pub fn set_pmpcfg14(pmpcfg14: u64) {
-    unsafe { asm!("csrw pmpcfg14, {}", in(reg) pmpcfg14 ) };
-}
-
-#[inline(always)]
-pub fn sfence() {
+pub fn hfence() {
     unsafe { asm!("hfence.vvma
                    hfence.gvma") };
+}
+
+#[inline(always)]
+pub fn hfence_vvma(vmid: usize) {
+    unsafe { asm!("hfence.vvma {}", in(reg) vmid) };
 }
 
 pub fn halt_loop() -> ! {
