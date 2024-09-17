@@ -75,13 +75,13 @@ fn _map_address_stage2(
         &mut *core::ptr::slice_from_raw_parts_mut(table_address as *mut TableEntry, num_of_entries)
     };
 
-    println!("func _map_address_stage2 {{");
-    println!("  table_level: {}", table_level);
-    println!("  table_address: {:#X}", table_address);
-    println!("  physical_address: {:#X}", *physical_address);
-    println!("  virtual_address : {:#X}", *virtual_address);
-    println!("  table_index: {}", table_index);
-    println!("}}\n");
+    // println!("func _map_address_stage2 {{");
+    // println!("  table_level: {}", table_level);
+    // println!("  table_address: {:#X}", table_address);
+    // println!("  physical_address: {:#X}", *physical_address);
+    // println!("  virtual_address : {:#X}", *virtual_address);
+    // println!("  table_index: {}", table_index);
+    // println!("}}\n");
 
     if table_level == 0 {
         for e in table[table_index..].iter_mut() {
@@ -196,7 +196,8 @@ pub fn init_stage_2_paging(table_level: i8) {
     };
 
     let table_address = unsafe { alloc_memory_for_paging().unwrap() };
-    hgatp |= (table_address >> 12) as u64 & HGATP_PPN_MASK as u64;
+    // ルート―ページテーブルは16KiBアラインメントしないといけないので14ビットずらす
+    hgatp |= (table_address >> 14) as u64 & HGATP_PPN_MASK as u64;
 
     set_hgatp(hgatp);
 

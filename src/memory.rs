@@ -18,13 +18,13 @@ pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<u
     }
 
     let align_mask = alignment - 1;
-    println!("FREE_ADDRESS: {:#X}", FREE_ADDRESS);
-    println!("align_mask: {:#X}", align_mask);
+    // println!("FREE_ADDRESS: {:#X}", FREE_ADDRESS);
+    // println!("align_mask: {:#X}", align_mask);
     if (FREE_ADDRESS & align_mask) != 0 {
-        println!("align: {:#X}", FREE_ADDRESS & align_mask);
+        // println!("align: {:#X}", FREE_ADDRESS & align_mask);
         FREE_ADDRESS &= !align_mask;
         FREE_ADDRESS += alignment;
-        println!("after alignment address: {:#X}", FREE_ADDRESS);
+        // println!("after alignment address: {:#X}", FREE_ADDRESS);
     }
 
     let top_address = FREE_ADDRESS;
