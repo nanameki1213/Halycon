@@ -11,10 +11,20 @@ pub unsafe extern "C" fn init_allocation() {
     FREE_ADDRESS = core::ptr::addr_of!(_free_area) as *const u8 as usize;
 }
 
-pub unsafe fn allocate_memory(num_of_pages: usize) -> Result<usize, ()> {
+pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<usize, ()> {
     if FREE_ADDRESS == 0 {
         println!("memory allocater is not initialized.");
         return Err(());
+    }
+
+    let align_mask = alignment - 1;
+    println!("FREE_ADDRESS: {:#X}", FREE_ADDRESS);
+    println!("align_mask: {:#X}", align_mask);
+    if (FREE_ADDRESS & align_mask) != 0 {
+        println!("align: {:#X}", FREE_ADDRESS & align_mask);
+        FREE_ADDRESS &= !align_mask;
+        FREE_ADDRESS += alignment;
+        println!("after alignment address: {:#X}", FREE_ADDRESS);
     }
 
     let top_address = FREE_ADDRESS;

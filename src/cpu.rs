@@ -89,6 +89,18 @@ pub fn set_mstatus(mstatus: u64) {
 }
 
 #[inline(always)]
+pub fn get_sstatus() -> u64 {
+    let sstatus: u64;
+    unsafe { asm!("csrr {}, sstatus", out(reg) sstatus ) };
+    sstatus
+}
+
+#[inline(always)]
+pub fn set_sstatus(sstatus: u64) {
+    unsafe { asm!("csrw sstatus, {}", in(reg) sstatus ) };
+}
+
+#[inline(always)]
 pub fn get_misa() -> u64 {
     let misa: u64;
     unsafe { asm!("csrr {}, misa", out(reg) misa ) };
@@ -98,6 +110,18 @@ pub fn get_misa() -> u64 {
 #[inline(always)]
 pub fn set_misa(misa: u64) {
     unsafe { asm!("csrw misa, {}", in(reg) misa ) };
+}
+
+#[inline(always)]
+pub fn get_medeleg() -> u64 {
+    let medeleg: u64;
+    unsafe { asm!("csrr {}, medeleg", out(reg) medeleg ) };
+    medeleg
+}
+
+#[inline(always)]
+pub fn set_medeleg(medeleg: u64) {
+    unsafe { asm!("csrw medeleg, {}", in(reg) medeleg ) };
 }
 
 #[inline(always)]
@@ -122,6 +146,18 @@ pub fn get_htinst() -> u64 {
 #[inline(always)]
 pub fn set_htinst(htinst: u64) {
     unsafe { asm!("csrw htinst, {}", in(reg) htinst ) };
+}
+
+#[inline(always)]
+pub fn get_hedeleg() -> u64 {
+    let hedeleg: u64;
+    unsafe { asm!("csrr {}, hedeleg", out(reg) hedeleg) };
+    hedeleg
+}
+
+#[inline(always)]
+pub fn set_hedeleg(hedeleg: u64) {
+    unsafe { asm!("csrw hedeleg, {}", in(reg) hedeleg) };
 }
 
 #[inline(always)]

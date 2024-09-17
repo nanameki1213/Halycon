@@ -75,13 +75,13 @@ fn _map_address_stage2(
         &mut *core::ptr::slice_from_raw_parts_mut(table_address as *mut TableEntry, num_of_entries)
     };
 
-    // println!("func _map_address_stage2 {{");
-    // println!("  table_level: {}", table_level);
-    // println!("  table_address: {:#X}", table_address);
-    // println!("  physical_address: {:#X}", *physical_address);
-    // println!("  virtual_address : {:#X}", *virtual_address);
-    // println!("  table_index: {}", table_index);
-    // println!("}}\n");
+    println!("func _map_address_stage2 {{");
+    println!("  table_level: {}", table_level);
+    println!("  table_address: {:#X}", table_address);
+    println!("  physical_address: {:#X}", *physical_address);
+    println!("  virtual_address : {:#X}", *virtual_address);
+    println!("  table_index: {}", table_index);
+    println!("}}\n");
 
     if table_level == 0 {
         for e in table[table_index..].iter_mut() {
@@ -103,7 +103,7 @@ fn _map_address_stage2(
         e.set_non_leaf_permission();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            next_table_address = unsafe { allocate_memory(1).unwrap() };
+            next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
             e.set_output_address(next_table_address);
         }
 
@@ -203,7 +203,7 @@ pub fn init_stage_2_paging(table_level: i8) {
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {
-    let address = allocate_memory(4).unwrap();
+    let address = allocate_memory(4, 0x8000).unwrap();
 
     return Ok(address);
 }
