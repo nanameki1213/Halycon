@@ -1,0 +1,2 @@
+DISK_IMG_DIR=bin/disk
+U_BOOT_DIR=$HOME/u-boot
