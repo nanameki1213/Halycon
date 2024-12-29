@@ -135,10 +135,10 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let hgatp = get_hgatp();
-    println!("hgatp: {:#X}", hgatp);
-    let table_address = ((hgatp & HGATP_PPN_MASK as u64) << 14) as usize;
-    let mode = ((hgatp & HGATP_MODE_MASK as u64) >> 60) as usize;
+    let vsatp = get_vsatp();
+    println!("vsatp: {:#X}", vsatp);
+    let table_address = ((vsatp & VSATP_PPN_MASK as u64) << 12) as usize;
+    let mode = ((vsatp & VSATP_MODE_MASK as u64) >> 60) as usize;
 
     let mut table_level: i8 = 0;
     match mode {
@@ -186,9 +186,9 @@ pub fn init_stage_2_paging(table_level: i8) {
         println!("Bare mode.");
         return;
     }
-    let mut hgatp = get_hgatp();
+    let mut vsatp = get_vsatp();
 
-    hgatp |= match table_level {
+    vsatp |= match table_level {
         3 => 0b1000 << 60,
         4 => 0b1001 << 60,
         5 => 0b1010 << 60,
@@ -196,10 +196,10 @@ pub fn init_stage_2_paging(table_level: i8) {
     };
 
     let table_address = unsafe { allocate_memory(16, 1 << 14).unwrap() };
-    // ルート―ページテーブルは16KiBアラインメントしないといけないので14ビットずらす
-    hgatp |= (table_address >> 14) as u64 & HGATP_PPN_MASK as u64;
+    // // ルート―ページテーブルは16KiBアラインメントしないといけないので14ビットずらす
+    vsatp |= (table_address >> 12) as u64 & VSATP_PPN_MASK as u64;
 
-    set_hgatp(hgatp);
+    set_vsatp(vsatp);
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {

@@ -6,9 +6,9 @@ pub const MTVEC_VECTORED: usize = 1;
 
 pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 
-pub const HGATP_PPN_MASK: usize = (1 << 44) - 1;
-pub const HGATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
-pub const HGATP_VMID_MASK: usize = ((1 << 14) - 1) << 44;
+pub const VSATP_PPN_MASK: usize = (1 << 44) - 1;
+pub const VSATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
+pub const VSATP_ASID_MASK: usize = ((1 << 14) - 1) << 44;
 
 pub const MSTATUS_TVM_OFFSET: usize = 20;
 
@@ -98,6 +98,18 @@ pub fn get_sstatus() -> u64 {
 #[inline(always)]
 pub fn set_sstatus(sstatus: u64) {
     unsafe { asm!("csrw sstatus, {}", in(reg) sstatus ) };
+}
+
+#[inline(always)]
+pub fn get_stvec() -> u64 {
+    let stvec: u64;
+    unsafe { asm!("csrr {}, stvec", out(reg) stvec ) };
+    stvec
+}
+
+#[inline(always)]
+pub fn set_stvec(stvec: u64) {
+    unsafe { asm!("csrw stvec, {}", in(reg) stvec ) };
 }
 
 #[inline(always)]

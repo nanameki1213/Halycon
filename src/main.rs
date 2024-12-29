@@ -52,13 +52,14 @@ extern "C" fn main() {
 
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
+    medeleg |= (1 << 12) as u64;
 
     set_medeleg(medeleg);
 
     let vm_address: fn() = vs_main;
 
     // 仮想マシンの領域のPMPを設定する;
-    set_pmp(vm_address as usize + 0x1000, vm_address as usize, true, true, true);
+    set_pmp(vm_address as usize + 0xA000, vm_address as usize - 0x1000, true, true, true);
 
     println!("mstatus: {:#X}", mstatus);
 
@@ -74,6 +75,9 @@ extern "C" fn main() {
     unsafe { init_allocation() };
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
     hfence();
+
+    let vsatp = get_vsatp();
+    println!("vsatp: {:#X}", vsatp);
 
     map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true).expect("Failed to mapping");
 
@@ -100,7 +104,7 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {
             csrw sepc, {entry_point}
             sret", 
         tmp1 = in(reg) 0x100 as u64, // set sstatus.SPP
-        tmp2 = in(reg) 0x80 as u64, // set hstatus.SPV
+        tmp2 = in(reg) 0xA0 as u64, // set hstatus.SPV
 //        stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         options(noreturn)
