@@ -6,7 +6,7 @@ global_asm!(
 .section .text
 .global vector_table
 .balign 256
-vector_table:
+machine_vector_table:
     j synchronous_exception_handler 
     j software_handler
     j software_handler
@@ -28,7 +28,33 @@ vector_table:
     j undefined_handler
     j undefined_handler
     j guest_page_fault_handler
-    
+
+.section .text
+.global vector_table
+.balign 256
+supervisor_vector_table:
+    j synchronous_exception_handler 
+    j software_handler
+    j software_handler
+    j software_handler
+    j undefined_handler
+    j timer_handler
+    j timer_handler
+    j timer_handler
+    j undefined_handler
+    j external_handler
+    j external_handler
+    j external_handler
+    j external_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j guest_page_fault_handler
+
 undefined_handler:
     j undefined_handler
 
@@ -130,22 +156,16 @@ guest_page_fault_handler:
 
 pub fn setup_vector() {
     extern "C" {
-        static vector_table: *const u8;
+        static machine_vector_table: *const u8;
+        static supervisor_vector_table: *const u8;
     }
-    unsafe { set_mtvec(((&vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
+    unsafe { set_mtvec(((&machine_vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
+    unsafe { set_stvec(((&supervisor_vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
     // unsafe { set_vstvec(((&vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
 }
 
 #[no_mangle]
 pub fn exception_handler(stack_pointer: usize) {
-    let mtinst = get_mtinst();
-    let htinst = get_htinst();
-    let sstatus = get_sstatus();
-    let vsatp = get_vsatp();
-    println!("mtinst: {:#X}", mtinst);
-    println!("htinst: {:#X}", htinst);
-    println!("sstatus: {:#X}", sstatus);
-    println!("vsatp: {:#X}", vsatp);
-    println!("stack pointer: {:#X}", stack_pointer);
+    println!("sp: {:#X}", stack_pointer);
     panic!("synchronous exception.");
 }
