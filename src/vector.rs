@@ -1,5 +1,5 @@
 use crate::{cpu::*, println};
-use core::arch::global_asm;
+use core::{arch::global_asm, usize};
 
 global_asm!(
     "
@@ -133,6 +133,7 @@ pub fn setup_vector() {
         static vector_table: *const u8;
     }
     unsafe { set_mtvec(((&vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
+    // unsafe { set_vstvec(((&vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
 }
 
 #[no_mangle]

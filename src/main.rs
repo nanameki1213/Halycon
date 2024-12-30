@@ -38,51 +38,59 @@ extern "C" fn main() {
         return;
     }
 
-    println!("misa: {:#X}", misa);
+    println!("[info] misa: {:#X}", misa);
 
     set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
-    setup_vector();
+    println!("[setup] mie");
 
-    println!("hello, world!");
+    setup_vector(); 
+    println!("[setup] mtvec");
 
-    let mut mstatus = get_mstatus();
-    mstatus |= (1 << MSTATUS_TVM_OFFSET) as u64;
-
-    set_mstatus(mstatus);
+    // let mut mstatus = get_mstatus();
+    // mstatus |= (1 << MSTATUS_TVM_OFFSET) as u64;
+    // set_mstatus(mstatus);
 
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
-
     set_medeleg(medeleg);
+    println!("[setup] medeleg");
+
+    let mut hedeleg = get_hedeleg();
+    // hedeleg |= (1 << 12) as u64;
+    set_hedeleg(hedeleg);
+    println!("[setup] hedeleg");
 
     let vm_address: fn() = vs_main;
+    println!("[info] vm address: {:#X}", vs_main as u64);
 
     // 仮想マシンの領域のPMPを設定する;
     set_pmp(vm_address as usize + 0xA000, vm_address as usize - 0x1000, true, true, true);
+    println!("[setup] pmp");
 
-    println!("mstatus: {:#X}", mstatus);
+    // let pmpcfg0 = get_pmpcfg0();
+    // println!("[info] pmpcfg0: {:#X}", pmpcfg0);
 
-    let pmpcfg0 = get_pmpcfg0();
-    println!("pmpcfg0: {:#X}", pmpcfg0);
+    // let pmpcfg2 = get_pmpcfg2();
+    // println!("[info] pmpcfg2: {:#X}", pmpcfg2);
 
-    let pmpcfg2 = get_pmpcfg2();
-    println!("pmpcfg2: {:#X}", pmpcfg2);
-
-    let pmpaddr0 = get_pmpaddr0();
-    println!("pmpaddr0: {:#X}", pmpaddr0);
+    // let pmpaddr0 = get_pmpaddr0();
+    // println!("[info] pmpaddr0: {:#X}", pmpaddr0);
 
     unsafe { init_allocation() };
-    init_stage_2_paging(DEFAULT_TABLE_LEVEL);
-    hfence();
+    println!("[setup] allocater");
 
+    init_stage_2_paging(DEFAULT_TABLE_LEVEL);
     let vsatp = get_vsatp();
-    println!("vsatp: {:#X}", vsatp);
+    println!("[setup] vsatp: {:#X}", vsatp);
+
+    // hfence();
 
     map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true).expect("Failed to mapping");
+    println!("[setup] stage2 paging");
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
-    println!("vs_main addr: {:#X}", vm_address as usize);
+    println!("[info] stack_address: {:#X}", stack_address);
 
     hs_to_vs(vm_address as usize, stack_address);
     loop {}

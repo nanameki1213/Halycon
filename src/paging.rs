@@ -75,13 +75,13 @@ fn _map_address_stage2(
         &mut *core::ptr::slice_from_raw_parts_mut(table_address as *mut TableEntry, num_of_entries)
     };
 
-    println!("func _map_address_stage2 {{");
-    println!("  table_level: {}", table_level);
-    println!("  table_address: {:#X}", table_address);
-    println!("  physical_address: {:#X}", *physical_address);
-    println!("  virtual_address : {:#X}", *virtual_address);
-    println!("  table_index: {}", table_index);
-    println!("}}\n");
+    // println!("func _map_address_stage2 {{");
+    // println!("  table_level: {}", table_level);
+    // println!("  table_address: {:#X}", table_address);
+    // println!("  physical_address: {:#X}", *physical_address);
+    // println!("  virtual_address : {:#X}", *virtual_address);
+    // println!("  table_index: {}", table_index);
+    // println!("}}\n");
 
     if table_level == 0 {
         for e in table[table_index..].iter_mut() {
@@ -136,7 +136,7 @@ pub fn map_address_stage2(
         return Err(());
     }
     let vsatp = get_vsatp();
-    println!("vsatp: {:#X}", vsatp);
+    // println!("vsatp: {:#X}", vsatp);
     let table_address = ((vsatp & VSATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((vsatp & VSATP_MODE_MASK as u64) >> 60) as usize;
 
@@ -152,7 +152,7 @@ pub fn map_address_stage2(
         _ => unreachable!(),
     }
 
-    println!("table_address: {:#X}", table_address);
+    // println!("table_address: {:#X}", table_address);
 
     let top_level_stage_2_num_of_entries = unsafe { powf16(2.0, 11.0) as usize };
 

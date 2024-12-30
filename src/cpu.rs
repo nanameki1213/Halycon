@@ -53,6 +53,18 @@ pub fn set_vsatp(vsatp: u64) {
 }
 
 #[inline(always)]
+pub fn get_vstvec() -> u64 {
+    let vstvec: u64;
+    unsafe { asm!("csrr {}, vstvec", out(reg) vstvec ) };
+    vstvec
+}
+
+#[inline(always)]
+pub fn set_vstvec(vstvec: u64) {
+    unsafe { asm!("csrw vstvec, {}", in(reg) vstvec ) };
+}
+
+#[inline(always)]
 pub fn get_mie() -> u64 {
     let mie: u64;
     unsafe { asm!("csrr {}, mie", out(reg) mie ) };
