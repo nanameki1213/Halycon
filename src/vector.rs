@@ -4,7 +4,7 @@ use core::{arch::global_asm, usize};
 global_asm!(
     "
 .section .text
-.global vector_table
+.global machine_vector_table
 .balign 256
 machine_vector_table:
     j synchronous_exception_handler 
@@ -30,9 +30,35 @@ machine_vector_table:
     j guest_page_fault_handler
 
 .section .text
-.global vector_table
+.global supervisor_vector_table
 .balign 256
 supervisor_vector_table:
+    j synchronous_exception_handler 
+    j software_handler
+    j software_handler
+    j software_handler
+    j undefined_handler
+    j timer_handler
+    j timer_handler
+    j timer_handler
+    j undefined_handler
+    j external_handler
+    j external_handler
+    j external_handler
+    j external_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j undefined_handler
+    j guest_page_fault_handler
+
+.section .text
+.global virtual_supervisor_vector_table
+.balign 256
+virtual_supervisor_vector_table:
     j synchronous_exception_handler 
     j software_handler
     j software_handler
@@ -158,10 +184,11 @@ pub fn setup_vector() {
     extern "C" {
         static machine_vector_table: *const u8;
         static supervisor_vector_table: *const u8;
+        static virtual_supervisor_vector_table: *const u8;
     }
-    unsafe { set_mtvec(((&machine_vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
-    unsafe { set_stvec(((&supervisor_vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
-    // unsafe { set_vstvec(((&vector_table as *const _ as usize) | MTVEC_VECTORED) as u64) }
+    unsafe { set_mtvec(((&machine_vector_table as *const _ as usize) | TVEC_VECTORED) as u64) }
+    unsafe { set_stvec(((&supervisor_vector_table as *const _ as usize) | TVEC_VECTORED) as u64) }
+    unsafe { set_vstvec(((&virtual_supervisor_vector_table as *const _ as usize) | TVEC_VECTORED) as u64) }
 }
 
 #[no_mangle]

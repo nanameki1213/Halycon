@@ -2,7 +2,7 @@ use core::arch::{asm, global_asm};
 
 pub const MIE_MEIE_OFFSET: usize = 11;
 
-pub const MTVEC_VECTORED: usize = 1;
+pub const TVEC_VECTORED: usize = 1;
 
 pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 

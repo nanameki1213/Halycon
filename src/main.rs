@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(core_intrinsics)]
+#![feature(f16)]
 #[macro_use]
 
 mod cpu;
@@ -13,7 +14,7 @@ mod mmio {
 }
 
 use crate::cpu::*;
-use core::arch::asm;
+use core::{arch::asm, usize};
 use memory::{allocate_memory, init_allocation, set_pmp};
 use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
 use vector::setup_vector;
@@ -30,12 +31,16 @@ macro_rules! bitmask {
 // }
 
 #[no_mangle]
-extern "C" fn main() {
+extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
+    if argc != 1 {
+        return 1;
+    }
+
     let misa = get_misa();
 
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
         println!("this implimentesion is not support hypervisor extension.");
-        return;
+        return 1;
     }
 
     println!("[info] misa: {:#X}", misa);
@@ -45,6 +50,7 @@ extern "C" fn main() {
 
     setup_vector(); 
     println!("[setup] mtvec");
+    println!("[setup] stvec");
 
     // let mut mstatus = get_mstatus();
     // mstatus |= (1 << MSTATUS_TVM_OFFSET) as u64;
@@ -53,11 +59,14 @@ extern "C" fn main() {
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
+    medeleg |= (1 << 7) as u64;
+    medeleg |= (1 << 0) as u64;
     set_medeleg(medeleg);
-    println!("[setup] medeleg");
+    println!("[setup] medeleg: {:#X}", medeleg);
 
     let mut hedeleg = get_hedeleg();
-    // hedeleg |= (1 << 12) as u64;
+    hedeleg |= (1 << 12) as u64;
+    hedeleg |= (1 << 7) as u64;
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
@@ -65,8 +74,10 @@ extern "C" fn main() {
     println!("[info] vm address: {:#X}", vs_main as u64);
 
     // 仮想マシンの領域のPMPを設定する;
-    set_pmp(vm_address as usize + 0xA000, vm_address as usize - 0x1000, true, true, true);
-    println!("[setup] pmp");
+    let top_address = vm_address as usize + 0xA000;
+    let bottom_address = 0x80000000 as usize;
+    set_pmp(top_address, bottom_address, true, true, true);
+    println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
 
     // let pmpcfg0 = get_pmpcfg0();
     // println!("[info] pmpcfg0: {:#X}", pmpcfg0);
@@ -84,9 +95,11 @@ extern "C" fn main() {
     let vsatp = get_vsatp();
     println!("[setup] vsatp: {:#X}", vsatp);
 
+    let hgatp = get_hgatp();
+    println!("[info] hgatp: {:#X}", hgatp);
     // hfence();
 
-    map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true).expect("Failed to mapping");
+    map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true, true).expect("Failed to mapping");
     println!("[setup] stage2 paging");
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
@@ -104,7 +117,7 @@ fn vs_main() {
     }
 }
 
-fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) {
+fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) -> ! {
     unsafe {
         asm!("
             csrs sstatus, {tmp1}

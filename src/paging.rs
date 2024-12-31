@@ -1,4 +1,6 @@
+use core::f16;
 use core::intrinsics::powf16;
+use core::intrinsics::unreachable;
 use core::usize;
 
 use crate::allocate_memory;
@@ -6,6 +8,7 @@ use crate::cpu::*;
 use crate::println;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
+pub const VPN_SIZE: i8 = 9;
 
 pub const PAGE_SHIFT: usize = 12;
 pub const PAGE_SIZE: usize = 1 << PAGE_SHIFT;
@@ -51,8 +54,8 @@ impl TableEntry {
     }
 
     pub fn set_non_leaf_permission(&mut self) {
-        self.0 |= Self::V_OFFSET as u64;
-        self.0 &= !(Self::R_OFFSET | Self::W_OFFSET | Self::X_OFFSET) as u64;
+        self.0 |= (1 << Self::V_OFFSET) as u64;
+        self.0 &= !((1 << Self::R_OFFSET) | (1 << Self::X_OFFSET)) as u64;
     }
 
     pub fn is_valid_pte(&mut self) -> bool {
@@ -94,17 +97,21 @@ fn _map_address_stage2(
             if *remaining_size == 0 {
                 return Ok(());
             }
+
+            // println!("[debug]: leaf pte: {:#X}", e.0);
         }
         return Ok(());
     }
 
     for e in table[table_index..num_of_entries].iter_mut() {
         e.init();
-        e.set_non_leaf_permission();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
             next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
             e.set_output_address(next_table_address);
+            e.set_non_leaf_permission();
+
+            // println!("[debug] pte: {:#X}", e.0);
         }
 
         let _ = _map_address_stage2(
@@ -114,7 +121,7 @@ fn _map_address_stage2(
             next_table_address,
             permission,
             table_level - 1,
-            512,
+            num_of_entries,
         );
 
         if *remaining_size == 0 {
@@ -130,6 +137,7 @@ pub fn map_address_stage2(
     mut map_size: usize,
     is_readable: bool,
     is_writable: bool,
+    is_executable: bool,
 ) -> Result<(), ()> {
     if (map_size & PAGE_MASK) != 0 {
         println!("Map size is not aligned.");
@@ -140,22 +148,21 @@ pub fn map_address_stage2(
     let table_address = ((vsatp & VSATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((vsatp & VSATP_MODE_MASK as u64) >> 60) as usize;
 
-    let mut table_level: i8 = 0;
-    match mode {
+    let table_level: i8 = match mode {
         0 => {
-            println!("stage 2 paging is not initialized.");
+            println!("Bare mode");
             return Err(());
         }
-        8 => table_level = 3,
-        9 => table_level = 4,
-        10 => table_level = 5,
+        8 => 3,
+        9 => 4,
+        10 => 5,
         _ => unreachable!(),
-    }
+    };
 
     // println!("table_address: {:#X}", table_address);
 
-    let top_level_stage_2_num_of_entries = unsafe { powf16(2.0, 11.0) as usize };
-
+    let top_level_stage_2_num_of_entries = 1 << VPN_SIZE;
+        
     let mut permission: u64 = if is_readable {
         (1 << TableEntry::R_OFFSET) as u64
     } else {
@@ -164,6 +171,12 @@ pub fn map_address_stage2(
 
     permission |= if is_writable {
         (1 << TableEntry::W_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_executable {
+        (1 << TableEntry::X_OFFSET) as u64
     } else {
         0
     };
