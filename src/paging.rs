@@ -87,10 +87,11 @@ fn _map_address_stage2(
     // println!("}}\n");
 
     if table_level == 0 {
+        let mut i = 0;
         for e in table[table_index..].iter_mut() {
             e.init();
             e.set_output_address(*physical_address);
-            e.set_permission(permission);
+            e.set_permission(permission | (1 <<TableEntry::V_OFFSET));
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;
             *remaining_size -= PAGE_SIZE;
@@ -98,7 +99,8 @@ fn _map_address_stage2(
                 return Ok(());
             }
 
-            // println!("[debug]: leaf pte: {:#X}", e.0);
+            println!("[debug]: leaf pte[{:#X}]: {:#X}, [{i}]", &e.0 as *const u64 as usize, e.0);
+            i += 1;
         }
         return Ok(());
     }
@@ -111,7 +113,7 @@ fn _map_address_stage2(
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
 
-            // println!("[debug] pte: {:#X}", e.0);
+            println!("[debug] pte[{:#X}]: {:#X}", table_address, e.0);
         }
 
         let _ = _map_address_stage2(

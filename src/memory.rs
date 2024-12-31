@@ -1,3 +1,5 @@
+use core::usize;
+
 use crate::paging;
 use crate::println;
 use crate::cpu::*;
@@ -39,7 +41,8 @@ pub fn set_pmp(top_address: usize, bottom_address: usize,
                   (is_executable as u8) << 2 |
                   (PMP_A_FIELD_TOR as u8) << PMP_A_FIELD_OFFSET;
 
-    set_pmpcfg0(pmp1cfg as u64);
-    set_pmpaddr0(bottom_address as u64);
-    set_pmpaddr1(top_address as u64);
+    set_pmpcfg0(((pmp1cfg as u64) << 8) as u64);
+    println!("[setup] pmpcfg0: {:#X}", get_pmpcfg0());
+    set_pmpaddr0((bottom_address >> 2) as u64);
+    set_pmpaddr1((top_address >> 2) as u64);
 }

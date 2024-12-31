@@ -59,22 +59,21 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
-    medeleg |= (1 << 7) as u64;
-    medeleg |= (1 << 0) as u64;
+    // medeleg |= (1 << 7) as u64;
+    // medeleg |= (1 << 1) as u64;
     set_medeleg(medeleg);
     println!("[setup] medeleg: {:#X}", medeleg);
 
     let mut hedeleg = get_hedeleg();
-    hedeleg |= (1 << 12) as u64;
-    hedeleg |= (1 << 7) as u64;
+    // hedeleg |= (1 << 12) as u64;
+    // hedeleg |= (1 << 7) as u64;
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
     let vm_address: fn() = vs_main;
-    println!("[info] vm address: {:#X}", vs_main as u64);
 
     // 仮想マシンの領域のPMPを設定する;
-    let top_address = vm_address as usize + 0xA000;
+    let top_address = 0xF0000000 as usize;
     let bottom_address = 0x80000000 as usize;
     set_pmp(top_address, bottom_address, true, true, true);
     println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
@@ -99,11 +98,12 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[info] hgatp: {:#X}", hgatp);
     // hfence();
 
-    map_address_stage2(0x80000000, 0x80000000, 0x10000000, true, true, true).expect("Failed to mapping");
+    map_address_stage2(0x80000000, 0x80000000, 0xE00000, true, true, true).expect("Failed to mapping");
     println!("[setup] stage2 paging");
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);
+    println!("[info] vm address: {:#X}", vs_main as u64);
 
     hs_to_vs(vm_address as usize, stack_address);
     loop {}
@@ -123,10 +123,11 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) -> ! {
             csrs sstatus, {tmp1}
             csrs hstatus, {tmp2}
             csrw sepc, {entry_point}
+            mv sp, {stack_pointer}
             sret", 
         tmp1 = in(reg) 0x100 as u64, // set sstatus.SPP
         tmp2 = in(reg) 0xA0 as u64, // set hstatus.SPV
-//        stack_pointer = in(reg) vs_stack_pointer,
+        stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         options(noreturn)
         )

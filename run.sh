@@ -10,7 +10,6 @@ $QEMU \
   -device virtio-blk-device,drive=disk \
   -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=disk \
   -global virtio-mmio.force-legacy=false \
-  -cdrom ~/alpine-virt-3.20.2-aarch64.iso \
   
   # -kernel bin/disk/hypervisor \
   # -serial mon:stdio \

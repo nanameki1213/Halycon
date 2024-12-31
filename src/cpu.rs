@@ -29,6 +29,78 @@ pub const PMP_A_FIELD_TOR: usize = 1;
 // }
 
 #[inline(always)]
+pub fn get_vstval() -> u64 {
+    let vstval: u64;
+    unsafe { asm!("csrr {}, vstval", out(reg) vstval ) };
+    vstval
+}
+
+#[inline(always)]
+pub fn set_vstval(vstval: u64) {
+    unsafe { asm!("csrw vstval, {}", in(reg) vstval) };
+}
+
+#[inline(always)]
+pub fn get_stval() -> u64 {
+    let stval: u64;
+    unsafe { asm!("csrr {}, stval", out(reg) stval ) };
+    stval
+}
+
+#[inline(always)]
+pub fn set_stval(stval: u64) {
+    unsafe { asm!("csrw stval, {}", in(reg) stval) };
+}
+
+#[inline(always)]
+pub fn get_mtval() -> u64 {
+    let mtval: u64;
+    unsafe { asm!("csrr {}, mtval", out(reg) mtval ) };
+    mtval
+}
+
+#[inline(always)]
+pub fn set_mtval(mtval: u64) {
+    unsafe { asm!("csrw mtval, {}", in(reg) mtval) };
+}
+
+#[inline(always)]
+pub fn get_vscause() -> u64 {
+    let vscause: u64;
+    unsafe { asm!("csrr {}, vscause", out(reg) vscause ) };
+    vscause
+}
+
+#[inline(always)]
+pub fn set_vscause(vscause: u64) {
+    unsafe { asm!("csrw vscause, {}", in(reg) vscause) };
+}
+
+#[inline(always)]
+pub fn get_scause() -> u64 {
+    let scause: u64;
+    unsafe { asm!("csrr {}, scause", out(reg) scause ) };
+    scause
+}
+
+#[inline(always)]
+pub fn set_scause(scause: u64) {
+    unsafe { asm!("csrw scause, {}", in(reg) scause) };
+}
+
+#[inline(always)]
+pub fn get_mcause() -> u64 {
+    let mcause: u64;
+    unsafe { asm!("csrr {}, mcause", out(reg) mcause ) };
+    mcause
+}
+
+#[inline(always)]
+pub fn set_mcause(mcause: u64) {
+    unsafe { asm!("csrw mcause, {}", in(reg) mcause) };
+}
+
+#[inline(always)]
 pub fn get_hgatp() -> u64 {
     let hgatp: u64;
     unsafe { asm!("csrr {}, hgatp", out(reg) hgatp ) };
