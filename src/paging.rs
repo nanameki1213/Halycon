@@ -1,5 +1,5 @@
+use core::borrow::BorrowMut;
 use core::f16;
-use core::intrinsics::powf16;
 use core::intrinsics::unreachable;
 use core::usize;
 
@@ -9,6 +9,7 @@ use crate::println;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
+pub const G_STAGE_TOP_VPN_SIZE: i8 = 11;
 
 pub const PAGE_SHIFT: usize = 12;
 pub const PAGE_SIZE: usize = 1 << PAGE_SHIFT;
@@ -42,11 +43,11 @@ impl TableEntry {
     }
 
     pub fn get_next_table_address(&mut self) -> usize {
-        return (self.0 & Self::PPN_MASK as u64) as usize;
+        return (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT) as usize;
     }
 
     pub fn set_output_address(&mut self, address: usize) {
-        self.0 |= ((address & Self::PPN_MASK) << Self::PPN_OFFSET) as u64;
+        self.0 |= (((address >> PAGE_SHIFT) << Self::PPN_OFFSET) & Self::PPN_MASK) as u64;
     }
 
     pub fn set_permission(&mut self, permission: u64) {
@@ -61,7 +62,77 @@ impl TableEntry {
     pub fn is_valid_pte(&mut self) -> bool {
         (self.0 & (1 << Self::V_OFFSET)) != 0
     }
+
+    pub fn to_be(&mut self) {
+        let bytes = self.0.to_be_bytes();
+
+        let pte_address = &mut self.0 as *mut u64 as *mut u8;
+
+        unsafe {
+            for (i, byte) in bytes.iter().enumerate() {
+                core::ptr::write(pte_address.add(i), *byte);
+            }
+        }
+    }
 }
+
+fn _resolve_address_stage2(
+    virtual_address: usize,
+    table_address: usize,
+    table_level: i8,
+    num_of_entries: usize,
+) -> Result<usize, ()> {
+    let shift_level = 12 + 9 * table_level as usize;
+    let table_index = (virtual_address >> shift_level) & (num_of_entries - 1);
+    let table = unsafe {
+        &mut *core::ptr::slice_from_raw_parts_mut(table_address as *mut TableEntry, num_of_entries)
+    };
+
+    let pte = table[table_index].borrow_mut();
+    if !pte.is_valid_pte() {
+        panic!("Not valid pte: {:#X}", pte.0);
+    }
+
+    if table_level == 0 {
+        let offset = virtual_address & ((1 << PAGE_SHIFT) - 1);
+        return Ok(pte.get_next_table_address() + offset);
+    }
+    
+    let next_table_address = pte.get_next_table_address();
+    _resolve_address_stage2(
+        virtual_address,
+        next_table_address,
+        table_level - 1,
+        (1 << VPN_SIZE) as usize
+    )
+}
+
+pub fn resolve_address_stage2(
+    virtual_address: usize
+) -> Result<usize, ()> {
+    let hgatp = get_hgatp();
+    // println!("hgatp: {:#X}", hgatp);
+    let table_address = ((hgatp & VSATP_PPN_MASK as u64) << 12) as usize;
+    let mode = ((hgatp & VSATP_MODE_MASK as u64) >> 60) as usize;
+
+    let table_level: i8 = match mode {
+        0 => {
+            println!("Bare mode");
+            return Err(());
+        }
+        8 => 3,
+        9 => 4,
+        10 => 5,
+        _ => unreachable!(),
+    };
+
+    // println!("table_address: {:#X}", table_address);
+
+    let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
+    
+    let physical_address = _resolve_address_stage2(virtual_address, table_address, table_level - 1, top_level_stage_2_num_of_entries)?;
+    Ok(physical_address)
+} 
 
 fn _map_address_stage2(
     physical_address: &mut usize,
@@ -88,10 +159,11 @@ fn _map_address_stage2(
 
     if table_level == 0 {
         let mut i = 0;
-        for e in table[table_index..].iter_mut() {
+        for e in table[table_index..num_of_entries].iter_mut() {
             e.init();
             e.set_output_address(*physical_address);
-            e.set_permission(permission | (1 <<TableEntry::V_OFFSET));
+            e.set_permission(permission | (1 <<TableEntry::V_OFFSET) | (1 << TableEntry::A_OFFSET) | (1 << TableEntry::D_OFFSET));
+            // e.to_be();
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;
             *remaining_size -= PAGE_SIZE;
@@ -112,6 +184,7 @@ fn _map_address_stage2(
             next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
+            // e.to_be();
 
             println!("[debug] pte[{:#X}]: {:#X}", table_address, e.0);
         }
@@ -123,7 +196,7 @@ fn _map_address_stage2(
             next_table_address,
             permission,
             table_level - 1,
-            num_of_entries,
+            (1 << VPN_SIZE) as usize,
         );
 
         if *remaining_size == 0 {
@@ -145,10 +218,10 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let vsatp = get_vsatp();
-    // println!("vsatp: {:#X}", vsatp);
-    let table_address = ((vsatp & VSATP_PPN_MASK as u64) << 12) as usize;
-    let mode = ((vsatp & VSATP_MODE_MASK as u64) >> 60) as usize;
+    let hgatp = get_hgatp();
+    // println!("hgatp: {:#X}", hgatp);
+    let table_address = ((hgatp & VSATP_PPN_MASK as u64) << 12) as usize;
+    let mode = ((hgatp & VSATP_MODE_MASK as u64) >> 60) as usize;
 
     let table_level: i8 = match mode {
         0 => {
@@ -163,8 +236,8 @@ pub fn map_address_stage2(
 
     // println!("table_address: {:#X}", table_address);
 
-    let top_level_stage_2_num_of_entries = 1 << VPN_SIZE;
-        
+    let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
+
     let mut permission: u64 = if is_readable {
         (1 << TableEntry::R_OFFSET) as u64
     } else {
@@ -201,20 +274,19 @@ pub fn init_stage_2_paging(table_level: i8) {
         println!("Bare mode.");
         return;
     }
-    let mut vsatp = get_vsatp();
+    let mut hgatp = get_hgatp();
 
-    vsatp |= match table_level {
+    hgatp |= match table_level {
         3 => 0b1000 << 60,
         4 => 0b1001 << 60,
         5 => 0b1010 << 60,
         _ => unreachable!(),
     };
 
-    let table_address = unsafe { allocate_memory(16, 1 << 14).unwrap() };
-    // // ルート―ページテーブルは16KiBアラインメントしないといけないので14ビットずらす
-    vsatp |= (table_address >> 12) as u64 & VSATP_PPN_MASK as u64;
+    let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
+    hgatp |= (table_address >> 12) as u64 & VSATP_PPN_MASK as u64;
 
-    set_vsatp(vsatp);
+    set_hgatp(hgatp);
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {

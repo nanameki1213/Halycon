@@ -1,10 +1,14 @@
 use core::arch::{asm, global_asm};
 
+pub const MXLEN: usize = 64;
+
 pub const MIE_MEIE_OFFSET: usize = 11;
 
 pub const TVEC_VECTORED: usize = 1;
 
 pub const MISA_EXTENSION_H_OFFSET: usize = 7;
+pub const MISA_MXL_OFFSET: usize = MXLEN - 2;
+pub const MISA_MXL_MASK: usize = !((1 << MISA_MXL_OFFSET) - 1);
 
 pub const VSATP_PPN_MASK: usize = (1 << 44) - 1;
 pub const VSATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
@@ -14,7 +18,12 @@ pub const MSTATUS_TVM_OFFSET: usize = 20;
 
 pub const PMP_1_CFG_OFFSET: usize = 8;
 pub const PMP_A_FIELD_OFFSET: usize = 3;
+
 pub const PMP_A_FIELD_TOR: usize = 1;
+pub const PMP_A_FIELD_NA4: usize = 2;
+pub const PMP_A_FIELD_NAPOT: usize = 3;
+
+pub const HSTATUS_VSBE_OFFSET: usize = 5;
 
 // #[inline(always)]
 // pub fn get_csr(csr_addr: usize) -> u64 {
@@ -27,6 +36,17 @@ pub const PMP_A_FIELD_TOR: usize = 1;
 // pub fn set_csr(csr_addr: usize, csr_value: u64) {
 //     unsafe { asm!("csrw {number}, {tmp}", number = in(reg) csr_addr, tmp = in(reg) csr_value) }
 // }
+
+#[inline(always)]
+pub fn get_xlen_from_misa() -> usize {
+    let mxl = (get_misa() & MISA_MXL_MASK as u64) >> MISA_MXL_OFFSET as u64;
+    match mxl {
+        1 => 32,
+        2 => 64,
+        3 => 128,
+        _ => unreachable!(),
+    }
+}
 
 #[inline(always)]
 pub fn get_vstval() -> u64 {
@@ -158,6 +178,18 @@ pub fn get_mtvec() -> u64 {
 #[inline(always)]
 pub fn set_mtvec(mtvec: u64) {
     unsafe { asm!("csrw mtvec, {}", in(reg) mtvec ) };
+}
+
+#[inline(always)]
+pub fn get_hstatus() -> u64 {
+    let hstatus: u64;
+    unsafe { asm!("csrr {}, hstatus", out(reg) hstatus ) };
+    hstatus
+}
+
+#[inline(always)]
+pub fn set_hstatus(hstatus: u64) {
+    unsafe { asm!("csrw hstatus, {}", in(reg) hstatus ) };
 }
 
 #[inline(always)]
@@ -299,8 +331,9 @@ pub fn set_pmpcfg2(pmpcfg2: u64) {
 
 #[inline(always)]
 pub fn hfence() {
-    unsafe { asm!("hfence.vvma
-                   hfence.gvma") };
+    unsafe {
+        core::arch::riscv64::hfence_gvma_all();
+    }
 }
 
 #[inline(always)]

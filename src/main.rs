@@ -1,3 +1,4 @@
+#![feature(riscv_ext_intrinsics)]
 #![no_std]
 #![no_main]
 #![feature(core_intrinsics)]
@@ -14,9 +15,10 @@ mod mmio {
 }
 
 use crate::cpu::*;
-use core::{arch::asm, usize};
-use memory::{allocate_memory, init_allocation, set_pmp};
-use paging::{init_stage_2_paging, map_address_stage2, DEFAULT_TABLE_LEVEL};
+use core::{arch::asm, borrow::{Borrow, BorrowMut}, intrinsics::unreachable, usize};
+use console::print;
+use memory::{allocate_memory, init_allocation, set_pmp, set_pmp_all_physical_address};
+use paging::*;
 use vector::setup_vector;
 
 #[macro_export]
@@ -37,6 +39,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     }
 
     let misa = get_misa();
+
+    println!("[info] XLEN: {}", get_xlen_from_misa());
 
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
         println!("this implimentesion is not support hypervisor extension.");
@@ -70,13 +74,16 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
-    let vm_address: fn() = vs_main;
+    let mut vm_address: fn() = vs_main;
 
     // 仮想マシンの領域のPMPを設定する;
-    let top_address = 0xF0000000 as usize;
-    let bottom_address = 0x80000000 as usize;
-    set_pmp(top_address, bottom_address, true, true, true);
-    println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
+    // let top_address = 0xF0000000 as usize;
+    // let bottom_address = 0x80000000 as usize;
+    // set_pmp(top_address, bottom_address, true, true, true);
+    // println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
+
+    set_pmp_all_physical_address(true, true, true);
+    println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());
 
     // let pmpcfg0 = get_pmpcfg0();
     // println!("[info] pmpcfg0: {:#X}", pmpcfg0);
@@ -96,17 +103,21 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     let hgatp = get_hgatp();
     println!("[info] hgatp: {:#X}", hgatp);
-    // hfence();
-
+    
     map_address_stage2(0x80000000, 0x80000000, 0xE00000, true, true, true).expect("Failed to mapping");
+    hfence();
+
+    let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
+
     println!("[setup] stage2 paging");
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);
-    println!("[info] vm address: {:#X}", vs_main as u64);
+    println!("[info] vm virtual address: {:#X}", vs_main as u64);
+    println!("[info] vm physical address: {:#X}", physical_vm_address);
 
     hs_to_vs(vm_address as usize, stack_address);
-    loop {}
+    // don't return to here
 }
 
 fn vs_main() {

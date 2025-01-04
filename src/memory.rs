@@ -46,3 +46,16 @@ pub fn set_pmp(top_address: usize, bottom_address: usize,
     set_pmpaddr0((bottom_address >> 2) as u64);
     set_pmpaddr1((top_address >> 2) as u64);
 }
+
+pub fn set_pmp_all_physical_address(is_readable: bool, is_writable: bool, is_executable: bool)
+{
+    let pmp0cfg = (is_readable as u8) << 0 |
+                  (is_writable as u8) << 1 |
+                  (is_executable as u8) << 2 |
+                  (PMP_A_FIELD_NAPOT as u8) << PMP_A_FIELD_OFFSET;
+    if get_xlen_from_misa() == 64 {
+        let pmpaddr0 = (1 << (56 - 2)) - 1;
+        set_pmpaddr0(pmpaddr0);
+        set_pmpcfg0(pmp0cfg as u64);
+    }
+}
