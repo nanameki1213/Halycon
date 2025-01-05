@@ -163,15 +163,17 @@ fn _map_address_stage2(
             e.init();
             e.set_output_address(*physical_address);
             e.set_permission(permission | (1 <<TableEntry::V_OFFSET) | (1 << TableEntry::A_OFFSET) | (1 << TableEntry::D_OFFSET));
-            e.to_be();
+            // e.to_be();
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;
             *remaining_size -= PAGE_SIZE;
+
+            // println!("[debug]: leaf pte[{:#X}]: {:#X}, [{i}]", &e.0 as *const u64 as usize, e.0);
+
             if *remaining_size == 0 {
                 return Ok(());
             }
 
-            // println!("[debug]: leaf pte[{:#X}]: {:#X}, [{i}]", &e.0 as *const u64 as usize, e.0);
             // i += 1;
         }
         return Ok(());
@@ -184,7 +186,7 @@ fn _map_address_stage2(
             next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
-            e.to_be();
+            // e.to_be();
 
             // println!("[debug] pte[{:#X}]: {:#X}", table_address, e.0);
         }
@@ -210,31 +212,17 @@ pub fn map_address_stage2(
     mut physical_address: usize,
     mut virtual_address: usize,
     mut map_size: usize,
+    table_level: i8,
     is_readable: bool,
     is_writable: bool,
     is_executable: bool,
-) -> Result<(), ()> {
+) -> Result<usize, ()> {
     if (map_size & PAGE_MASK) != 0 {
         println!("Map size is not aligned.");
         return Err(());
     }
-    let hgatp = get_hgatp();
     // println!("hgatp: {:#X}", hgatp);
-    let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
-    let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
-
-    let table_level: i8 = match mode {
-        0 => {
-            println!("Bare mode");
-            return Err(());
-        }
-        8 => 3,
-        9 => 4,
-        10 => 5,
-        _ => unreachable!(),
-    };
-
-    // println!("table_address: {:#X}", table_address);
+    let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
@@ -266,27 +254,7 @@ pub fn map_address_stage2(
         top_level_stage_2_num_of_entries,
     );
 
-    return Ok(());
-}
-
-pub fn init_stage_2_paging(table_level: i8) {
-    if table_level == 0 {
-        println!("Bare mode.");
-        return;
-    }
-    let mut hgatp = get_hgatp();
-
-    hgatp |= match table_level {
-        3 => 0b1000 << 60,
-        4 => 0b1001 << 60,
-        5 => 0b1010 << 60,
-        _ => unreachable!(),
-    };
-
-    let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
-    hgatp |= (table_address >> 12) as u64 & SATP_PPN_MASK as u64;
-
-    set_hgatp(hgatp);
+    return Ok(table_address as usize);
 }
 
 unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {

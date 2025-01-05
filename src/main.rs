@@ -33,10 +33,8 @@ macro_rules! bitmask {
 // }
 
 #[no_mangle]
-extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
-    if argc != 1 {
-        return 1;
-    }
+extern "C" fn main() -> usize {
+    println!("booting Halycon...");
 
     let misa = get_misa();
     println!("[info] XLEN: {}", get_xlen_from_misa());
@@ -73,7 +71,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
-    let mut vm_address: fn() = vs_main;
+    let vm_address: fn() = vs_main;
 
     // 仮想マシンの領域のPMPを設定する;
     // let top_address = 0xF0000000 as usize;
@@ -96,22 +94,22 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     unsafe { init_allocation() };
     println!("[setup] allocater");
 
-    init_stage_2_paging(DEFAULT_TABLE_LEVEL);
-    set_vsatp(0);
-    let vsatp = get_vsatp();
-    println!("[setup] vsatp: {:#X}", vsatp);
-
-    let hgatp = get_hgatp();
-    println!("[info] hgatp: {:#X}", hgatp);
-    
-    map_address_stage2(0x80000000, 0x80000000, 0xE00000, true, true, true).expect("Failed to mapping");
+    let table_address = map_address_stage2(0x80200000, 0x80200000, 0xE00000, DEFAULT_TABLE_LEVEL, true, true, true).expect("Failed to mapping");
+    let mut hgatp = match DEFAULT_TABLE_LEVEL {
+        3 => 0b1000 << 60,
+        4 => 0b1001 << 60,
+        5 => 0b1010 << 60,
+        _ => unreachable!(),
+    };
+    hgatp |= (table_address >> 12) & SATP_PPN_MASK;
+    set_hgatp(hgatp as u64);
     unsafe {
         core::arch::riscv64::hfence_gvma_all();
         core::arch::riscv64::hfence_vvma_all();
         core::arch::riscv64::sfence_vma_all();
     }
 
-   // let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
+    let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
     println!("[setup] stage2 paging");
 
     let menvcfg = get_menvcfg();
@@ -123,8 +121,9 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
-    // println!("[info] vm physical address: {:#X}", physical_vm_address);
+    println!("[info] vm physical address: {:#X}", physical_vm_address);
 
+    println!("switch to guest");
     hs_to_vs(vm_address as usize, stack_address);
     // don't return to here
 }
@@ -146,7 +145,7 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) -> ! {
             mv sp, {stack_pointer}
             sret", 
         tmp1 = in(reg) 0x100 as u64, // set sstatus.SPP
-        tmp2 = in(reg) 0xA0 as u64, // set hstatus.SPV
+        tmp2 = in(reg) 0x80 as u64, // set hstatus.SPV
         stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         options(noreturn)
