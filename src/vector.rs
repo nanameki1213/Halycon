@@ -202,6 +202,7 @@ pub fn exception_handler(mode: u8, sp: usize) -> !{
         println!("[info] stval: {:#X}", get_stval());
 
         if scause == 20 {
+            println!("[info] htval :{:#X}", get_htval());
             println!("[info] htinst: {:#X}", get_htinst());
         }
     } else if mode == VS_EXCEPTION {

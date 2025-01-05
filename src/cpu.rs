@@ -1,4 +1,4 @@
-use core::arch::{asm, global_asm};
+use core::arch::asm;
 
 pub const MXLEN: usize = 64;
 
@@ -10,9 +10,9 @@ pub const MISA_EXTENSION_H_OFFSET: usize = 7;
 pub const MISA_MXL_OFFSET: usize = MXLEN - 2;
 pub const MISA_MXL_MASK: usize = !((1 << MISA_MXL_OFFSET) - 1);
 
-pub const VSATP_PPN_MASK: usize = (1 << 44) - 1;
-pub const VSATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
-pub const VSATP_ASID_MASK: usize = ((1 << 14) - 1) << 44;
+pub const SATP_PPN_MASK: usize = (1 << 44) - 1;
+pub const SATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
+pub const SATP_ASID_MASK: usize = ((1 << 14) - 1) << 44;
 
 pub const MSTATUS_TVM_OFFSET: usize = 20;
 
@@ -48,6 +48,18 @@ pub fn get_xlen_from_misa() -> usize {
         3 => 128,
         _ => unreachable!(),
     }
+}
+
+#[inline(always)]
+pub fn get_htval() -> u64 {
+    let htval: u64;
+    unsafe { asm!("csrr {}, htval", out(reg) htval ) };
+    htval
+}
+
+#[inline(always)]
+pub fn set_htval(htval: u64) {
+    unsafe { asm!("csrw htval, {}", in(reg) htval) };
 }
 
 #[inline(always)]
@@ -168,6 +180,18 @@ pub fn get_vsatp() -> u64 {
 #[inline(always)]
 pub fn set_vsatp(vsatp: u64) {
     unsafe { asm!("csrw vsatp, {}", in(reg) vsatp ) };
+}
+
+#[inline(always)]
+pub fn get_satp() -> u64 {
+    let satp: u64;
+    unsafe { asm!("csrr {}, satp", out(reg) satp ) };
+    satp
+}
+
+#[inline(always)]
+pub fn set_satp(satp: u64) {
+    unsafe { asm!("csrw satp, {}", in(reg) satp ) };
 }
 
 #[inline(always)]

@@ -114,18 +114,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
    // let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
     println!("[setup] stage2 paging");
 
-    let mut menvcfg = get_menvcfg();
-    let mut henvcfg = get_henvcfg();
-    // menvcfg &= !(1 << ENVCFG_ADUE_OFFSET as u64);
-    henvcfg |= 1 << ENVCFG_ADUE_OFFSET as u64;
-
-
-    set_menvcfg(menvcfg);
-    set_henvcfg(henvcfg);
+    let menvcfg = get_menvcfg();
+    let henvcfg = get_henvcfg();
     
-    println!("menvcfg: {:#X}", menvcfg);
-    println!("henvcfg: {:#X}", henvcfg);
-
+    println!("[info] menvcfg: {:#X}", menvcfg);
+    println!("[info] henvcfg: {:#X}", henvcfg);
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);

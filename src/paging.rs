@@ -112,8 +112,8 @@ pub fn resolve_address_stage2(
 ) -> Result<usize, ()> {
     let hgatp = get_hgatp();
     // println!("hgatp: {:#X}", hgatp);
-    let table_address = ((hgatp & VSATP_PPN_MASK as u64) << 12) as usize;
-    let mode = ((hgatp & VSATP_MODE_MASK as u64) >> 60) as usize;
+    let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
+    let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
 
     let table_level: i8 = match mode {
         0 => {
@@ -158,7 +158,7 @@ fn _map_address_stage2(
     // println!("}}\n");
 
     if table_level == 0 {
-        let mut i = 0;
+        // let mut i = 0;
         for e in table[table_index..num_of_entries].iter_mut() {
             e.init();
             e.set_output_address(*physical_address);
@@ -172,7 +172,7 @@ fn _map_address_stage2(
             }
 
             // println!("[debug]: leaf pte[{:#X}]: {:#X}, [{i}]", &e.0 as *const u64 as usize, e.0);
-            i += 1;
+            // i += 1;
         }
         return Ok(());
     }
@@ -220,8 +220,8 @@ pub fn map_address_stage2(
     }
     let hgatp = get_hgatp();
     // println!("hgatp: {:#X}", hgatp);
-    let table_address = ((hgatp & VSATP_PPN_MASK as u64) << 12) as usize;
-    let mode = ((hgatp & VSATP_MODE_MASK as u64) >> 60) as usize;
+    let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
+    let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
 
     let table_level: i8 = match mode {
         0 => {
@@ -284,7 +284,7 @@ pub fn init_stage_2_paging(table_level: i8) {
     };
 
     let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
-    hgatp |= (table_address >> 12) as u64 & VSATP_PPN_MASK as u64;
+    hgatp |= (table_address >> 12) as u64 & SATP_PPN_MASK as u64;
 
     set_hgatp(hgatp);
 }
