@@ -39,7 +39,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     }
 
     let misa = get_misa();
-
     println!("[info] XLEN: {}", get_xlen_from_misa());
 
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
@@ -112,14 +111,26 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         core::arch::riscv64::sfence_vma_all();
     }
 
-    let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
-
+   // let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
     println!("[setup] stage2 paging");
+
+    let mut menvcfg = get_menvcfg();
+    let mut henvcfg = get_henvcfg();
+    // menvcfg &= !(1 << ENVCFG_ADUE_OFFSET as u64);
+    henvcfg |= 1 << ENVCFG_ADUE_OFFSET as u64;
+
+
+    set_menvcfg(menvcfg);
+    set_henvcfg(henvcfg);
+    
+    println!("menvcfg: {:#X}", menvcfg);
+    println!("henvcfg: {:#X}", henvcfg);
+
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
-    println!("[info] vm physical address: {:#X}", physical_vm_address);
+    // println!("[info] vm physical address: {:#X}", physical_vm_address);
 
     hs_to_vs(vm_address as usize, stack_address);
     // don't return to here

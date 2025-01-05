@@ -1,11 +1,12 @@
 #!/bin/sh
 
-QEMU=~/qemu-9.0.2/build/qemu-system-riscv64
+QEMU=~/qemu/build/qemu-system-riscv64
 mv $1 ./bin/disk
 
 $QEMU \
   -M virt \
-  -smp 1 -bios ~/u-boot/u-boot.bin \
+  -smp 1 \
+  -bios ./bin/disk/u-boot.bin \
   -nographic -m 2G \
   -device virtio-blk-device,drive=disk \
   -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=disk \

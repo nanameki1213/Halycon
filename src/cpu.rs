@@ -25,6 +25,8 @@ pub const PMP_A_FIELD_NAPOT: usize = 3;
 
 pub const HSTATUS_VSBE_OFFSET: usize = 5;
 
+pub const ENVCFG_ADUE_OFFSET: usize = 61;
+
 // #[inline(always)]
 // pub fn get_csr(csr_addr: usize) -> u64 {
 //     let csr: u64;
@@ -46,6 +48,30 @@ pub fn get_xlen_from_misa() -> usize {
         3 => 128,
         _ => unreachable!(),
     }
+}
+
+#[inline(always)]
+pub fn get_henvcfg() -> u64 {
+    let henvcfg: u64;
+    unsafe { asm!("csrr {}, henvcfg", out(reg) henvcfg ) };
+    henvcfg
+}
+
+#[inline(always)]
+pub fn set_henvcfg(henvcfg: u64) {
+    unsafe { asm!("csrw henvcfg, {}", in(reg) henvcfg) };
+}
+
+#[inline(always)]
+pub fn get_menvcfg() -> u64 {
+    let menvcfg: u64;
+    unsafe { asm!("csrr {}, menvcfg", out(reg) menvcfg ) };
+    menvcfg
+}
+
+#[inline(always)]
+pub fn set_menvcfg(menvcfg: u64) {
+    unsafe { asm!("csrw menvcfg, {}", in(reg) menvcfg) };
 }
 
 #[inline(always)]

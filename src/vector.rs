@@ -188,12 +188,22 @@ pub fn setup_vector() {
 pub fn exception_handler(mode: u8, sp: usize) -> !{
     if mode == M_EXCEPTION {
         println!("Exception from M-Mode has occured!");
-        println!("[info] mcause: {:#X}", get_mcause());
+        let mcause = get_mcause();
+        println!("[info] mcause: {:#X}", mcause);
         println!("[info] mtval: {:#X}", get_mtval());
+
+        if mcause == 20 {
+            println!("[info] mtinst: {:#X}", get_mtinst());
+        }
     } else if mode == S_EXCEPTION {
         println!("Exception from S-Mode has occured!");
-        println!("[info] scause: {:#X}", get_scause());
+        let scause = get_scause();
+        println!("[info] scause: {:#X}", scause);
         println!("[info] stval: {:#X}", get_stval());
+
+        if scause == 20 {
+            println!("[info] htinst: {:#X}", get_htinst());
+        }
     } else if mode == VS_EXCEPTION {
         println!("Exception from VS-Mode has occured!");
         println!("[info] vscause: {:#X}", get_vscause());
