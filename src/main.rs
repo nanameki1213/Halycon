@@ -98,6 +98,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[setup] allocater");
 
     init_stage_2_paging(DEFAULT_TABLE_LEVEL);
+    set_vsatp(0);
     let vsatp = get_vsatp();
     println!("[setup] vsatp: {:#X}", vsatp);
 
@@ -105,7 +106,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[info] hgatp: {:#X}", hgatp);
     
     map_address_stage2(0x80000000, 0x80000000, 0xE00000, true, true, true).expect("Failed to mapping");
-    hfence();
+    unsafe {
+        core::arch::riscv64::hfence_gvma_all();
+        core::arch::riscv64::hfence_vvma_all();
+        core::arch::riscv64::sfence_vma_all();
+    }
 
     let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
 

@@ -330,13 +330,6 @@ pub fn set_pmpcfg2(pmpcfg2: u64) {
 }
 
 #[inline(always)]
-pub fn hfence() {
-    unsafe {
-        core::arch::riscv64::hfence_gvma_all();
-    }
-}
-
-#[inline(always)]
 pub fn hfence_vvma(vmid: usize) {
     unsafe { asm!("hfence.vvma {}", in(reg) vmid) };
 }
