@@ -1,8 +1,6 @@
 #![feature(riscv_ext_intrinsics)]
 #![no_std]
 #![no_main]
-#![feature(core_intrinsics)]
-#![feature(f16)]
 #[macro_use]
 
 mod cpu;
@@ -15,9 +13,8 @@ mod mmio {
 }
 
 use crate::cpu::*;
-use core::{arch::asm, borrow::{Borrow, BorrowMut}, intrinsics::unreachable, usize};
-use console::print;
-use memory::{allocate_memory, init_allocation, set_pmp, set_pmp_all_physical_address};
+use core::{arch::asm, usize};
+use memory::*;
 use paging::*;
 use vector::setup_vector;
 
@@ -36,9 +33,9 @@ macro_rules! bitmask {
 extern "C" fn main() -> usize {
     println!("booting Halycon...");
 
-    let misa = get_misa();
     println!("[info] XLEN: {}", get_xlen_from_misa());
 
+    let misa = get_misa();
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
         println!("this implimentesion is not support hypervisor extension.");
         return 1;
@@ -60,14 +57,12 @@ extern "C" fn main() -> usize {
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
-    // medeleg |= (1 << 7) as u64;
-    // medeleg |= (1 << 1) as u64;
     set_medeleg(medeleg);
     println!("[setup] medeleg: {:#X}", medeleg);
 
     let mut hedeleg = get_hedeleg();
-    // hedeleg |= (1 << 12) as u64;
-    // hedeleg |= (1 << 7) as u64;
+    hedeleg |= (1 << 12) as u64;
+    hedeleg |= (1 << 7) as u64;
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 

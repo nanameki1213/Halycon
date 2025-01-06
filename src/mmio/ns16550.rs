@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 const NS16550_ADDR: usize = 0x10000000;
 const NS16500_RBR: usize = 0x0;
 

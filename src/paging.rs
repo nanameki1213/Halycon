@@ -1,6 +1,4 @@
 use core::borrow::BorrowMut;
-use core::f16;
-use core::intrinsics::unreachable;
 use core::usize;
 
 use crate::allocate_memory;
@@ -16,10 +14,10 @@ pub const PAGE_SIZE: usize = 1 << PAGE_SHIFT;
 pub const PAGE_MASK: usize = PAGE_SIZE - 1;
 
 pub const PAGE_NUM_BITS: usize = 44;
-pub const PAGE_TABLE_ENTRY_PPN: usize = ((1 << PAGE_NUM_BITS) - 1) << 10;
 
 pub struct TableEntry(u64);
 
+#[allow(dead_code)]
 impl TableEntry {
     const PPN_OFFSET: usize = 10;
     const PPN_MASK: usize = ((1 << PAGE_NUM_BITS) - 1) << Self::PPN_OFFSET;
@@ -62,19 +60,7 @@ impl TableEntry {
     pub fn is_valid_pte(&mut self) -> bool {
         (self.0 & (1 << Self::V_OFFSET)) != 0
     }
-
-    pub fn to_be(&mut self) {
-        let bytes = self.0.to_be_bytes();
-
-        let pte_address = &mut self.0 as *mut u64 as *mut u8;
-
-        unsafe {
-            for (i, byte) in bytes.iter().enumerate() {
-                core::ptr::write(pte_address.add(i), *byte);
-            }
-        }
-    }
-}
+} 
 
 fn _resolve_address_stage2(
     virtual_address: usize,
@@ -111,7 +97,6 @@ pub fn resolve_address_stage2(
     virtual_address: usize
 ) -> Result<usize, ()> {
     let hgatp = get_hgatp();
-    // println!("hgatp: {:#X}", hgatp);
     let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
 
@@ -125,8 +110,6 @@ pub fn resolve_address_stage2(
         10 => 5,
         _ => unreachable!(),
     };
-
-    // println!("table_address: {:#X}", table_address);
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
     
@@ -149,32 +132,18 @@ fn _map_address_stage2(
         &mut *core::ptr::slice_from_raw_parts_mut(table_address as *mut TableEntry, num_of_entries)
     };
 
-    // println!("func _map_address_stage2 {{");
-    // println!("  table_level: {}", table_level);
-    // println!("  table_address: {:#X}", table_address);
-    // println!("  physical_address: {:#X}", *physical_address);
-    // println!("  virtual_address : {:#X}", *virtual_address);
-    // println!("  table_index: {}", table_index);
-    // println!("}}\n");
-
     if table_level == 0 {
-        // let mut i = 0;
         for e in table[table_index..num_of_entries].iter_mut() {
             e.init();
             e.set_output_address(*physical_address);
             e.set_permission(permission | (1 <<TableEntry::V_OFFSET) | (1 << TableEntry::U_OFFSET));
-            // e.to_be();
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;
             *remaining_size -= PAGE_SIZE;
 
-            // println!("[debug]: leaf pte[{:#X}]: {:#X}, [{i}]", &e.0 as *const u64 as usize, e.0);
-
             if *remaining_size == 0 {
                 return Ok(());
             }
-
-            // i += 1;
         }
         return Ok(());
     }
@@ -186,9 +155,6 @@ fn _map_address_stage2(
             next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
-            // e.to_be();
-
-            // println!("[debug] pte[{:#X}]: {:#X}", table_address, e.0);
         }
 
         let _ = _map_address_stage2(
@@ -221,7 +187,6 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    // println!("hgatp: {:#X}", hgatp);
     let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
@@ -255,10 +220,4 @@ pub fn map_address_stage2(
     );
 
     return Ok(table_address as usize);
-}
-
-unsafe extern "C" fn alloc_memory_for_paging() -> Result<usize, ()> {
-    let address = allocate_memory(4, 1 << 12).unwrap();
-
-    return Ok(address);
 }

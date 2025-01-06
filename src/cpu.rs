@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use core::arch::asm;
 
 pub const MXLEN: usize = 64;
@@ -27,18 +29,6 @@ pub const HSTATUS_VSBE_OFFSET: usize = 5;
 
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
-// #[inline(always)]
-// pub fn get_csr(csr_addr: usize) -> u64 {
-//     let csr: u64;
-//     unsafe { asm!("csrr {tmp}, {number}", tmp = out(reg) csr, number = const csr_addr as *const _ as usize) }
-//     csr
-// }
-// 
-// #[inline(always)]
-// pub fn set_csr(csr_addr: usize, csr_value: u64) {
-//     unsafe { asm!("csrw {number}, {tmp}", number = in(reg) csr_addr, tmp = in(reg) csr_value) }
-// }
-
 #[inline(always)]
 pub fn get_xlen_from_misa() -> usize {
     let mxl = (get_misa() & MISA_MXL_MASK as u64) >> MISA_MXL_OFFSET as u64;
@@ -50,197 +40,21 @@ pub fn get_xlen_from_misa() -> usize {
     }
 }
 
+// misa
+
 #[inline(always)]
-pub fn get_htval() -> u64 {
-    let htval: u64;
-    unsafe { asm!("csrr {}, htval", out(reg) htval ) };
-    htval
+pub fn get_misa() -> u64 {
+    let misa: u64;
+    unsafe { asm!("csrr {}, misa", out(reg) misa ) };
+    misa
 }
 
 #[inline(always)]
-pub fn set_htval(htval: u64) {
-    unsafe { asm!("csrw htval, {}", in(reg) htval) };
+pub fn set_misa(misa: u64) {
+    unsafe { asm!("csrw misa, {}", in(reg) misa ) };
 }
 
-#[inline(always)]
-pub fn get_henvcfg() -> u64 {
-    let henvcfg: u64;
-    unsafe { asm!("csrr {}, henvcfg", out(reg) henvcfg ) };
-    henvcfg
-}
-
-#[inline(always)]
-pub fn set_henvcfg(henvcfg: u64) {
-    unsafe { asm!("csrw henvcfg, {}", in(reg) henvcfg) };
-}
-
-#[inline(always)]
-pub fn get_menvcfg() -> u64 {
-    let menvcfg: u64;
-    unsafe { asm!("csrr {}, menvcfg", out(reg) menvcfg ) };
-    menvcfg
-}
-
-#[inline(always)]
-pub fn set_menvcfg(menvcfg: u64) {
-    unsafe { asm!("csrw menvcfg, {}", in(reg) menvcfg) };
-}
-
-#[inline(always)]
-pub fn get_vstval() -> u64 {
-    let vstval: u64;
-    unsafe { asm!("csrr {}, vstval", out(reg) vstval ) };
-    vstval
-}
-
-#[inline(always)]
-pub fn set_vstval(vstval: u64) {
-    unsafe { asm!("csrw vstval, {}", in(reg) vstval) };
-}
-
-#[inline(always)]
-pub fn get_stval() -> u64 {
-    let stval: u64;
-    unsafe { asm!("csrr {}, stval", out(reg) stval ) };
-    stval
-}
-
-#[inline(always)]
-pub fn set_stval(stval: u64) {
-    unsafe { asm!("csrw stval, {}", in(reg) stval) };
-}
-
-#[inline(always)]
-pub fn get_mtval() -> u64 {
-    let mtval: u64;
-    unsafe { asm!("csrr {}, mtval", out(reg) mtval ) };
-    mtval
-}
-
-#[inline(always)]
-pub fn set_mtval(mtval: u64) {
-    unsafe { asm!("csrw mtval, {}", in(reg) mtval) };
-}
-
-#[inline(always)]
-pub fn get_vscause() -> u64 {
-    let vscause: u64;
-    unsafe { asm!("csrr {}, vscause", out(reg) vscause ) };
-    vscause
-}
-
-#[inline(always)]
-pub fn set_vscause(vscause: u64) {
-    unsafe { asm!("csrw vscause, {}", in(reg) vscause) };
-}
-
-#[inline(always)]
-pub fn get_scause() -> u64 {
-    let scause: u64;
-    unsafe { asm!("csrr {}, scause", out(reg) scause ) };
-    scause
-}
-
-#[inline(always)]
-pub fn set_scause(scause: u64) {
-    unsafe { asm!("csrw scause, {}", in(reg) scause) };
-}
-
-#[inline(always)]
-pub fn get_mcause() -> u64 {
-    let mcause: u64;
-    unsafe { asm!("csrr {}, mcause", out(reg) mcause ) };
-    mcause
-}
-
-#[inline(always)]
-pub fn set_mcause(mcause: u64) {
-    unsafe { asm!("csrw mcause, {}", in(reg) mcause) };
-}
-
-#[inline(always)]
-pub fn get_hgatp() -> u64 {
-    let hgatp: u64;
-    unsafe { asm!("csrr {}, hgatp", out(reg) hgatp ) };
-    hgatp
-}
-
-#[inline(always)]
-pub fn set_hgatp(hgatp: u64) {
-    unsafe { asm!("csrw hgatp, {}", in(reg) hgatp) };
-}
-
-#[inline(always)]
-pub fn get_vsatp() -> u64 {
-    let vsatp: u64;
-    unsafe { asm!("csrr {}, vsatp", out(reg) vsatp ) };
-    vsatp
-}
-
-#[inline(always)]
-pub fn set_vsatp(vsatp: u64) {
-    unsafe { asm!("csrw vsatp, {}", in(reg) vsatp ) };
-}
-
-#[inline(always)]
-pub fn get_satp() -> u64 {
-    let satp: u64;
-    unsafe { asm!("csrr {}, satp", out(reg) satp ) };
-    satp
-}
-
-#[inline(always)]
-pub fn set_satp(satp: u64) {
-    unsafe { asm!("csrw satp, {}", in(reg) satp ) };
-}
-
-#[inline(always)]
-pub fn get_vstvec() -> u64 {
-    let vstvec: u64;
-    unsafe { asm!("csrr {}, vstvec", out(reg) vstvec ) };
-    vstvec
-}
-
-#[inline(always)]
-pub fn set_vstvec(vstvec: u64) {
-    unsafe { asm!("csrw vstvec, {}", in(reg) vstvec ) };
-}
-
-#[inline(always)]
-pub fn get_mie() -> u64 {
-    let mie: u64;
-    unsafe { asm!("csrr {}, mie", out(reg) mie ) };
-    mie
-}
-
-#[inline(always)]
-pub fn set_mie(mie: u64) {
-    unsafe { asm!("csrw mie, {}", in(reg) mie ) };
-}
-
-#[inline(always)]
-pub fn get_mtvec() -> u64 {
-    let mtvec: u64;
-    unsafe { asm!("csrr {}, mtvec", out(reg) mtvec ) };
-    mtvec
-}
-
-#[inline(always)]
-pub fn set_mtvec(mtvec: u64) {
-    unsafe { asm!("csrw mtvec, {}", in(reg) mtvec ) };
-}
-
-#[inline(always)]
-pub fn get_hstatus() -> u64 {
-    let hstatus: u64;
-    unsafe { asm!("csrr {}, hstatus", out(reg) hstatus ) };
-    hstatus
-}
-
-#[inline(always)]
-pub fn set_hstatus(hstatus: u64) {
-    unsafe { asm!("csrw hstatus, {}", in(reg) hstatus ) };
-}
+// status
 
 #[inline(always)]
 pub fn get_mstatus() -> u64 {
@@ -267,28 +81,32 @@ pub fn set_sstatus(sstatus: u64) {
 }
 
 #[inline(always)]
-pub fn get_stvec() -> u64 {
-    let stvec: u64;
-    unsafe { asm!("csrr {}, stvec", out(reg) stvec ) };
-    stvec
+pub fn get_hstatus() -> u64 {
+    let hstatus: u64;
+    unsafe { asm!("csrr {}, hstatus", out(reg) hstatus ) };
+    hstatus
 }
 
 #[inline(always)]
-pub fn set_stvec(stvec: u64) {
-    unsafe { asm!("csrw stvec, {}", in(reg) stvec ) };
+pub fn set_hstatus(hstatus: u64) {
+    unsafe { asm!("csrw hstatus, {}", in(reg) hstatus ) };
+}
+
+// ie
+
+#[inline(always)]
+pub fn get_mie() -> u64 {
+    let mie: u64;
+    unsafe { asm!("csrr {}, mie", out(reg) mie ) };
+    mie
 }
 
 #[inline(always)]
-pub fn get_misa() -> u64 {
-    let misa: u64;
-    unsafe { asm!("csrr {}, misa", out(reg) misa ) };
-    misa
+pub fn set_mie(mie: u64) {
+    unsafe { asm!("csrw mie, {}", in(reg) mie ) };
 }
 
-#[inline(always)]
-pub fn set_misa(misa: u64) {
-    unsafe { asm!("csrw misa, {}", in(reg) misa ) };
-}
+// edeleg
 
 #[inline(always)]
 pub fn get_medeleg() -> u64 {
@@ -301,6 +119,183 @@ pub fn get_medeleg() -> u64 {
 pub fn set_medeleg(medeleg: u64) {
     unsafe { asm!("csrw medeleg, {}", in(reg) medeleg ) };
 }
+
+#[inline(always)]
+pub fn get_hedeleg() -> u64 {
+    let hedeleg: u64;
+    unsafe { asm!("csrr {}, hedeleg", out(reg) hedeleg) };
+    hedeleg
+}
+
+#[inline(always)]
+pub fn set_hedeleg(hedeleg: u64) {
+    unsafe { asm!("csrw hedeleg, {}", in(reg) hedeleg) };
+}
+
+// ideleg
+
+// atp
+
+#[inline(always)]
+pub fn get_satp() -> u64 {
+    let satp: u64;
+    unsafe { asm!("csrr {}, satp", out(reg) satp ) };
+    satp
+}
+
+#[inline(always)]
+pub fn set_satp(satp: u64) {
+    unsafe { asm!("csrw satp, {}", in(reg) satp ) };
+}
+
+#[inline(always)]
+pub fn get_hgatp() -> u64 {
+    let hgatp: u64;
+    unsafe { asm!("csrr {}, hgatp", out(reg) hgatp ) };
+    hgatp
+}
+
+#[inline(always)]
+pub fn set_hgatp(hgatp: u64) {
+    unsafe { asm!("csrw hgatp, {}", in(reg) hgatp) };
+}
+
+#[inline(always)]
+pub fn get_vsatp() -> u64 {
+    let vsatp: u64;
+    unsafe { asm!("csrr {}, vsatp", out(reg) vsatp ) };
+    vsatp
+}
+
+#[inline(always)]
+pub fn set_vsatp(vsatp: u64) {
+    unsafe { asm!("csrw vsatp, {}", in(reg) vsatp ) };
+}
+
+// tvec
+
+#[inline(always)]
+pub fn get_mtvec() -> u64 {
+    let mtvec: u64;
+    unsafe { asm!("csrr {}, mtvec", out(reg) mtvec ) };
+    mtvec
+}
+
+#[inline(always)]
+pub fn set_mtvec(mtvec: u64) {
+    unsafe { asm!("csrw mtvec, {}", in(reg) mtvec ) };
+}
+
+#[inline(always)]
+pub fn get_stvec() -> u64 {
+    let stvec: u64;
+    unsafe { asm!("csrr {}, stvec", out(reg) stvec ) };
+    stvec
+}
+
+#[inline(always)]
+pub fn set_stvec(stvec: u64) {
+    unsafe { asm!("csrw stvec, {}", in(reg) stvec ) };
+}
+
+#[inline(always)]
+pub fn get_vstvec() -> u64 {
+    let vstvec: u64;
+    unsafe { asm!("csrr {}, vstvec", out(reg) vstvec ) };
+    vstvec
+}
+
+#[inline(always)]
+pub fn set_vstvec(vstvec: u64) {
+    unsafe { asm!("csrw vstvec, {}", in(reg) vstvec ) };
+}
+
+// epc
+
+// tval
+
+#[inline(always)]
+pub fn get_mtval() -> u64 {
+    let mtval: u64;
+    unsafe { asm!("csrr {}, mtval", out(reg) mtval ) };
+    mtval
+}
+
+#[inline(always)]
+pub fn set_mtval(mtval: u64) {
+    unsafe { asm!("csrw mtval, {}", in(reg) mtval) };
+}
+
+#[inline(always)]
+pub fn get_stval() -> u64 {
+    let stval: u64;
+    unsafe { asm!("csrr {}, stval", out(reg) stval ) };
+    stval
+}
+
+#[inline(always)]
+pub fn set_stval(stval: u64) {
+    unsafe { asm!("csrw stval, {}", in(reg) stval) };
+}
+
+#[inline(always)]
+pub fn get_htval() -> u64 {
+    let htval: u64;
+    unsafe { asm!("csrr {}, htval", out(reg) htval ) };
+    htval
+}
+
+#[inline(always)]
+pub fn set_htval(htval: u64) {
+    unsafe { asm!("csrw htval, {}", in(reg) htval) };
+}
+
+#[inline(always)]
+pub fn get_vstval() -> u64 {
+    let vstval: u64;
+    unsafe { asm!("csrr {}, vstval", out(reg) vstval ) };
+    vstval
+}
+
+// cause 
+
+#[inline(always)]
+pub fn get_mcause() -> u64 {
+    let mcause: u64;
+    unsafe { asm!("csrr {}, mcause", out(reg) mcause ) };
+    mcause
+}
+
+#[inline(always)]
+pub fn set_mcause(mcause: u64) {
+    unsafe { asm!("csrw mcause, {}", in(reg) mcause) };
+}
+
+#[inline(always)]
+pub fn get_scause() -> u64 {
+    let scause: u64;
+    unsafe { asm!("csrr {}, scause", out(reg) scause ) };
+    scause
+}
+
+#[inline(always)]
+pub fn set_scause(scause: u64) {
+    unsafe { asm!("csrw scause, {}", in(reg) scause) };
+}
+
+#[inline(always)]
+pub fn get_vscause() -> u64 {
+    let vscause: u64;
+    unsafe { asm!("csrr {}, vscause", out(reg) vscause ) };
+    vscause
+}
+
+#[inline(always)]
+pub fn set_vscause(vscause: u64) {
+    unsafe { asm!("csrw vscause, {}", in(reg) vscause) };
+}
+
+// inst
 
 #[inline(always)]
 pub fn get_mtinst() -> u64 {
@@ -326,17 +321,33 @@ pub fn set_htinst(htinst: u64) {
     unsafe { asm!("csrw htinst, {}", in(reg) htinst ) };
 }
 
+// envcfg
+
 #[inline(always)]
-pub fn get_hedeleg() -> u64 {
-    let hedeleg: u64;
-    unsafe { asm!("csrr {}, hedeleg", out(reg) hedeleg) };
-    hedeleg
+pub fn get_menvcfg() -> u64 {
+    let menvcfg: u64;
+    unsafe { asm!("csrr {}, menvcfg", out(reg) menvcfg ) };
+    menvcfg
 }
 
 #[inline(always)]
-pub fn set_hedeleg(hedeleg: u64) {
-    unsafe { asm!("csrw hedeleg, {}", in(reg) hedeleg) };
+pub fn set_menvcfg(menvcfg: u64) {
+    unsafe { asm!("csrw menvcfg, {}", in(reg) menvcfg) };
 }
+
+#[inline(always)]
+pub fn get_henvcfg() -> u64 {
+    let henvcfg: u64;
+    unsafe { asm!("csrr {}, henvcfg", out(reg) henvcfg ) };
+    henvcfg
+}
+
+#[inline(always)]
+pub fn set_henvcfg(henvcfg: u64) {
+    unsafe { asm!("csrw henvcfg, {}", in(reg) henvcfg) };
+}
+
+// pmp
 
 #[inline(always)]
 pub fn get_pmpcfg0() -> u64 {
@@ -377,11 +388,6 @@ pub fn get_pmpcfg2() -> u64 {
 #[inline(always)]
 pub fn set_pmpcfg2(pmpcfg2: u64) {
     unsafe { asm!("csrw pmpcfg2, {}", in(reg) pmpcfg2 ) };
-}
-
-#[inline(always)]
-pub fn hfence_vvma(vmid: usize) {
-    unsafe { asm!("hfence.vvma {}", in(reg) vmid) };
 }
 
 pub fn halt_loop() -> ! {

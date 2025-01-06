@@ -210,6 +210,8 @@ pub fn exception_handler(mode: u8, sp: usize) -> !{
         println!("[info] vscause: {:#X}", get_vscause());
         println!("[info] vstval: {:#X}", get_vstval());
     }
+    
+    println!("[info] sp: {:#X}", sp);
 
     panic!();
 }

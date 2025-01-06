@@ -34,6 +34,7 @@ pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<u
     Ok(top_address)
 }
 
+#[allow(dead_code)]
 pub fn set_pmp(top_address: usize, bottom_address: usize,
                is_readable: bool, is_writable: bool, is_executable: bool) {
     let pmp1cfg = (is_readable as u8) << 0 |
@@ -47,6 +48,7 @@ pub fn set_pmp(top_address: usize, bottom_address: usize,
     set_pmpaddr1((top_address >> 2) as u64);
 }
 
+#[allow(dead_code)]
 pub fn set_pmp_all_physical_address(is_readable: bool, is_writable: bool, is_executable: bool)
 {
     let pmp0cfg = (is_readable as u8) << 0 |
