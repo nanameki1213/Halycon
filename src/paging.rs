@@ -162,7 +162,7 @@ fn _map_address_stage2(
         for e in table[table_index..num_of_entries].iter_mut() {
             e.init();
             e.set_output_address(*physical_address);
-            e.set_permission(permission | (1 <<TableEntry::V_OFFSET) | (1 << TableEntry::A_OFFSET) | (1 << TableEntry::D_OFFSET));
+            e.set_permission(permission | (1 <<TableEntry::V_OFFSET) | (1 << TableEntry::U_OFFSET));
             // e.to_be();
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;

@@ -94,7 +94,7 @@ extern "C" fn main() -> usize {
     unsafe { init_allocation() };
     println!("[setup] allocater");
 
-    let table_address = map_address_stage2(0x80200000, 0x80200000, 0xE00000, DEFAULT_TABLE_LEVEL, true, true, true).expect("Failed to mapping");
+    let table_address = map_address_stage2(0x10000000, 0x10000000, 0xF0000000, DEFAULT_TABLE_LEVEL, true, true, true).expect("Failed to mapping");
     let mut hgatp = match DEFAULT_TABLE_LEVEL {
         3 => 0b1000 << 60,
         4 => 0b1001 << 60,
