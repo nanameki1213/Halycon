@@ -26,3 +26,7 @@ cargo run --release
 - [ ] ネットワークの仮想化
 - [ ] 複数ゲストの起動
 - [ ] Linuxの起動
+
+## 記事
+ハイパーバイザを開発する際にRISC-Vの仕様を整理するために書いたページです。
+http://shinysheep.net/riscv-hypervisor/
