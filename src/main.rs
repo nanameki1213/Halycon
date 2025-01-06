@@ -8,6 +8,7 @@ mod console;
 mod memory;
 mod paging;
 mod vector;
+mod virtio;
 mod mmio {
     pub mod ns16550;
 }

@@ -6,7 +6,7 @@ mv $1 ./bin/disk
 $QEMU \
   -M virt \
   -smp 1 \
-  -bios ./bin/disk/u-boot.bin \
+  -bios ./bin/disk/u-boot \
   -nographic -m 2G \
   -device virtio-blk-device,drive=disk \
   -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=disk \
