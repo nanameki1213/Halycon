@@ -42,18 +42,19 @@ pub const VIRTIO_MMIO_STATUS_FEATURES_OK: usize = 1 << 3;
 pub const VIRTIO_MMIO_STATUS_DEVICE_NEEDS_RESET:usize = 1 << 6;
 pub const VIRTIO_MMIO_STATUS_FAILED: usize = 1 << 7;
 
+
 #[derive(Debug)]
 pub struct VRingDesc {
-    addr: u64,
-    len: u32,
-    flags: u16,
-    next: u16,
+    pub addr: u64,
+    pub len: u32,
+    pub flags: u16,
+    pub next: u16,
 }
 
 impl VRingDesc {
-    const VIRTQ_DESC_F_NEXT: usize = 1 << 0;
-    const VIRTQ_DESC_F_WRITE: usize = 1 << 1;
-    const VIRTQ_DESC_F_INDIRECT: usize = 1 << 2;
+    pub const VIRTQ_DESC_F_NEXT: usize = 1 << 0;
+    pub const VIRTQ_DESC_F_WRITE: usize = 1 << 1;
+    pub const VIRTQ_DESC_F_INDIRECT: usize = 1 << 2;
 
 }
 
@@ -79,26 +80,17 @@ pub struct VRingUsed {
 
 #[derive(Debug)]
 pub struct VRing {
-    desc: [VRingDesc; VIRTQ_ENTRY_NUM],
-    avail: VringAvail,
-    used: VRingUsed,
+    pub desc: [VRingDesc; VIRTQ_ENTRY_NUM],
+    pub avail: VringAvail,
+    pub used: VRingUsed,
 }
 
 #[derive(Debug)]
 pub struct VirtQueue {
-    vring: VRing,
-    queue_index: u32,
-    last_used_index: u16,
-    last_avail_index: u16,
-}
-
-#[derive(Debug)]
-pub struct VirtioBlkReq {
-    kind: u32,
-    reserved: u32,
-    sector: u64,
-    data: [u8; 512],
-    status: u8,
+    pub vring: VRing,
+    pub queue_index: u32,
+    pub last_used_index: u16,
+    pub last_avail_index: u16,
 }
 
 #[inline(always)]
