@@ -152,17 +152,16 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     set_virtio_mmio(VIRTIO_MMIO_DRIVER_HIGH, 0);
     // 7. Write 0x1 to QueueReady
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
-    
-    
 
     Ok(vq)
 }
 
-pub fn notify_to_device(queue: mut VirtQueue, desc_idx: u32) {
-    queue.vring.avail.ring[queue.vring.avail.idx++] = desc_idx;
+pub fn notify_to_device(mut queue: VirtQueue, desc_idx: u16) {
+    queue.vring.avail.ring[queue.vring.avail.idx as usize] = desc_idx;
+    queue.vring.avail.idx += 1;
     // notify to device
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, );
-    queue.last_used_index++;
+    set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
+    queue.last_used_index += 1;
 }
 
 pub fn is_queue_available(index: u32) -> bool {
