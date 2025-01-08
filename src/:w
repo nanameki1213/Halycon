@@ -1,10 +1,8 @@
 use core::ptr::slice_from_raw_parts_mut;
-use core::{mem::MaybeUninit, ptr::slice_from_raw_parts};
+use core::{mem::MaybeUninit, ptr::slice_from_raw_parts, alloc, ptr};
 
 use crate::virtio::*;
 use crate::println;
-
-extern crate alloc;
 
 use alloc::boxed::Box;
 
@@ -22,11 +20,11 @@ pub const VIRTIO_BLK_S_UNSUPP : usize = 2;
 
 #[derive(Debug)]
 pub struct VirtioBlkReq {
-    pub req_type: u32,
-    pub reserved: u32,
-    pub sector: u64,
-    pub data: [u8; 512],
-    pub status: u8,
+    req_type: u32,
+    reserved: u32,
+    sector: u64,
+    data: [u8; 512],
+    status: u8,
 }
 
 pub fn init_virtio_blk() {
@@ -61,7 +59,7 @@ pub fn read_write_disk(queue: VirtQueue, buf_address: usize, sector: u64, is_wri
     // setting request
     let mut virtio_blk_req: Box<MaybeUninit<VirtioBlkReq>> = Box::new(MaybeUninit::uninit());
     
-    virtio_blk_req.write() = sector;
+    virtio_blk_req.sector = sector;
     virtio_blk_req.req_type = if is_write {
         VIRTIO_BLK_T_IN as u32
     } else {
@@ -109,9 +107,9 @@ pub fn read_write_disk(queue: VirtQueue, buf_address: usize, sector: u64, is_wri
         let bytes = unsafe {
             &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE)
         };
-        bytes.copy_from_slice(&virtio_blk_req.data[..SECTOR_SIZE]);
-    }   
-
+        bytes.copy_from
+    }
+    
     unsafe {
         virtio_blk_req = Box::from_raw(req_address);
     }

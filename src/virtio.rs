@@ -73,9 +73,9 @@ pub struct VRingUsedElem {
 
 #[derive(Debug)]
 pub struct VRingUsed {
-    flags: u16,
-    idx: u16,
-    ring: [VRingUsedElem; VIRTQ_ENTRY_NUM],
+    pub flags: u16,
+    pub idx: u16,
+    pub ring: [VRingUsedElem; VIRTQ_ENTRY_NUM],
 }
 
 #[derive(Debug)]
@@ -88,7 +88,7 @@ pub struct VRing {
 #[derive(Debug)]
 pub struct VirtQueue {
     pub vring: VRing,
-    pub queue_index: u32,
+    pub queue_index: u16,
     pub last_used_index: u16,
     pub last_avail_index: u16,
 }
