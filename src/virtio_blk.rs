@@ -1,7 +1,7 @@
 use core::ptr::slice_from_raw_parts_mut;
 use core::{mem::MaybeUninit, ptr::slice_from_raw_parts};
 
-use crate::virtio::*;
+use crate::{virtio::*, PAGE_NUM_BITS};
 use crate::println;
 
 extern crate alloc;
@@ -57,31 +57,41 @@ pub fn init_virtio_blk() {
     set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
 }
 
-pub fn read_write_disk(queue: VirtQueue, buf_address: usize, sector: u64, is_write: bool) {
+pub fn read_write_disk(queue_address: *mut VirtQueue, buf_address: usize, sector: u64, is_write: bool) {
     // setting request
-    let mut virtio_blk_req: Box<MaybeUninit<VirtioBlkReq>> = Box::new(MaybeUninit::uninit());
+    let mut virtio_blk_req = Box::new(
+            VirtioBlkReq {
+                req_type: if is_write {
+                    VIRTIO_BLK_T_IN as u32
+                } else {
+                    VIRTIO_BLK_T_OUT as u32
+                },
+                reserved: 0,
+                sector: sector,
+                data: [0; SECTOR_SIZE],
+                status: 0xFF,
+            }
+        );
     
-    virtio_blk_req.write() = sector;
-    virtio_blk_req.req_type = if is_write {
-        VIRTIO_BLK_T_IN as u32
-    } else {
-        VIRTIO_BLK_T_OUT as u32
-    };
     if is_write {
-        let bytes = slice_from_raw_parts(buf_address as *mut u8, SECTOR_SIZE);
+        let bytes = unsafe {
+            &mut *slice_from_raw_parts(buf_address as *mut u8, SECTOR_SIZE)
+        };
         virtio_blk_req.data[..SECTOR_SIZE].copy_from_slice(&bytes);
     }
 
     // setting Virtqueue
     let req_address = Box::into_raw(virtio_blk_req);
 
-    let mut desc = queue.vring.desc;
-    desc[0].addr = req_address as *mut u64;
+    let mut desc = unsafe {
+        (*queue_address).vring.desc
+    };
+    desc[0].addr = req_address as *mut u64 as u64;
     desc[0].len = 32 * 2 + 64; // TODO: using size_of
     desc[0].flags = VRingDesc::VIRTQ_DESC_F_NEXT as u16;
     desc[0].next = 1;
 
-    desc[1].addr = req_address as *mut u64 + desc[0].len;
+    desc[1].addr = req_address as *mut u64 as u64 + desc[0].len as u64;
     desc[1].len = SECTOR_SIZE as u32;
     desc[1].flags = VRingDesc::VIRTQ_DESC_F_NEXT as u16;
     if !is_write {
@@ -100,7 +110,7 @@ pub fn read_write_disk(queue: VirtQueue, buf_address: usize, sector: u64, is_wri
         
     }
 
-    if virtio_blk_req.status != VIRTIO_BLK_S_OK {
+    if virtio_blk_req.status != VIRTIO_BLK_S_OK as u8 {
         println!("disk: error");
         panic!();
     }
