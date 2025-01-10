@@ -8,8 +8,10 @@ $QEMU \
   -smp 1 \
   -bios ./bin/disk/u-boot \
   -nographic -m 2G \
-  -device virtio-blk-device,drive=disk \
-  -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=disk \
+  -device virtio-blk-device,drive=drive0 \
+  -device virtio-blk-device,drive=drive1 \
+  -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=drive0 \
+  -drive file=./bin/disk/u-boot,if=none,format=raw,id=drive1 \
   -global virtio-mmio.force-legacy=false \
   
   # -kernel bin/disk/hypervisor \

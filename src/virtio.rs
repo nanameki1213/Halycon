@@ -148,7 +148,7 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     Ok(vq)
 }
 
-pub fn notify_to_device(mut queue: VirtQueue, desc_idx: u16) {
+pub fn notify_to_device(queue: &mut VirtQueue, desc_idx: u16) {
     queue.vring.avail.ring[queue.vring.avail.idx as usize] = desc_idx;
     queue.vring.avail.idx += 1;
     // notify to device

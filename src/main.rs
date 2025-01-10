@@ -31,6 +31,9 @@ macro_rules! bitmask {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
+#[global_allocator]
+static ALLOCATOR: SimpleAllocator = SimpleAllocator;
+
 #[no_mangle]
 extern "C" fn main() -> usize {
     println!("booting Halycon...");

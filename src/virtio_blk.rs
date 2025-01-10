@@ -1,7 +1,6 @@
 use core::ptr::slice_from_raw_parts_mut;
-use core::{mem::MaybeUninit, ptr::slice_from_raw_parts};
 
-use crate::{virtio::*, PAGE_NUM_BITS};
+use crate::virtio::*;
 use crate::println;
 
 extern crate alloc;
@@ -57,7 +56,7 @@ pub fn init_virtio_blk() {
     set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
 }
 
-pub fn read_write_disk(queue_address: *mut VirtQueue, buf_address: usize, sector: u64, is_write: bool) {
+pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u64, is_write: bool) {
     // setting request
     let mut virtio_blk_req = Box::new(
             VirtioBlkReq {
@@ -75,7 +74,7 @@ pub fn read_write_disk(queue_address: *mut VirtQueue, buf_address: usize, sector
     
     if is_write {
         let bytes = unsafe {
-            &mut *slice_from_raw_parts(buf_address as *mut u8, SECTOR_SIZE)
+            &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE)
         };
         virtio_blk_req.data[..SECTOR_SIZE].copy_from_slice(&bytes);
     }
@@ -83,9 +82,7 @@ pub fn read_write_disk(queue_address: *mut VirtQueue, buf_address: usize, sector
     // setting Virtqueue
     let req_address = Box::into_raw(virtio_blk_req);
 
-    let mut desc = unsafe {
-        (*queue_address).vring.desc
-    };
+    let desc = &mut queue.vring.desc;
     desc[0].addr = req_address as *mut u64 as u64;
     desc[0].len = 32 * 2 + 64; // TODO: using size_of
     desc[0].flags = VRingDesc::VIRTQ_DESC_F_NEXT as u16;
@@ -110,6 +107,10 @@ pub fn read_write_disk(queue_address: *mut VirtQueue, buf_address: usize, sector
         
     }
 
+    unsafe {
+        virtio_blk_req = Box::from_raw(req_address);
+    }
+
     if virtio_blk_req.status != VIRTIO_BLK_S_OK as u8 {
         println!("disk: error");
         panic!();
@@ -121,8 +122,4 @@ pub fn read_write_disk(queue_address: *mut VirtQueue, buf_address: usize, sector
         };
         bytes.copy_from_slice(&virtio_blk_req.data[..SECTOR_SIZE]);
     }   
-
-    unsafe {
-        virtio_blk_req = Box::from_raw(req_address);
-    }
 }
