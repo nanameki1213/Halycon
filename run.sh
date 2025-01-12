@@ -9,10 +9,11 @@ $QEMU \
   -bios ./bin/disk/u-boot \
   -nographic -m 2G \
   -device virtio-blk-device,drive=drive0 \
-  -device virtio-blk-device,drive=drive1 \
   -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=drive0 \
-  -drive file=./bin/disk/u-boot,if=none,format=raw,id=drive1 \
+  -device virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0 \
+  -drive file=./u-boot,if=none,format=raw,id=drive1 \
   -global virtio-mmio.force-legacy=false \
+  --trace events=./trace-events,file=trace.log \
   
   # -kernel bin/disk/hypervisor \
   # -serial mon:stdio \

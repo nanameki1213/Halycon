@@ -1,29 +1,10 @@
-use core::alloc::GlobalAlloc;
 use core::usize;
 
 use crate::paging;
 use crate::println;
 use crate::cpu::*;
-use crate::PAGE_SHIFT;
-use crate::PAGE_SIZE;
 
 pub static mut FREE_ADDRESS: usize = 0;
-
-pub struct SimpleAllocator;
-
-unsafe impl GlobalAlloc for SimpleAllocator {
-    unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
-        let pages = (layout.size() + PAGE_SIZE - 1) / PAGE_SIZE;
-        
-        allocate_memory(pages, 1 << PAGE_SHIFT).unwrap() as *mut u8
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-        let pages = (layout.size() + PAGE_SIZE - 1) / PAGE_SIZE;
-
-        free_memory(pages);
-    }
-}
 
 pub unsafe extern "C" fn init_allocation() {
     extern "C" {
@@ -51,10 +32,6 @@ pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<u
     let top_address = FREE_ADDRESS;
     FREE_ADDRESS += paging::PAGE_SIZE * num_of_pages;
     Ok(top_address)
-}
-
-pub unsafe fn free_memory(pages: usize) {
-    FREE_ADDRESS -= PAGE_SIZE * pages;
 }
 
 #[allow(dead_code)]

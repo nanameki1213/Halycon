@@ -19,6 +19,8 @@ use core::{arch::asm, usize};
 use memory::*;
 use paging::*;
 use vector::setup_vector;
+use virtio::init_virtio_mmio;
+use virtio_blk::{init_virtio_blk, read_write_disk, SECTOR_SIZE};
 
 #[macro_export]
 macro_rules! bitmask {
@@ -30,9 +32,6 @@ macro_rules! bitmask {
 // fn intr_disable() {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
-
-#[global_allocator]
-static ALLOCATOR: SimpleAllocator = SimpleAllocator;
 
 #[no_mangle]
 extern "C" fn main() -> usize {
@@ -122,6 +121,17 @@ extern "C" fn main() -> usize {
     println!("[info] stack_address: {:#X}", stack_address);
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
     println!("[info] vm physical address: {:#X}", physical_vm_address);
+
+    let vq = init_virtio_mmio(0).unwrap();
+    println!("vq: {:#X}", vq as usize);
+    init_virtio_blk();
+    let buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
+    unsafe {
+        read_write_disk(&mut *vq, buf.as_ptr() as *mut usize, 0, false)
+    };
+
+    println!("hello");
+    println!("{:?}", buf);
 
     println!("switch to guest");
     hs_to_vs(vm_address as usize, stack_address);
