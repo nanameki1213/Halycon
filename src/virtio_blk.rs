@@ -86,7 +86,7 @@ pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u
     }
     desc[1].next = 2;
 
-    desc[2].addr = desc[1].addr + desc[1].len as u64;
+    desc[2].addr = virtio_blk_req as *const VirtioBlkReq as u64 + desc[1].addr + desc[1].len as u64;
     desc[2].len = 8; // TODO: using size_of
     desc[2].flags = VRingDesc::VIRTQ_DESC_F_WRITE as u16;
     desc[2].next = 0;

@@ -23,3 +23,5 @@ Cargo.lock
 bin/
 !bin/disk/boot.script
 !bin/disk/boot.scr
+
+trace*
