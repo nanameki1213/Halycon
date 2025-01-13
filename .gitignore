@@ -24,4 +24,6 @@ bin/
 !bin/disk/boot.script
 !bin/disk/boot.scr
 
-trace*
+trace.str
+trace.log
+trace-events

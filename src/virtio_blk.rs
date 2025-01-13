@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use core::mem::size_of;
 use core::ptr::slice_from_raw_parts_mut;
 use crate::allocate_memory;
 use crate::virtio::*;
@@ -74,7 +75,7 @@ pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u
 
     let desc = &mut queue.vring.desc;
     desc[0].addr = virtio_blk_req as *const VirtioBlkReq as u64;
-    desc[0].len = 32 * 2 + 64; // TODO: using size_of
+    desc[0].len = size_of::<u32>() as u32 * 2 + size_of::<u64>() as u32;
     desc[0].flags = VRingDesc::VIRTQ_DESC_F_NEXT as u16;
     desc[0].next = 1;
 
@@ -86,8 +87,9 @@ pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u
     }
     desc[1].next = 2;
 
-    desc[2].addr = virtio_blk_req as *const VirtioBlkReq as u64 + desc[1].addr + desc[1].len as u64;
-    desc[2].len = 8; // TODO: using size_of
+    // status field in VirtioBlkReq
+    desc[2].addr = virtio_blk_req as *const VirtioBlkReq as u64 + desc[0].addr + desc[1].len as u64;
+    desc[2].len = size_of::<u8>() as u32;
     desc[2].flags = VRingDesc::VIRTQ_DESC_F_WRITE as u16;
     desc[2].next = 0;
 

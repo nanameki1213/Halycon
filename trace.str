@@ -1,185 +1,191 @@
-virtio_mmio_read 0.000 pid=41530 offset=0x0 addr=0x556e4351c3e0
-virtio_mmio_read 178.422 pid=41530 offset=0x4 addr=0x556e4351c3e0
-virtio_mmio_read 61.183 pid=41530 offset=0x8 addr=0x556e4351c3e0
-virtio_mmio_read 57.554 pid=41530 offset=0xc addr=0x556e4351c3e0
-virtio_mmio_read 2350.118 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 60.533 pid=41530 offset=0x70 value=0x1 addr=0x556e4351c3e0
-virtio_mmio_read 594.181 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 4.024 pid=41530 offset=0x70 value=0x1 addr=0x556e4351c3e0
-virtio_mmio_read 2040.759 pid=41530 offset=0x0 addr=0x556e435210f0
-virtio_mmio_read 2.140 pid=41530 offset=0x4 addr=0x556e435210f0
-virtio_mmio_read 1.105 pid=41530 offset=0x8 addr=0x556e435210f0
-virtio_mmio_read 1.381 pid=41530 offset=0xc addr=0x556e435210f0
-virtio_mmio_read 226.508 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 5.937 pid=41530 offset=0x70 value=0x1 addr=0x556e435210f0
-virtio_mmio_read 237.387 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 2.002 pid=41530 offset=0x70 value=0x1 addr=0x556e435210f0
-virtio_mmio_write_offset 2109058.189 pid=41530 offset=0x70 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_read 53.127 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 3.047 pid=41530 offset=0x70 value=0x2 addr=0x556e4351c3e0
-virtio_mmio_write_offset 43.054 pid=41530 offset=0x14 value=0x1 addr=0x556e4351c3e0
-virtio_mmio_read 19.234 pid=41530 offset=0x10 addr=0x556e4351c3e0
-virtio_mmio_write_offset 17.984 pid=41530 offset=0x14 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_read 14.797 pid=41530 offset=0x10 addr=0x556e4351c3e0
-virtio_mmio_write_offset 137.657 pid=41530 offset=0x24 value=0x1 addr=0x556e4351c3e0
-virtio_mmio_write_offset 18.618 pid=41530 offset=0x20 value=0x1 addr=0x556e4351c3e0
-virtio_mmio_write_offset 15.662 pid=41530 offset=0x24 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_write_offset 13.458 pid=41530 offset=0x20 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_read 21.874 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 1.131 pid=41530 offset=0x70 value=0xa addr=0x556e4351c3e0
-virtio_mmio_read 6.173 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 103.575 pid=41530 offset=0x30 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_read 16.991 pid=41530 offset=0x44 addr=0x556e4351c3e0
-virtio_mmio_read 15.433 pid=41530 offset=0x34 addr=0x556e4351c3e0
-virtio_mmio_write_offset 293.733 pid=41530 offset=0x38 value=0x400 addr=0x556e4351c3e0
-virtio_mmio_queue_write 0.367 pid=41530 value=0x400 max_size=0x400
-virtio_mmio_write_offset 28.990 pid=41530 offset=0x80 value=0xfef12000 addr=0x556e4351c3e0
-virtio_mmio_write_offset 10.590 pid=41530 offset=0x84 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_write_offset 19.393 pid=41530 offset=0x90 value=0xfef16000 addr=0x556e4351c3e0
-virtio_mmio_write_offset 9.448 pid=41530 offset=0x94 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_write_offset 62.467 pid=41530 offset=0xa0 value=0xfef17000 addr=0x556e4351c3e0
-virtio_mmio_write_offset 12.048 pid=41530 offset=0xa4 value=0x0 addr=0x556e4351c3e0
-virtio_mmio_write_offset 8.942 pid=41530 offset=0x44 value=0x1 addr=0x556e4351c3e0
-virtio_mmio_read 87.576 pid=41530 offset=0xfc addr=0x556e4351c3e0
-virtio_mmio_read 67.062 pid=41530 offset=0x100 addr=0x556e4351c3e0
-virtio_mmio_read 113.648 pid=41530 offset=0x104 addr=0x556e4351c3e0
-virtio_mmio_read 29.645 pid=41530 offset=0xfc addr=0x556e4351c3e0
-virtio_mmio_read 34.648 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 1.627 pid=41530 offset=0x70 value=0xe addr=0x556e4351c3e0
-virtio_queue_notify 322.327 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtio_queue_notify 848.664 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 18.271 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 37.040 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 1.141 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x201 idx=0x0
-virtqueue_flush 1.360 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 4205.113 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 9.151 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 36.354 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.854 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x201 idx=0x0
-virtqueue_flush 1.310 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_mmio_read 314.376 pid=41530 offset=0x70 addr=0x556e4351c3e0
-virtio_mmio_write_offset 2.938 pid=41530 offset=0x70 value=0xe addr=0x556e4351c3e0
-virtio_mmio_write_offset 43.976 pid=41530 offset=0x70 value=0x0 addr=0x556e435210f0
-virtio_mmio_read 27.363 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 0.903 pid=41530 offset=0x70 value=0x2 addr=0x556e435210f0
-virtio_mmio_write_offset 2.590 pid=41530 offset=0x14 value=0x1 addr=0x556e435210f0
-virtio_mmio_read 0.983 pid=41530 offset=0x10 addr=0x556e435210f0
-virtio_mmio_write_offset 1.290 pid=41530 offset=0x14 value=0x0 addr=0x556e435210f0
-virtio_mmio_read 0.913 pid=41530 offset=0x10 addr=0x556e435210f0
-virtio_mmio_write_offset 3.504 pid=41530 offset=0x24 value=0x1 addr=0x556e435210f0
-virtio_mmio_write_offset 1.012 pid=41530 offset=0x20 value=0x1 addr=0x556e435210f0
-virtio_mmio_write_offset 1.032 pid=41530 offset=0x24 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 1.896 pid=41530 offset=0x20 value=0x0 addr=0x556e435210f0
-virtio_mmio_read 0.933 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 1.151 pid=41530 offset=0x70 value=0xa addr=0x556e435210f0
-virtio_mmio_read 1.211 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 5.270 pid=41530 offset=0x30 value=0x0 addr=0x556e435210f0
-virtio_mmio_read 0.962 pid=41530 offset=0x44 addr=0x556e435210f0
-virtio_mmio_read 0.973 pid=41530 offset=0x34 addr=0x556e435210f0
-virtio_mmio_write_offset 30.429 pid=41530 offset=0x38 value=0x400 addr=0x556e435210f0
-virtio_mmio_queue_write 0.318 pid=41530 value=0x400 max_size=0x400
-virtio_mmio_write_offset 1.538 pid=41530 offset=0x80 value=0xfef21000 addr=0x556e435210f0
-virtio_mmio_write_offset 0.983 pid=41530 offset=0x84 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 0.992 pid=41530 offset=0x90 value=0xfef25000 addr=0x556e435210f0
-virtio_mmio_write_offset 0.864 pid=41530 offset=0x94 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 1.062 pid=41530 offset=0xa0 value=0xfef26000 addr=0x556e435210f0
-virtio_mmio_write_offset 1.101 pid=41530 offset=0xa4 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 0.834 pid=41530 offset=0x44 value=0x1 addr=0x556e435210f0
-virtio_mmio_read 4.496 pid=41530 offset=0xfc addr=0x556e435210f0
-virtio_mmio_read 2.273 pid=41530 offset=0x100 addr=0x556e435210f0
-virtio_mmio_read 6.798 pid=41530 offset=0x104 addr=0x556e435210f0
-virtio_mmio_read 1.767 pid=41530 offset=0xfc addr=0x556e435210f0
-virtio_mmio_read 1.568 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 1.022 pid=41530 offset=0x70 value=0xe addr=0x556e435210f0
-virtio_queue_notify 143.065 pid=41530 vdev=0x556e430f8400 n=0x0 vq=0x7f64d81d9010
-virtqueue_pop 5.350 pid=41530 vq=0x7f64d81d9010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 260.514 pid=41530 vdev=0x556e430f8400 req=0x556e435420c0 ret=0x0
-virtqueue_fill 18.162 pid=41530 vq=0x7f64d81d9010 elem=0x556e435420c0 len=0x201 idx=0x0
-virtqueue_flush 3.265 pid=41530 vq=0x7f64d81d9010 count=0x1
-virtio_queue_notify 452.638 pid=41530 vdev=0x556e430f8400 n=0x0 vq=0x7f64d81d9010
-virtqueue_pop 5.508 pid=41530 vq=0x7f64d81d9010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 148.147 pid=41530 vdev=0x556e430f8400 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.675 pid=41530 vq=0x7f64d81d9010 elem=0x556e435420c0 len=0x801 idx=0x0
-virtqueue_flush 1.022 pid=41530 vq=0x7f64d81d9010 count=0x1
-virtio_queue_notify 870.301 pid=41530 vdev=0x556e430f8400 n=0x0 vq=0x7f64d81d9010
-virtqueue_pop 2.302 pid=41530 vq=0x7f64d81d9010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 260.356 pid=41530 vdev=0x556e430f8400 req=0x556e435420c0 ret=0x0
-virtqueue_fill 2.520 pid=41530 vq=0x7f64d81d9010 elem=0x556e435420c0 len=0x401 idx=0x0
-virtqueue_flush 3.980 pid=41530 vq=0x7f64d81d9010 count=0x1
-virtio_mmio_read 591.624 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 6.699 pid=41530 offset=0x70 value=0xe addr=0x556e435210f0
-virtio_queue_notify 5496.373 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 17.587 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 105.123 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 1.478 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 0.874 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 796.828 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 8.783 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 39.719 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.883 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 1.310 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 218.831 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 3.642 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 23.462 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.665 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 1.023 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 586.224 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 7.175 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 38.697 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.993 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 1.458 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 1231.026 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 6.650 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 35.213 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.854 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 1.230 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 192.252 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 5.171 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 51.480 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.843 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x201 idx=0x0
-virtqueue_flush 1.211 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 4216.617 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 28.831 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 57.296 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.933 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 0.824 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 219.367 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 2.550 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 13.379 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.357 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x2001 idx=0x0
-virtqueue_flush 0.516 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 151.144 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 1.598 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 10.639 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.348 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0xc01 idx=0x0
-virtqueue_flush 0.476 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 150.061 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 2.293 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 298.258 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.447 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0xfa01 idx=0x0
-virtqueue_flush 1.161 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_queue_notify 67.101 pid=41530 vdev=0x556e432fb0c0 n=0x0 vq=0x7f64d8230010
-virtqueue_pop 1.876 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 in_num=0x2 out_num=0x1
-virtio_blk_rw_complete 9.488 pid=41530 vdev=0x556e432fb0c0 req=0x556e435420c0 ret=0x0
-virtqueue_fill 0.298 pid=41530 vq=0x7f64d8230010 elem=0x556e435420c0 len=0x201 idx=0x0
-virtqueue_flush 0.526 pid=41530 vq=0x7f64d8230010 count=0x1
-virtio_mmio_read 21169.716 pid=41530 offset=0x4 addr=0x556e435210f0
-virtio_mmio_write_offset 23.789 pid=41530 offset=0x30 value=0x0 addr=0x556e435210f0
-virtio_mmio_read 11.702 pid=41530 offset=0x34 addr=0x556e435210f0
-virtio_mmio_write_offset 410.944 pid=41530 offset=0x38 value=0x40 addr=0x556e435210f0
-virtio_mmio_queue_write 1.032 pid=41530 value=0x40 max_size=0x400
-virtio_mmio_write_offset 40.632 pid=41530 offset=0x80 value=0x80993000 addr=0x556e435210f0
-virtio_mmio_write_offset 29.049 pid=41530 offset=0x84 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 18.609 pid=41530 offset=0x90 value=0x80993400 addr=0x556e435210f0
-virtio_mmio_write_offset 16.436 pid=41530 offset=0x94 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 12.693 pid=41530 offset=0xa0 value=0x80993484 addr=0x556e435210f0
-virtio_mmio_write_offset 12.575 pid=41530 offset=0xa4 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 17.170 pid=41530 offset=0x44 value=0x1 addr=0x556e435210f0
-virtio_mmio_write_offset 347.048 pid=41530 offset=0x70 value=0x0 addr=0x556e435210f0
-virtio_mmio_write_offset 355.176 pid=41530 offset=0x70 value=0x1 addr=0x556e435210f0
-virtio_mmio_read 22.251 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 32.107 pid=41530 offset=0x70 value=0x3 addr=0x556e435210f0
-virtio_mmio_read 12.207 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 12.764 pid=41530 offset=0x70 value=0xb addr=0x556e435210f0
-virtio_mmio_read 14.698 pid=41530 offset=0x70 addr=0x556e435210f0
-virtio_mmio_write_offset 12.128 pid=41530 offset=0x70 value=0xf addr=0x556e435210f0
+virtio_mmio_read 0.000 pid=87061 offset=0x0 addr=0x55a2279463e0
+virtio_mmio_read 57.963 pid=87061 offset=0x4 addr=0x55a2279463e0
+virtio_mmio_read 53.679 pid=87061 offset=0x8 addr=0x55a2279463e0
+virtio_mmio_read 52.702 pid=87061 offset=0xc addr=0x55a2279463e0
+virtio_mmio_read 1980.553 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 113.029 pid=87061 offset=0x70 value=0x1 addr=0x55a2279463e0
+virtio_mmio_read 2552.951 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 8.197 pid=87061 offset=0x70 value=0x1 addr=0x55a2279463e0
+virtio_mmio_read 3494.718 pid=87061 offset=0x0 addr=0x55a22794b0f0
+virtio_mmio_read 2.193 pid=87061 offset=0x4 addr=0x55a22794b0f0
+virtio_mmio_read 1.478 pid=87061 offset=0x8 addr=0x55a22794b0f0
+virtio_mmio_read 1.780 pid=87061 offset=0xc addr=0x55a22794b0f0
+virtio_mmio_read 209.443 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 5.723 pid=87061 offset=0x70 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_read 424.648 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 4.899 pid=87061 offset=0x70 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_write_offset 2186887.276 pid=87061 offset=0x70 value=0x0 addr=0x55a2279463e0
+virtio_mmio_read 94.927 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 6.460 pid=87061 offset=0x70 value=0x2 addr=0x55a2279463e0
+virtio_mmio_write_offset 128.679 pid=87061 offset=0x14 value=0x1 addr=0x55a2279463e0
+virtio_mmio_read 61.757 pid=87061 offset=0x10 addr=0x55a2279463e0
+virtio_mmio_write_offset 57.484 pid=87061 offset=0x14 value=0x0 addr=0x55a2279463e0
+virtio_mmio_read 40.774 pid=87061 offset=0x10 addr=0x55a2279463e0
+virtio_mmio_write_offset 458.949 pid=87061 offset=0x24 value=0x1 addr=0x55a2279463e0
+virtio_mmio_write_offset 69.029 pid=87061 offset=0x20 value=0x1 addr=0x55a2279463e0
+virtio_mmio_write_offset 53.061 pid=87061 offset=0x24 value=0x0 addr=0x55a2279463e0
+virtio_mmio_write_offset 46.681 pid=87061 offset=0x20 value=0x0 addr=0x55a2279463e0
+virtio_mmio_read 71.938 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 4.965 pid=87061 offset=0x70 value=0xa addr=0x55a2279463e0
+virtio_mmio_read 20.873 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 353.129 pid=87061 offset=0x30 value=0x0 addr=0x55a2279463e0
+virtio_mmio_read 98.428 pid=87061 offset=0x44 addr=0x55a2279463e0
+virtio_mmio_read 111.166 pid=87061 offset=0x34 addr=0x55a2279463e0
+virtio_mmio_write_offset 877.035 pid=87061 offset=0x38 value=0x400 addr=0x55a2279463e0
+virtio_mmio_queue_write 0.913 pid=87061 value=0x400 max_size=0x400
+virtio_mmio_write_offset 89.983 pid=87061 offset=0x80 value=0xfef12000 addr=0x55a2279463e0
+virtio_mmio_write_offset 30.522 pid=87061 offset=0x84 value=0x0 addr=0x55a2279463e0
+virtio_mmio_write_offset 55.217 pid=87061 offset=0x90 value=0xfef16000 addr=0x55a2279463e0
+virtio_mmio_write_offset 28.807 pid=87061 offset=0x94 value=0x0 addr=0x55a2279463e0
+virtio_mmio_write_offset 60.875 pid=87061 offset=0xa0 value=0xfef17000 addr=0x55a2279463e0
+virtio_mmio_write_offset 51.967 pid=87061 offset=0xa4 value=0x0 addr=0x55a2279463e0
+virtio_mmio_write_offset 31.616 pid=87061 offset=0x44 value=0x1 addr=0x55a2279463e0
+virtio_mmio_read 260.930 pid=87061 offset=0xfc addr=0x55a2279463e0
+virtio_mmio_read 208.079 pid=87061 offset=0x100 addr=0x55a2279463e0
+virtio_mmio_read 138.149 pid=87061 offset=0x104 addr=0x55a2279463e0
+virtio_mmio_read 140.996 pid=87061 offset=0xfc addr=0x55a2279463e0
+virtio_mmio_read 126.754 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 7.503 pid=87061 offset=0x70 value=0xe addr=0x55a2279463e0
+virtio_queue_notify 281.832 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtio_queue_notify 2299.751 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 19.249 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 115.800 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 2.117 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x201 idx=0x0
+virtqueue_flush 2.046 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 6838.792 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 12.066 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 63.111 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.495 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x201 idx=0x0
+virtqueue_flush 1.585 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_mmio_read 847.736 pid=87061 offset=0x70 addr=0x55a2279463e0
+virtio_mmio_write_offset 9.789 pid=87061 offset=0x70 value=0xe addr=0x55a2279463e0
+virtio_mmio_write_offset 203.266 pid=87061 offset=0x70 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_read 50.372 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 4.203 pid=87061 offset=0x70 value=0x2 addr=0x55a22794b0f0
+virtio_mmio_write_offset 5.878 pid=87061 offset=0x14 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_read 2.457 pid=87061 offset=0x10 addr=0x55a22794b0f0
+virtio_mmio_write_offset 4.193 pid=87061 offset=0x14 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_read 2.477 pid=87061 offset=0x10 addr=0x55a22794b0f0
+virtio_mmio_write_offset 7.844 pid=87061 offset=0x24 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_write_offset 2.899 pid=87061 offset=0x20 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_write_offset 2.327 pid=87061 offset=0x24 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 9.509 pid=87061 offset=0x20 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_read 3.912 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 3.951 pid=87061 offset=0x70 value=0xa addr=0x55a22794b0f0
+virtio_mmio_read 4.364 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 8.887 pid=87061 offset=0x30 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_read 3.280 pid=87061 offset=0x44 addr=0x55a22794b0f0
+virtio_mmio_read 2.658 pid=87061 offset=0x34 addr=0x55a22794b0f0
+virtio_mmio_write_offset 95.910 pid=87061 offset=0x38 value=0x400 addr=0x55a22794b0f0
+virtio_mmio_queue_write 0.873 pid=87061 value=0x400 max_size=0x400
+virtio_mmio_write_offset 5.346 pid=87061 offset=0x80 value=0xfef21000 addr=0x55a22794b0f0
+virtio_mmio_write_offset 3.009 pid=87061 offset=0x84 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 3.129 pid=87061 offset=0x90 value=0xfef25000 addr=0x55a22794b0f0
+virtio_mmio_write_offset 2.658 pid=87061 offset=0x94 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 2.999 pid=87061 offset=0xa0 value=0xfef26000 addr=0x55a22794b0f0
+virtio_mmio_write_offset 2.087 pid=87061 offset=0xa4 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 1.996 pid=87061 offset=0x44 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_read 11.996 pid=87061 offset=0xfc addr=0x55a22794b0f0
+virtio_mmio_read 6.389 pid=87061 offset=0x100 addr=0x55a22794b0f0
+virtio_mmio_read 14.474 pid=87061 offset=0x104 addr=0x55a22794b0f0
+virtio_mmio_read 4.735 pid=87061 offset=0xfc addr=0x55a22794b0f0
+virtio_mmio_read 5.245 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 3.040 pid=87061 offset=0x70 value=0xe addr=0x55a22794b0f0
+virtio_queue_notify 194.769 pid=87061 vdev=0x55a22732f8c0 n=0x0 vq=0x7fe189617010
+virtio_queue_notify 169.604 pid=87061 vdev=0x55a22732f8c0 n=0x0 vq=0x7fe189617010
+virtqueue_pop 20.482 pid=87061 vq=0x7fe189617010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 190.336 pid=87061 vdev=0x55a22732f8c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.705 pid=87061 vq=0x7fe189617010 elem=0x55a22797c0c0 len=0x201 idx=0x0
+virtqueue_flush 1.655 pid=87061 vq=0x7fe189617010 count=0x1
+virtio_queue_notify 445.107 pid=87061 vdev=0x55a22732f8c0 n=0x0 vq=0x7fe189617010
+virtqueue_pop 6.350 pid=87061 vq=0x7fe189617010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 171.459 pid=87061 vdev=0x55a22732f8c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.645 pid=87061 vq=0x7fe189617010 elem=0x55a22797c0c0 len=0x801 idx=0x0
+virtqueue_flush 1.905 pid=87061 vq=0x7fe189617010 count=0x1
+virtio_queue_notify 1010.610 pid=87061 vdev=0x55a22732f8c0 n=0x0 vq=0x7fe189617010
+virtqueue_pop 9.328 pid=87061 vq=0x7fe189617010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 194.659 pid=87061 vdev=0x55a22732f8c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.976 pid=87061 vq=0x7fe189617010 elem=0x55a22797c0c0 len=0x401 idx=0x0
+virtqueue_flush 1.585 pid=87061 vq=0x7fe189617010 count=0x1
+virtio_mmio_read 374.805 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 6.570 pid=87061 offset=0x70 value=0xe addr=0x55a22794b0f0
+virtio_queue_notify 15942.082 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 9.328 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 91.758 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.163 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.314 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 2003.816 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 12.348 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 62.930 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.214 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.193 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 759.189 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 5.897 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 37.073 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 0.762 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.083 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 2609.831 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 8.195 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 48.577 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.003 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.183 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 2681.296 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 10.863 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 60.593 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.334 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.525 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 977.840 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 10.853 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 98.498 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.364 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x201 idx=0x0
+virtqueue_flush 2.127 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 8090.792 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 12.056 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 76.462 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.163 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.134 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 600.136 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 5.045 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 29.089 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 0.702 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x2001 idx=0x0
+virtqueue_flush 1.013 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 514.387 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 4.895 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 26.700 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 0.723 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0xc01 idx=0x0
+virtqueue_flush 1.073 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 656.970 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 8.004 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 44.575 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 1.445 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0xc01 idx=0x0
+virtqueue_flush 1.845 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 204.749 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 5.787 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 3808.008 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 2.357 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0xe201 idx=0x0
+virtqueue_flush 5.627 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_queue_notify 343.490 pid=87061 vdev=0x55a2278b38c0 n=0x0 vq=0x7fe18963e010
+virtqueue_pop 6.830 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 in_num=0x2 out_num=0x1
+virtio_blk_rw_complete 33.040 pid=87061 vdev=0x55a2278b38c0 req=0x55a22797c0c0 ret=0x0
+virtqueue_fill 0.863 pid=87061 vq=0x7fe18963e010 elem=0x55a22797c0c0 len=0x201 idx=0x0
+virtqueue_flush 1.023 pid=87061 vq=0x7fe18963e010 count=0x1
+virtio_mmio_read 43844.147 pid=87061 offset=0x4 addr=0x55a22794b0f0
+virtio_mmio_write_offset 41.476 pid=87061 offset=0x30 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_read 24.032 pid=87061 offset=0x34 addr=0x55a22794b0f0
+virtio_mmio_write_offset 1006.307 pid=87061 offset=0x38 value=0x40 addr=0x55a22794b0f0
+virtio_mmio_queue_write 0.912 pid=87061 value=0x40 max_size=0x400
+virtio_mmio_write_offset 93.654 pid=87061 offset=0x80 value=0x8098f000 addr=0x55a22794b0f0
+virtio_mmio_write_offset 34.434 pid=87061 offset=0x84 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 28.837 pid=87061 offset=0x90 value=0x8098f400 addr=0x55a22794b0f0
+virtio_mmio_write_offset 44.615 pid=87061 offset=0x94 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 23.582 pid=87061 offset=0xa0 value=0x8098f484 addr=0x55a22794b0f0
+virtio_mmio_write_offset 21.314 pid=87061 offset=0xa4 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 64.155 pid=87061 offset=0x44 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_write_offset 533.485 pid=87061 offset=0x70 value=0x0 addr=0x55a22794b0f0
+virtio_mmio_write_offset 333.920 pid=87061 offset=0x70 value=0x1 addr=0x55a22794b0f0
+virtio_mmio_read 34.013 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 29.680 pid=87061 offset=0x70 value=0x3 addr=0x55a22794b0f0
+virtio_mmio_read 26.380 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 24.193 pid=87061 offset=0x70 value=0xb addr=0x55a22794b0f0
+virtio_mmio_read 22.428 pid=87061 offset=0x70 addr=0x55a22794b0f0
+virtio_mmio_write_offset 20.382 pid=87061 offset=0x70 value=0xf addr=0x55a22794b0f0

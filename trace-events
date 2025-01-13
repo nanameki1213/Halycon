@@ -6,3 +6,4 @@ virtqueue_pop
 virtio_blk_rw_complete
 virtqueue_fill
 virtqueue_flush
+mmio_notify

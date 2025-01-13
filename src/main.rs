@@ -19,7 +19,7 @@ use core::{arch::asm, usize};
 use memory::*;
 use paging::*;
 use vector::setup_vector;
-use virtio::init_virtio_mmio;
+use virtio::{init_virtio_mmio, VIRTIO_DEFAULT_INDEX};
 use virtio_blk::{init_virtio_blk, read_write_disk, SECTOR_SIZE};
 
 #[macro_export]
@@ -122,7 +122,7 @@ extern "C" fn main() -> usize {
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
     println!("[info] vm physical address: {:#X}", physical_vm_address);
 
-    let vq = init_virtio_mmio(0).unwrap();
+    let vq = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
     println!("vq: {:#X}", vq as usize);
     init_virtio_blk();
     let buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];

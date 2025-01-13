@@ -6,6 +6,7 @@ use crate::{allocate_memory, println};
 use crate::paging::PAGE_SIZE;
 
 pub const VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
+pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
 
 pub const VIRTIO_VERSION: usize = 0x2;
 pub const VIRTQ_ENTRY_NUM: usize = 64;
@@ -138,13 +139,13 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     let desc_address = vq.vring.desc.as_ptr() as u64;
     let avail_address = (&(vq.vring.avail) as *const VringAvail) as u64;
     let used_address = (&(vq.vring.used) as *const VRingUsed) as u64;
-    // TODO: virtio_mmioのアドレス各場所のHIGH部分をしっかり計算する
-    set_virtio_mmio(VIRTIO_MMIO_DESC_LOW, (desc_address & ((1 << 32) - 1)) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DESC_HIGH, 0);
-    set_virtio_mmio(VIRTIO_MMIO_DRIVER_LOW, (avail_address & ((1 << 32) - 1)) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DRIVER_HIGH, 0);
-    set_virtio_mmio(VIRTIO_MMIO_DEVICE_LOW, (used_address & ((1 << 32) - 1)) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DEVICE_HIGH, 0);
+    const VIRTIO_MMIO_MASK: u64 = (1 << 32) - 1;
+    set_virtio_mmio(VIRTIO_MMIO_DESC_LOW, (desc_address & VIRTIO_MMIO_MASK) as u32);
+    set_virtio_mmio(VIRTIO_MMIO_DESC_HIGH, ((desc_address >> 32) & VIRTIO_MMIO_MASK) as u32);
+    set_virtio_mmio(VIRTIO_MMIO_DRIVER_LOW, (avail_address & VIRTIO_MMIO_MASK) as u32);
+    set_virtio_mmio(VIRTIO_MMIO_DRIVER_HIGH, ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32);
+    set_virtio_mmio(VIRTIO_MMIO_DEVICE_LOW, (used_address & VIRTIO_MMIO_MASK) as u32);
+    set_virtio_mmio(VIRTIO_MMIO_DEVICE_HIGH, ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32);
     // 7. Write 0x1 to QueueReady
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
 
@@ -155,7 +156,7 @@ pub fn notify_to_device(queue: &mut VirtQueue) {
     queue.vring.avail.ring[queue.vring.avail.idx as usize] = 0;
     queue.vring.avail.idx += 1;
     // notify to device
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+    set_virtio_mmio(VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_DEFAULT_INDEX);
     queue.last_used_index += 1;
 }
 
