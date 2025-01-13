@@ -88,19 +88,23 @@ pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u
     desc[1].next = 2;
 
     // status field in VirtioBlkReq
-    desc[2].addr = virtio_blk_req as *const VirtioBlkReq as u64 + desc[0].addr + desc[1].len as u64;
+    desc[2].addr = virtio_blk_req as *const VirtioBlkReq as u64 + ( desc[0].len + desc[1].len ) as u64;
     desc[2].len = size_of::<u8>() as u32;
     desc[2].flags = VRingDesc::VIRTQ_DESC_F_WRITE as u16;
     desc[2].next = 0;
 
     notify_to_device(queue);
 
-    while queue.last_used_index != queue.vring.used.idx {
+    while queue.last_used_index != unsafe { core::ptr::read_volatile(&queue.vring.used.idx) } {
         
     }
 
     if virtio_blk_req.status != VIRTIO_BLK_S_OK as u8 {
-        println!("disk: error");
+        println!("Virtio-Blk Error: {}", match virtio_blk_req.status as usize {
+            VIRTIO_BLK_S_IOERR =>  "Input/Output ERROR",
+            VIRTIO_BLK_S_UNSUPP => "UNSUPPORTED BY DEVICE",
+            _ => unreachable!(),
+        });
         panic!();
     }
 

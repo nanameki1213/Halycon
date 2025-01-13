@@ -122,15 +122,13 @@ extern "C" fn main() -> usize {
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
     println!("[info] vm physical address: {:#X}", physical_vm_address);
 
-    let vq = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
-    println!("vq: {:#X}", vq as usize);
     init_virtio_blk();
+    let vq = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
     let buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
     unsafe {
         read_write_disk(&mut *vq, buf.as_ptr() as *mut usize, 0, false)
     };
 
-    println!("hello");
     println!("{:?}", buf);
 
     println!("switch to guest");
