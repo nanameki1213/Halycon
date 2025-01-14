@@ -11,7 +11,7 @@ $QEMU \
   -device virtio-blk-device,drive=drive0 \
   -drive file=fat:rw:bin/disk/,format=raw,if=none,media=disk,id=drive0 \
   -device virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0 \
-  -drive file=./u-boot,if=none,format=raw,id=drive1 \
+  -drive file=./u-boot.bin,if=none,format=raw,id=drive1 \
   -global virtio-mmio.force-legacy=false \
   --trace events=./trace-events,file=trace.log \
   
