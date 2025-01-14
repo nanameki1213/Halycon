@@ -72,8 +72,6 @@ extern "C" fn main() -> usize {
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
-    let vm_address: fn() = vs_main;
-
     // 仮想マシンの領域のPMPを設定する;
     // let top_address = 0xF0000000 as usize;
     // let bottom_address = 0x80000000 as usize;
@@ -110,6 +108,9 @@ extern "C" fn main() -> usize {
         core::arch::riscv64::sfence_vma_all();
     }
 
+    println!("[info] loading u-boot...");
+    let vm_address = load_bootloader();  
+
     let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
     println!("[setup] stage2 paging");
 
@@ -118,26 +119,16 @@ extern "C" fn main() -> usize {
     
     println!("[info] menvcfg: {:#X}", menvcfg);
     println!("[info] henvcfg: {:#X}", henvcfg);
+ 
 
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);
-    println!("[info] vm virtual address: {:#X}", vs_main as u64);
+    println!("[info] vm virtual address: {:#X}", vm_address);
     println!("[info] vm physical address: {:#X}", physical_vm_address);
-
-    println!("[info] loading u-boot...");
-    load_bootloader();
 
     println!("switch to guest");
     hs_to_vs(vm_address as usize, stack_address);
     // don't return to here
-}
-
-fn vs_main() {
-    println!("Hello, World from Virtual Supervisor Mode!");
-
-    loop {
-        // unsafe { asm!("wfi") };
-    }
 }
 
 fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) -> ! {
