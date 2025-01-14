@@ -1,12 +1,10 @@
 #![allow(dead_code)]
 
 use core::mem::size_of;
-use core::mem::MaybeUninit;
 use core::ptr::slice_from_raw_parts_mut;
-use crate::allocate_memory;
+use core::usize;
 use crate::virtio::*;
 use crate::println;
-use crate::PAGE_SHIFT;
 
 pub const SECTOR_SIZE: usize = 512;
 
@@ -64,11 +62,7 @@ pub fn read_write_disk(
     sector: u64,
     is_write: bool
 ) {
-    // setting request
-    // let virtio_blk_req = unsafe {
-    //     &mut *(allocate_memory(1, 1 << PAGE_SHIFT).unwrap() as *mut VirtioBlkReq)
-    // };
-
+    // make a request
     virtio_blk_req.sector = sector;
     virtio_blk_req.status = 0xff;
     if is_write {
@@ -79,7 +73,6 @@ pub fn read_write_disk(
     }
 
     // setting Virtqueue
-
     let desc = &mut queue.vring.desc;
     desc[0].addr = virtio_blk_req as *const VirtioBlkReq as u64;
     desc[0].len = size_of::<u32>() as u32 * 2 + size_of::<u64>() as u32;
@@ -100,7 +93,10 @@ pub fn read_write_disk(
     desc[2].flags = VRingDesc::VIRTQ_DESC_F_WRITE as u16;
     desc[2].next = 0;
 
-    notify_to_device(queue);
+    connect_to_avail_ring(queue, 0);
+    queue.last_used_index += 1;
+
+    notify_to_device(VIRTIO_DEFAULT_INDEX);
 
     while queue.last_used_index != unsafe { core::ptr::read_volatile(&queue.vring.used.idx) } {
         
@@ -121,8 +117,4 @@ pub fn read_write_disk(
         };
         bytes.copy_from_slice(&virtio_blk_req.data[..SECTOR_SIZE]);
     }
-    
-    // reset the queue
-    queue.vring.used.idx = 0;
-    queue.vring.avail.idx = 0;
 }

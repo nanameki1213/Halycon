@@ -124,6 +124,7 @@ extern "C" fn main() -> usize {
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
     println!("[info] vm physical address: {:#X}", physical_vm_address);
 
+    println!("[info] loading u-boot...");
     load_bootloader();
 
     println!("switch to guest");

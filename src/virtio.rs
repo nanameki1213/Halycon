@@ -9,7 +9,7 @@ pub const VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
 pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
 
 pub const VIRTIO_VERSION: usize = 0x2;
-pub const VIRTQ_ENTRY_NUM: usize = 64;
+pub const VIRTQ_ENTRY_NUM: u16 = 64;
 
 pub const VIRTIO_MMIO_MAGIC: usize = 0x00;
 pub const VIRTIO_MMIO_VERSION: usize = 0x04;
@@ -62,25 +62,26 @@ impl VRingDesc {
 pub struct VringAvail {
     pub flags: u16,
     pub idx: u16,
-    pub ring: [u16; VIRTQ_ENTRY_NUM],
+    pub ring: [u16; VIRTQ_ENTRY_NUM as usize],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct VRingUsedElem {
-    id: u32,
-    len: u32,
+    pub id: u32,
+    pub len: u32,
 }
 
 #[repr(C)]
 pub struct VRingUsed {
     pub flags: u16,
     pub idx: u16,
-    pub ring: [VRingUsedElem; VIRTQ_ENTRY_NUM],
+    pub ring: [VRingUsedElem; VIRTQ_ENTRY_NUM as usize],
 }
 
 #[repr(C)]
 pub struct VRing {
-    pub desc: [VRingDesc; VIRTQ_ENTRY_NUM],
+    pub desc: [VRingDesc; VIRTQ_ENTRY_NUM as usize],
     pub avail: VringAvail,
     pub used: VRingUsed,
 }
@@ -128,7 +129,6 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
         println!("queue is invalid");
         return Err(());
     }
-    println!("[info] max virt queue: {max_size}");
     // 4. Allocate and zero the queue memory
     let vq = unsafe {
         &mut *(allocate_memory(1, PAGE_SIZE).unwrap() as *mut VirtQueue)
@@ -152,12 +152,14 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     Ok(vq)
 }
 
-pub fn notify_to_device(queue: &mut VirtQueue) {
-    queue.vring.avail.ring[queue.vring.avail.idx as usize] = 0;
-    queue.vring.avail.idx += 1;
-    // notify to device
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_NOTIFY, VIRTIO_DEFAULT_INDEX);
-    queue.last_used_index += 1;
+pub fn connect_to_avail_ring(queue: &mut VirtQueue, desc_idx: u16) {
+    let idx = queue.vring.avail.idx as usize;
+    queue.vring.avail.ring[idx % VIRTQ_ENTRY_NUM as usize] = desc_idx;
+    queue.vring.avail.idx = idx as u16 + 1;
+}
+
+pub fn notify_to_device(index: u32) {
+    set_virtio_mmio(VIRTIO_MMIO_QUEUE_NOTIFY, index);
 }
 
 pub fn is_queue_available(index: u32) -> bool {
