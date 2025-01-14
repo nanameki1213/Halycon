@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use core::mem::size_of;
+use core::mem::MaybeUninit;
 use core::ptr::slice_from_raw_parts_mut;
 use crate::allocate_memory;
 use crate::virtio::*;
@@ -56,11 +57,17 @@ pub fn init_virtio_blk() {
     set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
 }
 
-pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u64, is_write: bool) {
+pub fn read_write_disk(
+    queue: &mut VirtQueue,
+    buf_address: *mut usize,
+    virtio_blk_req: &mut VirtioBlkReq,
+    sector: u64,
+    is_write: bool
+) {
     // setting request
-    let virtio_blk_req = unsafe {
-        &mut *(allocate_memory(1, 1 << PAGE_SHIFT).unwrap() as *mut VirtioBlkReq)
-    };
+    // let virtio_blk_req = unsafe {
+    //     &mut *(allocate_memory(1, 1 << PAGE_SHIFT).unwrap() as *mut VirtioBlkReq)
+    // };
 
     virtio_blk_req.sector = sector;
     virtio_blk_req.status = 0xff;
@@ -113,5 +120,9 @@ pub fn read_write_disk(queue: &mut VirtQueue, buf_address: *mut usize, sector: u
             &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE)
         };
         bytes.copy_from_slice(&virtio_blk_req.data[..SECTOR_SIZE]);
-    }   
+    }
+    
+    // reset the queue
+    queue.vring.used.idx = 0;
+    queue.vring.avail.idx = 0;
 }

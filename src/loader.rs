@@ -16,9 +16,10 @@ fn load_virtio_blk() {
     let vq = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
 
     unsafe {
+        let virtio_blk_req = &mut *(allocate_memory(1, 1 << PAGE_SHIFT).unwrap() as *mut VirtioBlkReq);
         let mut load_address = allocate_memory(capacity as usize * 8, 1 << PAGE_SHIFT).unwrap();
         for i in 0..capacity {
-            read_write_disk(&mut *vq, load_address as *mut usize, i, false);
+            read_write_disk(&mut *vq, load_address as *mut usize, virtio_blk_req, i, false);
             load_address += SECTOR_SIZE;
         }
     }

@@ -60,9 +60,9 @@ impl VRingDesc {
 
 #[repr(C)]
 pub struct VringAvail {
-    flags: u16,
-    idx: u16,
-    ring: [u16; VIRTQ_ENTRY_NUM],
+    pub flags: u16,
+    pub idx: u16,
+    pub ring: [u16; VIRTQ_ENTRY_NUM],
 }
 
 #[repr(C)]
