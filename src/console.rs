@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 use crate::mmio::ns16550::putc;
 use core::fmt;
 

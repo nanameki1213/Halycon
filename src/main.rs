@@ -21,8 +21,6 @@ use loader::load_bootloader;
 use memory::*;
 use paging::*;
 use vector::setup_vector;
-use virtio::{init_virtio_mmio, VIRTIO_DEFAULT_INDEX};
-use virtio_blk::{init_virtio_blk, read_write_disk, SECTOR_SIZE};
 
 #[macro_export]
 macro_rules! bitmask {
@@ -80,15 +78,6 @@ extern "C" fn main() -> usize {
 
     set_pmp_all_physical_address(true, true, true);
     println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());
-
-    // let pmpcfg0 = get_pmpcfg0();
-    // println!("[info] pmpcfg0: {:#X}", pmpcfg0);
-
-    // let pmpcfg2 = get_pmpcfg2();
-    // println!("[info] pmpcfg2: {:#X}", pmpcfg2);
-
-    // let pmpaddr0 = get_pmpaddr0();
-    // println!("[info] pmpaddr0: {:#X}", pmpaddr0);
 
     unsafe { init_allocation() };
     println!("[setup] allocater");
