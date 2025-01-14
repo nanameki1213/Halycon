@@ -29,6 +29,9 @@ pub const HSTATUS_VSBE_OFFSET: usize = 5;
 
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
+// CSRs address
+pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
+
 #[inline(always)]
 pub fn get_xlen_from_misa() -> usize {
     let mxl = (get_misa() & MISA_MXL_MASK as u64) >> MISA_MXL_OFFSET as u64;

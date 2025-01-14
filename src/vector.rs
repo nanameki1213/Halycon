@@ -1,5 +1,9 @@
 use crate::{cpu::*, println};
 use core::{arch::global_asm, usize};
+use crate::instruction::*;
+use crate::cpu::*;
+
+pub const E_ILLEGAL_INSTRUCTION: usize = 0x2;
 
 #[no_mangle]
 #[link_section = ".data"]
@@ -185,7 +189,7 @@ pub fn setup_vector() {
 }
 
 #[no_mangle]
-pub fn exception_handler(mode: u8, sp: usize) -> !{
+pub fn exception_handler(mode: u8, sp: usize) {
     if mode == M_EXCEPTION {
         println!("Exception from M-Mode has occured!");
         let mcause = get_mcause();
@@ -195,23 +199,49 @@ pub fn exception_handler(mode: u8, sp: usize) -> !{
         if mcause == 20 {
             println!("[info] mtinst: {:#X}", get_mtinst());
         }
-    } else if mode == S_EXCEPTION {
-        println!("Exception from S-Mode has occured!");
-        let scause = get_scause();
-        println!("[info] scause: {:#X}", scause);
-        println!("[info] stval: {:#X}", get_stval());
 
-        if scause == 20 {
-            println!("[info] htval :{:#X}", get_htval());
-            println!("[info] htinst: {:#X}", get_htinst());
-        }
+        panic!();
     } else if mode == VS_EXCEPTION {
         println!("Exception from VS-Mode has occured!");
         println!("[info] vscause: {:#X}", get_vscause());
         println!("[info] vstval: {:#X}", get_vstval());
+
+        panic!();
     }
     
-    println!("[info] sp: {:#X}", sp);
+    let scause = get_scause();
 
-    panic!();
+    if scause == E_ILLEGAL_INSTRUCTION as u64 {
+        let stval = get_stval();
+        instruction_abort(stval as u32);
+    }
+}
+
+// 0xf1402573
+fn instruction_abort(instruction: u32) {
+    let opcode = instruction | OPCODE_MASK;
+    
+    let ret = match opcode {
+        OPCODE_CSR => {
+            let funct3 = (instruction | FUNCT3_MASK) >> FUNCT3_OFFSET;
+            let csr_address = (instruction | CSR_MASK) >> CSR_OFFSET;  
+            match funct3 {
+                // read access
+                FUNCT3_CSRRS => get_virtual_csr(csr_address as usize),
+                // write access
+                FUNCT3_CSRRW => 0,
+                _ => unreachable!(),
+            }
+        },
+        _ => unreachable!()
+    };
+
+    
+}
+
+fn get_virtual_csr(csr_address: usize) -> usize {
+    match csr_address {
+        CSR_MHARTID_ADDRESS => 0,
+        _ => unreachable!()
+    }
 }
