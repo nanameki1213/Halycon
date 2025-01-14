@@ -1,9 +1,0 @@
-virtio_mmio_read
-virtio_mmio_write_offset
-virtio_queue_notify
-virtio_mmio_queue_write
-virtqueue_pop
-virtio_blk_rw_complete
-virtqueue_fill
-virtqueue_flush
-mmio_notify
