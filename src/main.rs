@@ -10,12 +10,14 @@ mod paging;
 mod vector;
 mod virtio;
 mod virtio_blk;
+mod loader;
 mod mmio {
     pub mod ns16550;
 }
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
+use loader::load_bootloader;
 use memory::*;
 use paging::*;
 use vector::setup_vector;
@@ -122,14 +124,7 @@ extern "C" fn main() -> usize {
     println!("[info] vm virtual address: {:#X}", vs_main as u64);
     println!("[info] vm physical address: {:#X}", physical_vm_address);
 
-    init_virtio_blk();
-    let vq = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
-    let buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
-    unsafe {
-        read_write_disk(&mut *vq, buf.as_ptr() as *mut usize, 0, false)
-    };
-
-    println!("{:?}", buf);
+    load_bootloader();
 
     println!("switch to guest");
     hs_to_vs(vm_address as usize, stack_address);
