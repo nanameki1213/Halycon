@@ -3,7 +3,7 @@ use crate::virtio::*;
 use crate::virtio_blk::*;
 use crate::PAGE_SHIFT;
 
-// return entry_point
+// return base_address
 pub fn load_bootloader() -> usize {
     load_virtio_blk()
 }
@@ -18,13 +18,13 @@ fn load_virtio_blk() -> usize {
 
     unsafe {
         let virtio_blk_req = &mut *(allocate_memory(1, 1 << PAGE_SHIFT).unwrap() as *mut VirtioBlkReq);
-        let entry_point = allocate_memory(capacity as usize * 8, 1 << PAGE_SHIFT).unwrap();
-        let mut load_address = entry_point;
+        let base_address = allocate_memory(capacity as usize * 8, 1 << PAGE_SHIFT).unwrap();
+        let mut load_address = base_address;
         for i in 0..capacity {
             read_write_disk(&mut *vq, load_address as *mut usize, virtio_blk_req, i, false);
             load_address += SECTOR_SIZE;
         }
 
-        entry_point
+        base_address
     }
 }
