@@ -213,35 +213,98 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
     if scause == E_ILLEGAL_INSTRUCTION as u64 {
         let stval = get_stval();
-        instruction_abort(stval as u32);
+        instruction_abort(stval as u32, sp);
     }
+
+    // エミュレーションし終わったので次の命令に進める
+    let mut sepc = get_sepc();
+    sepc += 4;
+    set_sepc(sepc);
 }
 
 // 0xf1402573
-fn instruction_abort(instruction: u32) {
-    let opcode = instruction | OPCODE_MASK;
-    
-    let ret = match opcode {
-        OPCODE_CSR => {
-            let funct3 = (instruction | FUNCT3_MASK) >> FUNCT3_OFFSET;
-            let csr_address = (instruction | CSR_MASK) >> CSR_OFFSET;  
-            match funct3 {
-                // read access
-                FUNCT3_CSRRS => get_virtual_csr(csr_address as usize),
-                // write access
-                FUNCT3_CSRRW => 0,
-                _ => unreachable!(),
-            }
-        },
-        _ => unreachable!()
-    };
+fn instruction_abort(instruction: u32, sp: usize) {
+    let opcode = instruction & OPCODE_MASK;
 
-    
+    match opcode {
+        OPCODE_CSR => access_virtual_csr(instruction, sp),
+        _ => unreachable!(),
+    };
 }
 
-fn get_virtual_csr(csr_address: usize) -> usize {
+fn access_virtual_csr(instruction: u32, sp: usize) {
+    let funct3 = (instruction & FUNCT3_MASK) >> FUNCT3_OFFSET;
+    let csr_address = ((instruction & CSR_MASK) >> CSR_OFFSET) as usize;
+    let rd_idx = ((instruction & RD_MASK) >> RD_OFFSET) as usize;
+    let rs1_idx = ((instruction & RS1_MASK) >> RS1_OFFSET) as usize;
+
+    let regs = unsafe {
+        &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u8, 16)
+    };
+
+    // read access
+    if funct3 == FUNCT3_CSRRS {
+        let ret = get_virtual_csr(csr_address);
+
+        if rd_idx != REGISTER_ZERO { // format: csrrs rd,offset,zero
+            match rd_idx {
+                // a0 ~ a7
+                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9] = ret as u8, // TODO:
+                                                                                    // ここらへんのマジック値をどうにかする
+                // t0 ~ t6
+                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4] = ret as u8,
+                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16] = ret as u8,
+                _ => unreachable!(),
+            }
+        }
+        if rs1_idx != REGISTER_ZERO { // format: csrrs zero,offset,rs1
+            let rs1 = match rs1_idx {
+                // a0 ~ a7
+                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9], // TODO:
+                                                                                    // ここらへんのマジック値をどうにかする
+                // t0 ~ t6
+                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4],
+                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16],
+                _ => unreachable!(),
+            };
+            set_virtual_csr(csr_address, ret | rs1 as u64);
+        }
+    } else if funct3 == FUNCT3_CSRRW {
+        if rs1_idx != REGISTER_ZERO {
+            let rs1 = match rs1_idx {
+                // a0 ~ a7
+                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9], // TODO:
+                                                                                    // ここらへんのマジック値をどうにかする
+                // t0 ~ t6
+                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4],
+                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16],
+                _ => unreachable!(),
+            };
+            set_virtual_csr(csr_address, rs1 as u64);
+        }
+        if rd_idx != REGISTER_ZERO {
+            let ret = get_virtual_csr(csr_address);
+            match rd_idx {
+                // a0 ~ a7
+                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9] = ret as u8, // TODO:
+                                                                                    // ここらへんのマジック値をどうにかする
+                // t0 ~ t6
+                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4] = ret as u8,
+                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16] = ret as u8,
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+fn get_virtual_csr(csr_address: usize) -> u64 {
     match csr_address {
         CSR_MHARTID_ADDRESS => 0,
+        CSR_MIE_ADDRESS => 0,
         _ => unreachable!()
     }
+}
+
+fn set_virtual_csr(csr_address: usize, value: u64) {
+
 }

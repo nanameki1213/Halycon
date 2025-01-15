@@ -31,6 +31,16 @@ pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
 // CSRs address
 pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
+pub const CSR_MIE_ADDRESS: usize = 0x304;
+
+// Registers
+pub const REGISTER_ZERO: usize = 0;
+pub const REGISTER_A0: usize = 10;
+pub const REGISTER_A7: usize = 17;
+pub const REGISTER_T0: usize = 5;
+pub const REGISTER_T2: usize = 7;
+pub const REGISTER_T3: usize = 28;
+pub const REGISTER_T6: usize = 31;
 
 #[inline(always)]
 pub fn get_xlen_from_misa() -> usize {
@@ -214,6 +224,30 @@ pub fn set_vstvec(vstvec: u64) {
 }
 
 // epc
+
+#[inline(always)]
+pub fn get_mepc() -> u64 {
+    let mepc: u64;
+    unsafe { asm!("csrr {}, mepc", out(reg) mepc ) };
+    mepc
+}
+
+#[inline(always)]
+pub fn set_mepc(mepc: u64) {
+    unsafe { asm!("csrw mepc, {}", in(reg) mepc ) };
+}
+
+#[inline(always)]
+pub fn get_sepc() -> u64 {
+    let sepc: u64;
+    unsafe { asm!("csrr {}, sepc", out(reg) sepc ) };
+    sepc
+}
+
+#[inline(always)]
+pub fn set_sepc(sepc: u64) {
+    unsafe { asm!("csrw sepc, {}", in(reg) sepc ) };
+}
 
 // tval
 

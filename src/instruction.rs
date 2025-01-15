@@ -12,3 +12,5 @@ pub const FUNCT3_CSRRW: u32 = 0b001;
 
 pub const RD_OFFSET: u32 = 7;
 pub const RD_MASK: u32 = ((1 << 5) - 1) << RD_OFFSET;
+pub const RS1_OFFSET: u32 = 15;
+pub const RS1_MASK: u32 = ((1 << 5) - 1) << RS1_OFFSET;

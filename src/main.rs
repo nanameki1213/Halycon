@@ -62,6 +62,7 @@ extern "C" fn main() -> usize {
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
+    medeleg |= (1 << 2) as u64;
     set_medeleg(medeleg);
     println!("[setup] medeleg: {:#X}", medeleg);
 
