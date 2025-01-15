@@ -213,15 +213,18 @@ pub fn exception_handler(mode: u8, sp: usize) {
     if scause == E_ILLEGAL_INSTRUCTION as u64 {
         let stval = get_stval();
         instruction_abort(stval as u32, sp);
-    }
 
-    // エミュレーションし終わったので次の命令に進める
-    let mut sepc = get_sepc();
-    sepc += 4;
-    set_sepc(sepc);
+        // エミュレーションし終わったので次の命令に進める
+        let mut sepc = get_sepc();
+        sepc += 4;
+        set_sepc(sepc);
+    } else {
+        println!("Exception from S-Mode has occured!");
+        println!("[info] scause: {:#X}", scause);
+        println!("[info] stval: {:#X}", get_stval());
+    }
 }
 
-// 0xf1402573
 fn instruction_abort(instruction: u32, sp: usize) {
     let opcode = instruction & OPCODE_MASK;
 
