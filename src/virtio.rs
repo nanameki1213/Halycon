@@ -5,7 +5,7 @@ use core::usize;
 use crate::{allocate_memory, println};
 use crate::paging::PAGE_SIZE;
 
-pub const VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
+pub static mut VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
 pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
 
 pub const VIRTIO_VERSION: usize = 0x2;
@@ -96,16 +96,16 @@ pub struct VirtQueue {
 
 #[inline(always)]
 pub fn get_virtio_mmio(offset: usize) -> u32 {
-    let addr = (VIRTIO_MMIO_ADDRESS + offset) as *mut u32;
     unsafe {
+        let addr = (VIRTIO_MMIO_ADDRESS + offset) as *mut u32;
         core::ptr::read_volatile(addr)
     }
 }
 
 #[inline(always)]
 pub fn set_virtio_mmio(offset: usize, value: u32) {
-    let addr = (VIRTIO_MMIO_ADDRESS + offset) as *mut u32;
     unsafe {
+        let addr = (VIRTIO_MMIO_ADDRESS + offset) as *mut u32;
         core::ptr::write_volatile(addr, value);
     }
 }

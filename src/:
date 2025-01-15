@@ -14,15 +14,13 @@ pub struct VM {
     ram_virtual_base_address: usize,
     ram_physical_base_address: usize,
     ram_size: usize,
-    dtb_pointer: usize,
 }
 
 impl VM {
     fn new(
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
-        ram_size: usize,
-        dtb_pointer: usize
+        ram_size: usize
     ) -> *mut Self {
         let vm = unsafe {
             &mut *(allocate_memory(1, paging::PAGE_SIZE).unwrap() as *mut VM)
@@ -31,7 +29,6 @@ impl VM {
         vm.ram_virtual_base_address = ram_virtual_base_address;
         vm.ram_physical_base_address = ram_physical_base_address;
         vm.ram_size = ram_size;
-        vm.dtb_pointer = dtb_pointer;
         unsafe {
             vm.vmid = VMID;
             VMID += 1;
@@ -43,10 +40,6 @@ impl VM {
     pub fn get_entry_point(&mut self) -> usize {
         self.ram_virtual_base_address
     }
-
-    pub fn get_dtb_pointer(&mut self) -> usize {
-        self.dtb_pointer
-    }
 }
 
 pub fn create_vm() -> *mut VM {
@@ -57,6 +50,7 @@ pub fn create_vm() -> *mut VM {
         allocate_memory(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE).unwrap()
     };
 
+    let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE);
 
     let table_address = paging::map_address_stage2(ram_physical_base_address, RAM_VIRTUAL_BASE, RAM_SIZE, paging::DEFAULT_TABLE_LEVEL, true, true, true).expect("Failed to mapping");
     println!("[info] table address: {:#X}", table_address);
@@ -79,10 +73,8 @@ pub fn create_vm() -> *mut VM {
 
     println!("[info] loading u-boot...");
     let size = loader::load_bootloader(ram_physical_base_address);
-    let dtb_pointer = ram_physical_base_address + size;
-    loader::load_dtb(dtb_pointer);
-
-    let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE, dtb_pointer);
+    let dtb_address = ram_physical_base_address + s
+    loader::load_dtb(ram_physical_base_address + );
 
     vm
 }

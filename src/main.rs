@@ -89,23 +89,25 @@ extern "C" fn main() -> usize {
 
     println!("switch to guest");
     unsafe {
-        hs_to_vs((*vm).get_entry_point() as usize, stack_address)
+        hs_to_vs((*vm).get_entry_point() as usize, stack_address, (*vm).get_dtb_pointer())
     };
     // don't return to here
 }
 
-fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize) -> ! {
+fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) -> ! {
     unsafe {
         asm!("
             csrs sstatus, {tmp1}
             csrs hstatus, {tmp2}
             csrw sepc, {entry_point}
             mv sp, {stack_pointer}
+            mv a0, {dtb_pointer}
             sret", 
         tmp1 = in(reg) 0x100 as u64, // set sstatus.SPP
         tmp2 = in(reg) 0x80 as u64, // set hstatus.SPV
         stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
+        dtb_pointer = in(reg) dtb_pointer,
         options(noreturn)
         )
     };
