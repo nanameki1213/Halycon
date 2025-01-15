@@ -1,6 +1,5 @@
-use crate::{cpu::*, println};
+use crate::{cpu::*, paging, println};
 use core::{arch::global_asm, usize};
-use crate::instruction::*;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 0x2;
 
@@ -188,7 +187,7 @@ pub fn setup_vector() {
 }
 
 #[no_mangle]
-pub fn exception_handler(mode: u8, sp: usize) {
+pub fn exception_handler(mode: u8, _sp: usize) {
     if mode == M_EXCEPTION {
         println!("Exception from M-Mode has occured!");
         let mcause = get_mcause();
@@ -211,103 +210,14 @@ pub fn exception_handler(mode: u8, sp: usize) {
     let scause = get_scause();
 
     if scause == E_ILLEGAL_INSTRUCTION as u64 {
-        let stval = get_stval();
-        instruction_abort(stval as u32, sp);
-
-        // エミュレーションし終わったので次の命令に進める
-        let mut sepc = get_sepc();
-        sepc += 4;
-        set_sepc(sepc);
-    } else {
+        let sepc = get_sepc();
+        let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
         println!("Exception from S-Mode has occured!");
+        println!("[info] virtual address: {:#X}", sepc);
+        println!("[info] physical address: {:#X}", physical_address);
         println!("[info] scause: {:#X}", scause);
         println!("[info] stval: {:#X}", get_stval());
+
+        panic!();
     }
-}
-
-fn instruction_abort(instruction: u32, sp: usize) {
-    let opcode = instruction & OPCODE_MASK;
-
-    match opcode {
-        OPCODE_CSR => access_virtual_csr(instruction, sp),
-        _ => unreachable!(),
-    };
-}
-
-fn access_virtual_csr(instruction: u32, sp: usize) {
-    let funct3 = (instruction & FUNCT3_MASK) >> FUNCT3_OFFSET;
-    let csr_address = ((instruction & CSR_MASK) >> CSR_OFFSET) as usize;
-    let rd_idx = ((instruction & RD_MASK) >> RD_OFFSET) as usize;
-    let rs1_idx = ((instruction & RS1_MASK) >> RS1_OFFSET) as usize;
-
-    let regs = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u8, 16)
-    };
-
-    // read access
-    if funct3 == FUNCT3_CSRRS {
-        let ret = get_virtual_csr(csr_address);
-
-        if rd_idx != REGISTER_ZERO { // format: csrrs rd,offset,zero
-            match rd_idx {
-                // a0 ~ a7
-                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9] = ret as u8, // TODO:
-                                                                                    // ここらへんのマジック値をどうにかする
-                // t0 ~ t6
-                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4] = ret as u8,
-                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16] = ret as u8,
-                _ => unreachable!(),
-            }
-        }
-        if rs1_idx != REGISTER_ZERO { // format: csrrs zero,offset,rs1
-            let rs1 = match rs1_idx {
-                // a0 ~ a7
-                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9], // TODO:
-                                                                                    // ここらへんのマジック値をどうにかする
-                // t0 ~ t6
-                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4],
-                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16],
-                _ => unreachable!(),
-            };
-            set_virtual_csr(csr_address, ret | rs1 as u64);
-        }
-    } else if funct3 == FUNCT3_CSRRW {
-        if rs1_idx != REGISTER_ZERO {
-            let rs1 = match rs1_idx {
-                // a0 ~ a7
-                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9], // TODO:
-                                                                                    // ここらへんのマジック値をどうにかする
-                // t0 ~ t6
-                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4],
-                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16],
-                _ => unreachable!(),
-            };
-            set_virtual_csr(csr_address, rs1 as u64);
-        }
-        if rd_idx != REGISTER_ZERO {
-            let ret = get_virtual_csr(csr_address);
-            match rd_idx {
-                // a0 ~ a7
-                REGISTER_A0..=REGISTER_A7 => regs[rd_idx - 9] = ret as u8, // TODO:
-                                                                                    // ここらへんのマジック値をどうにかする
-                // t0 ~ t6
-                REGISTER_T0..=REGISTER_T2 => regs[rd_idx + 4] = ret as u8,
-                REGISTER_T3..=REGISTER_T6 => regs[rd_idx - 16] = ret as u8,
-                _ => unreachable!(),
-            }
-        }
-    }
-}
-
-fn get_virtual_csr(csr_address: usize) -> u64 {
-    match csr_address {
-        CSR_MHARTID_ADDRESS => 0,
-        CSR_MIE_ADDRESS => 0,
-        _ => unreachable!()
-    }
-}
-
-#[allow(unused_variables)]
-fn set_virtual_csr(csr_address: usize, value: u64) {
-
 }

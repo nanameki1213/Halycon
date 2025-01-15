@@ -11,7 +11,6 @@ mod vector;
 mod virtio;
 mod virtio_blk;
 mod loader;
-mod instruction;
 mod vm;
 mod mmio {
     pub mod ns16550;
