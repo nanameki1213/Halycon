@@ -93,6 +93,7 @@ fn _resolve_address_stage2(
     )
 }
 
+#[allow(dead_code)]
 pub fn resolve_address_stage2(
     virtual_address: usize
 ) -> Result<usize, ()> {

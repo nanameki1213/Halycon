@@ -1,7 +1,6 @@
 use crate::{cpu::*, println};
 use core::{arch::global_asm, usize};
 use crate::instruction::*;
-use crate::cpu::*;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 0x2;
 
@@ -305,6 +304,7 @@ fn get_virtual_csr(csr_address: usize) -> u64 {
     }
 }
 
+#[allow(unused_variables)]
 fn set_virtual_csr(csr_address: usize, value: u64) {
 
 }

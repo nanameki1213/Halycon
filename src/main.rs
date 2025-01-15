@@ -12,15 +12,14 @@ mod virtio;
 mod virtio_blk;
 mod loader;
 mod instruction;
+mod vm;
 mod mmio {
     pub mod ns16550;
 }
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
-use loader::load_bootloader;
 use memory::*;
-use paging::*;
 use vector::setup_vector;
 
 #[macro_export]
@@ -84,41 +83,15 @@ extern "C" fn main() -> usize {
     unsafe { init_allocation() };
     println!("[setup] allocater");
 
-    let table_address = map_address_stage2(0x10000000, 0x10000000, 0xF0000000, DEFAULT_TABLE_LEVEL, true, true, true).expect("Failed to mapping");
-    let mut hgatp = match DEFAULT_TABLE_LEVEL {
-        3 => 0b1000 << 60,
-        4 => 0b1001 << 60,
-        5 => 0b1010 << 60,
-        _ => unreachable!(),
-    };
-    hgatp |= (table_address >> 12) & SATP_PPN_MASK;
-    set_hgatp(hgatp as u64);
-    unsafe {
-        core::arch::riscv64::hfence_gvma_all();
-        core::arch::riscv64::hfence_vvma_all();
-        core::arch::riscv64::sfence_vma_all();
-    }
-
-    println!("[info] loading u-boot...");
-    let vm_address = load_bootloader();  
-
-    let physical_vm_address = resolve_address_stage2(vm_address as usize).expect("Failed to resolve address");
-    println!("[setup] stage2 paging");
-
-    let menvcfg = get_menvcfg();
-    let henvcfg = get_henvcfg();
+    let vm = vm::create_vm();
     
-    println!("[info] menvcfg: {:#X}", menvcfg);
-    println!("[info] henvcfg: {:#X}", henvcfg);
- 
-
     let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
     println!("[info] stack_address: {:#X}", stack_address);
-    println!("[info] vm virtual address: {:#X}", vm_address);
-    println!("[info] vm physical address: {:#X}", physical_vm_address);
 
     println!("switch to guest");
-    hs_to_vs(vm_address as usize, stack_address);
+    unsafe {
+        hs_to_vs((*vm).get_entry_point() as usize, stack_address)
+    };
     // don't return to here
 }
 
