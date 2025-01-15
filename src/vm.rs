@@ -38,7 +38,7 @@ impl VM {
     }
 
     pub fn get_entry_point(&mut self) -> usize {
-        self.ram_physical_base_address
+        self.ram_virtual_base_address
     }
 }
 
@@ -62,6 +62,11 @@ pub fn create_vm() -> *mut VM {
     };
     hgatp |= (table_address >> 12) & SATP_PPN_MASK;
     set_hgatp(hgatp as u64);
+    unsafe {
+        riscv64::hfence_gvma_all();
+        riscv64::hfence_vvma_all();
+        riscv64::sfence_vma_all();
+    }
     
     println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
     println!("[info] vm physical address: {:#X}", ram_physical_base_address);

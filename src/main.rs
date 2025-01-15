@@ -83,10 +83,10 @@ extern "C" fn main() -> usize {
     unsafe { init_allocation() };
     println!("[setup] allocater");
 
-    let vm = vm::create_vm();
-    
-    let stack_address = unsafe { allocate_memory(2, 0x1000).unwrap() + (2 << paging::PAGE_SHIFT) };
+    let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     println!("[info] stack_address: {:#X}", stack_address);
+
+    let vm = vm::create_vm();
 
     println!("switch to guest");
     unsafe {
