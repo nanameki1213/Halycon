@@ -80,7 +80,7 @@ machine_exception_handler:
     lw t6, 15*8(sp)
     lw s0, 16*8(sp)
     addi sp, sp, 8*17
-    sret
+    mret
 
 .text
 .extern S_EXCEPTION
