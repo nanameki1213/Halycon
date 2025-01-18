@@ -6,6 +6,7 @@ use crate::println;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
+pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
 #[no_mangle]
 #[link_section = ".data"]
@@ -230,10 +231,18 @@ pub fn exception_handler(mode: u8, _sp: usize) {
         println!("[info] virtual address: {:#X}", stval);
         println!("[info] physical address: {:#X}", physical_address);
         println!("[info] scause: {:#X}", scause);
+    } else if scause == E_ENVIRONMENT_CALL_FROM_VS_MODE as u64 {
+        panic!();
     } else {
+        let sepc = get_sepc();
+        let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
         println!("Exception from S-mode has occured!");
+        println!("[info] virtual address: {:#X}", sepc);
+        println!("[info] physical address: {:#X}", physical_address);
         println!("[info] scause: {:#X}", scause);
 
         panic!();
     }
 }
+
+fn virtual_

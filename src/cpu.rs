@@ -42,6 +42,26 @@ pub const REGISTER_T2: usize = 7;
 pub const REGISTER_T3: usize = 28;
 pub const REGISTER_T6: usize = 31;
 
+struct Registers {
+    ra: u64,
+    a0: u64,
+    a1: u64,
+    a2: u64,
+    a3: u64,
+    a4: u64,
+    a5: u64,
+    a6: u64,
+    a7: u64,
+    t0: u64,
+    t1: u64,
+    t2: u64,
+    t3: u64,
+    t4: u64,
+    t5: u64,
+    t6: u64,
+    s0: u64,
+}
+
 #[inline(always)]
 pub fn get_xlen_from_misa() -> usize {
     let mxl = (get_misa() & MISA_MXL_MASK as u64) >> MISA_MXL_OFFSET as u64;
