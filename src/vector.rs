@@ -230,5 +230,10 @@ pub fn exception_handler(mode: u8, _sp: usize) {
         println!("[info] virtual address: {:#X}", stval);
         println!("[info] physical address: {:#X}", physical_address);
         println!("[info] scause: {:#X}", scause);
+    } else {
+        println!("Exception from S-mode has occured!");
+        println!("[info] scause: {:#X}", scause);
+
+        panic!();
     }
 }
