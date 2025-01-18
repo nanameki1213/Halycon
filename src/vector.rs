@@ -213,7 +213,18 @@ pub fn exception_handler(mode: u8, _sp: usize) {
     }
     
     let scause = get_scause();
+    
+    // data abort
+    if scause == E_STORE_AMO_GUEST_PAGE_FAULT as u64 {
+        let stval = get_stval();
+        let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
+        println!("Exception from S-mode has occured!");
+        println!("[info] virtual address: {:#X}", stval);
+        println!("[info] physical address: {:#X}", physical_address);
+        println!("[info] scause: {:#X}", scause);
+    }
 
+    // instruction abort
     if scause == E_ILLEGAL_INSTRUCTION as u64 {
         let sepc = get_sepc();
         let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
@@ -224,13 +235,6 @@ pub fn exception_handler(mode: u8, _sp: usize) {
         println!("[info] stval: {:#X}", get_stval());
 
         panic!();
-    } else if scause == E_STORE_AMO_GUEST_PAGE_FAULT as u64 {
-        let stval = get_stval();
-        let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
-        println!("Exception from S-mode has occured!");
-        println!("[info] virtual address: {:#X}", stval);
-        println!("[info] physical address: {:#X}", physical_address);
-        println!("[info] scause: {:#X}", scause);
     } else if scause == E_ENVIRONMENT_CALL_FROM_VS_MODE as u64 {
         panic!();
     } else {
@@ -245,4 +249,6 @@ pub fn exception_handler(mode: u8, _sp: usize) {
     }
 }
 
-fn virtual_
+fn virtal_sbi(eid: u64, fid: u64) {
+    
+}

@@ -42,24 +42,24 @@ pub const REGISTER_T2: usize = 7;
 pub const REGISTER_T3: usize = 28;
 pub const REGISTER_T6: usize = 31;
 
-struct Registers {
-    ra: u64,
-    a0: u64,
-    a1: u64,
-    a2: u64,
-    a3: u64,
-    a4: u64,
-    a5: u64,
-    a6: u64,
-    a7: u64,
-    t0: u64,
-    t1: u64,
-    t2: u64,
-    t3: u64,
-    t4: u64,
-    t5: u64,
-    t6: u64,
-    s0: u64,
+pub struct Registers {
+    pub ra: u64,
+    pub a0: u64,
+    pub a1: u64,
+    pub a2: u64,
+    pub a3: u64,
+    pub a4: u64,
+    pub a5: u64,
+    pub a6: u64,
+    pub a7: u64,
+    pub t0: u64,
+    pub t1: u64,
+    pub t2: u64,
+    pub t3: u64,
+    pub t4: u64,
+    pub t5: u64,
+    pub t6: u64,
+    pub s0: u64,
 }
 
 #[inline(always)]

@@ -16,6 +16,7 @@ pub struct VM {
     ram_size: usize,
     entry_point: usize,
     dtb_pointer: usize,
+    registers: Registers,
 }
 
 impl VM {
