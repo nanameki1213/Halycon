@@ -12,6 +12,7 @@ mod virtio;
 mod virtio_blk;
 mod loader;
 mod vm;
+mod sbi;
 mod mmio {
     pub mod ns16550;
 }

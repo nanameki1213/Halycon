@@ -3,6 +3,7 @@ use core::{arch::global_asm, usize};
 use crate::paging;
 use crate::cpu::*;
 use crate::println;
+use crate::sbi;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
@@ -192,7 +193,7 @@ pub fn setup_vector() {
 }
 
 #[no_mangle]
-pub fn exception_handler(mode: u8, _sp: usize) {
+pub fn exception_handler(mode: u8, sp: usize) {
     if mode == M_EXCEPTION {
         println!("Exception from M-Mode has occured!");
         let mcause = get_mcause();
@@ -236,7 +237,24 @@ pub fn exception_handler(mode: u8, _sp: usize) {
 
         panic!();
     } else if scause == E_ENVIRONMENT_CALL_FROM_VS_MODE as u64 {
-        panic!();
+        // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
+        let context = unsafe {
+            &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 17)
+        };
+        let a6 = context[7];
+        let a7 = context[8];
+        let mut sbi_ret = sbi::sbiret {
+            error: 0,
+            value: 0
+        };
+        virtual_sbi(&mut sbi_ret, a7, a6);
+        context[1] = sbi_ret.error; // a0
+        context[2] = sbi_ret.value; // a1;
+
+        // next instruction
+        let mut sepc = get_sepc();
+        sepc += 4;
+        set_sepc(sepc);
     } else {
         let sepc = get_sepc();
         let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
@@ -249,6 +267,13 @@ pub fn exception_handler(mode: u8, _sp: usize) {
     }
 }
 
-fn virtal_sbi(eid: u64, fid: u64) {
-    
+fn virtual_sbi(sbi_ret: &mut sbi::sbiret, eid: u64, fid: u64) {
+    match fid {
+        sbi::SBI_FID_PROBE_SBI_EXT => {
+            if eid == sbi::SBI_EXT_BASE {
+                sbi_ret.value = 1;
+            }
+        }
+        _ => panic!("認識できないfid"),
+    }
 }
