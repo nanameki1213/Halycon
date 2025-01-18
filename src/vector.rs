@@ -1,7 +1,11 @@
-use crate::{cpu::*, paging, println};
 use core::{arch::global_asm, usize};
 
-pub const E_ILLEGAL_INSTRUCTION: usize = 0x2;
+use crate::paging;
+use crate::cpu::*;
+use crate::println;
+
+pub const E_ILLEGAL_INSTRUCTION: usize = 2;
+pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 
 #[no_mangle]
 #[link_section = ".data"]
@@ -219,5 +223,12 @@ pub fn exception_handler(mode: u8, _sp: usize) {
         println!("[info] stval: {:#X}", get_stval());
 
         panic!();
+    } else if scause == E_STORE_AMO_GUEST_PAGE_FAULT as u64 {
+        let stval = get_stval();
+        let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
+        println!("Exception from S-mode has occured!");
+        println!("[info] virtual address: {:#X}", stval);
+        println!("[info] physical address: {:#X}", physical_address);
+        println!("[info] scause: {:#X}", scause);
     }
 }

@@ -14,6 +14,7 @@ pub struct VM {
     ram_virtual_base_address: usize,
     ram_physical_base_address: usize,
     ram_size: usize,
+    entry_point: usize,
     dtb_pointer: usize,
 }
 
@@ -22,6 +23,7 @@ impl VM {
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
         ram_size: usize,
+        entry_point: usize,
         dtb_pointer: usize
     ) -> *mut Self {
         let vm = unsafe {
@@ -31,6 +33,7 @@ impl VM {
         vm.ram_virtual_base_address = ram_virtual_base_address;
         vm.ram_physical_base_address = ram_physical_base_address;
         vm.ram_size = ram_size;
+        vm.entry_point = entry_point;
         vm.dtb_pointer = dtb_pointer;
         unsafe {
             vm.vmid = VMID;
@@ -41,7 +44,7 @@ impl VM {
     }
 
     pub fn get_entry_point(&mut self) -> usize {
-        self.ram_virtual_base_address
+        self.entry_point
     }
 
     pub fn get_dtb_pointer(&mut self) -> usize {
@@ -50,7 +53,7 @@ impl VM {
 }
 
 pub fn create_vm() -> *mut VM {
-    const RAM_VIRTUAL_BASE: usize = 0x80200000;
+    const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x10000000;
 
     let ram_physical_base_address = unsafe {
@@ -77,13 +80,16 @@ pub fn create_vm() -> *mut VM {
     println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
     println!("[info] vm physical address: {:#X}", ram_physical_base_address);
 
+    let virtual_entry_point = 0x80200000;
+    let bootloader_entry_point = paging::resolve_address_stage2(virtual_entry_point).unwrap();
+    println!("[info] vm entry point physical address: {:#X}", bootloader_entry_point);
     println!("[info] loading u-boot...");
-    let size = loader::load_bootloader(ram_physical_base_address);
+    let size = loader::load_bootloader(bootloader_entry_point);
     let dtb_pointer = ram_physical_base_address + size;
     println!("[info] dtb address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer);
 
-    let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE, dtb_pointer);
+    let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE, virtual_entry_point, dtb_pointer);
 
     vm
 }
