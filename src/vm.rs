@@ -73,13 +73,14 @@ pub fn create_vm() -> *mut VM {
         riscv64::hfence_vvma_all();
         riscv64::sfence_vma_all();
     }
-    
+
     println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
     println!("[info] vm physical address: {:#X}", ram_physical_base_address);
 
     println!("[info] loading u-boot...");
     let size = loader::load_bootloader(ram_physical_base_address);
     let dtb_pointer = ram_physical_base_address + size;
+    println!("[info] dtb address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer);
 
     let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE, dtb_pointer);
