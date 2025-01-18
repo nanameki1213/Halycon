@@ -16,6 +16,8 @@ $QEMU \
   -drive file=./bin/virt.dtb,if=none,format=raw,id=drive2 \
   -global virtio-mmio.force-legacy=false \
   --trace events=./trace-events,file=trace.log \
+  -D logfile.log -d in_asm \
+  # -s -S \
   
   # -kernel bin/disk/hypervisor \
   # -serial mon:stdio \

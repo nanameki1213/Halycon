@@ -50,7 +50,7 @@ impl VM {
 }
 
 pub fn create_vm() -> *mut VM {
-    const RAM_VIRTUAL_BASE: usize = 0x80000000;
+    const RAM_VIRTUAL_BASE: usize = 0x80200000;
     const RAM_SIZE: usize = 0x10000000;
 
     let ram_physical_base_address = unsafe {
