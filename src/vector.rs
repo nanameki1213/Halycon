@@ -67,23 +67,23 @@ machine_exception_handler:
     lb a0, M_EXCEPTION
     mv a1, sp
     call exception_handler
-    lw ra, 0*8(sp)
-    lw a0, 1*8(sp)
-    lw a1, 2*8(sp)
-    lw a2, 3*8(sp)
-    lw a3, 4*8(sp)
-    lw a4, 5*8(sp)
-    lw a5, 6*8(sp)
-    lw a6, 7*8(sp)
-    lw a7, 8*8(sp)
-    lw t0, 9*8(sp)
-    lw t1, 10*8(sp)
-    lw t2, 11*8(sp)
-    lw t3, 12*8(sp)
-    lw t4, 13*8(sp)
-    lw t5, 14*8(sp)
-    lw t6, 15*8(sp)
-    lw s0, 16*8(sp)
+    lwu ra, 0*8(sp)
+    lwu a0, 1*8(sp)
+    lwu a1, 2*8(sp)
+    lwu a2, 3*8(sp)
+    lwu a3, 4*8(sp)
+    lwu a4, 5*8(sp)
+    lwu a5, 6*8(sp)
+    lwu a6, 7*8(sp)
+    lwu a7, 8*8(sp)
+    lwu t0, 9*8(sp)
+    lwu t1, 10*8(sp)
+    lwu t2, 11*8(sp)
+    lwu t3, 12*8(sp)
+    lwu t4, 13*8(sp)
+    lwu t5, 14*8(sp)
+    lwu t6, 15*8(sp)
+    lwu s0, 16*8(sp)
     addi sp, sp, 8*17
     mret
 
@@ -113,23 +113,23 @@ supervisor_exception_handler:
     lb a0, S_EXCEPTION
     mv a1, sp
     call exception_handler
-    lw ra, 0*8(sp)
-    lw a0, 1*8(sp)
-    lw a1, 2*8(sp)
-    lw a2, 3*8(sp)
-    lw a3, 4*8(sp)
-    lw a4, 5*8(sp)
-    lw a5, 6*8(sp)
-    lw a6, 7*8(sp)
-    lw a7, 8*8(sp)
-    lw t0, 9*8(sp)
-    lw t1, 10*8(sp)
-    lw t2, 11*8(sp)
-    lw t3, 12*8(sp)
-    lw t4, 13*8(sp)
-    lw t5, 14*8(sp)
-    lw t6, 15*8(sp)
-    lw s0, 16*8(sp)
+    lwu ra, 0*8(sp)
+    lwu a0, 1*8(sp)
+    lwu a1, 2*8(sp)
+    lwu a2, 3*8(sp)
+    lwu a3, 4*8(sp)
+    lwu a4, 5*8(sp)
+    lwu a5, 6*8(sp)
+    lwu a6, 7*8(sp)
+    lwu a7, 8*8(sp)
+    lwu t0, 9*8(sp)
+    lwu t1, 10*8(sp)
+    lwu t2, 11*8(sp)
+    lwu t3, 12*8(sp)
+    lwu t4, 13*8(sp)
+    lwu t5, 14*8(sp)
+    lwu t6, 15*8(sp)
+    lwu s0, 16*8(sp)
     addi sp, sp, 8*17
     sret
 
@@ -159,23 +159,23 @@ virtual_supervisor_exception_handler:
     lb a0, VS_EXCEPTION
     mv a1, sp
     call exception_handler
-    lw ra, 0*8(sp)
-    lw a0, 1*8(sp)
-    lw a1, 2*8(sp)
-    lw a2, 3*8(sp)
-    lw a3, 4*8(sp)
-    lw a4, 5*8(sp)
-    lw a5, 6*8(sp)
-    lw a6, 7*8(sp)
-    lw a7, 8*8(sp)
-    lw t0, 9*8(sp)
-    lw t1, 10*8(sp)
-    lw t2, 11*8(sp)
-    lw t3, 12*8(sp)
-    lw t4, 13*8(sp)
-    lw t5, 14*8(sp)
-    lw t6, 15*8(sp)
-    lw s0, 16*8(sp)
+    lwu ra, 0*8(sp)
+    lwu a0, 1*8(sp)
+    lwu a1, 2*8(sp)
+    lwu a2, 3*8(sp)
+    lwu a3, 4*8(sp)
+    lwu a4, 5*8(sp)
+    lwu a5, 6*8(sp)
+    lwu a6, 7*8(sp)
+    lwu a7, 8*8(sp)
+    lwu t0, 9*8(sp)
+    lwu t1, 10*8(sp)
+    lwu t2, 11*8(sp)
+    lwu t3, 12*8(sp)
+    lwu t4, 13*8(sp)
+    lwu t5, 14*8(sp)
+    lwu t6, 15*8(sp)
+    lwu s0, 16*8(sp)
     addi sp, sp, 8*17
     sret
 "
@@ -243,7 +243,7 @@ pub fn exception_handler(mode: u8, sp: usize) {
         };
         let a6 = context[7];
         let a7 = context[8];
-        let mut sbi_ret = sbi::sbiret {
+        let mut sbi_ret = sbi::Sbiret {
             error: 0,
             value: 0
         };
@@ -267,7 +267,7 @@ pub fn exception_handler(mode: u8, sp: usize) {
     }
 }
 
-fn virtual_sbi(sbi_ret: &mut sbi::sbiret, eid: u64, fid: u64) {
+fn virtual_sbi(sbi_ret: &mut sbi::Sbiret, eid: u64, fid: u64) {
     match fid {
         sbi::SBI_FID_PROBE_SBI_EXT => {
             if eid == sbi::SBI_EXT_BASE {
