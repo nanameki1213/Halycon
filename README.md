@@ -8,6 +8,30 @@ Halycon はRISC-V 64上で動作するハイパーバイザです。
 * QEMU(>= 9.0.2)
 
 ## ビルド方法
+### ゲスト用のu-bootのビルド
+```
+git clone https://source.denx.de/u-boot/u-boot.git
+
+cd u-boot
+make qemu-riscv64_smode_defconfig
+```
+u-boot/.configを開き、
+`CONFIG_DEBUG_SBI_CONSOLE=y`を削除したあと、
+```
+CONFIG_DEBUG_UART=y
+CONFIG_DEBUG_UART_NS16550=y
+CONFIG_DEBUG_UART_BASE=0x10000000
+CONFIG_DEBUG_UART_CLOCK=3686400
+```
+を書き込み、保存。
+最後に
+```
+make
+```
+でビルド完了。
+u-boot/u-boot.binを、Halycon/bin/配下にコピーする
+
+### Halyconのビルド
 ```
 rustup target add riscv64gc-unknown-none-elf
 
