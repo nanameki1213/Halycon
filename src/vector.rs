@@ -1,11 +1,14 @@
 use core::{arch::global_asm, usize};
 
+use crate::mmio::ns16550;
 use crate::paging;
 use crate::cpu::*;
 use crate::println;
 use crate::sbi;
+use crate::instruction;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
+pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
@@ -192,6 +195,7 @@ pub fn setup_vector() {
     unsafe { set_vstvec((&virtual_supervisor_vector_table as *const _ as usize) as u64) }
 }
 
+// TODO: 全体的にリファクタリング
 #[no_mangle]
 pub fn exception_handler(mode: u8, sp: usize) {
     if mode == M_EXCEPTION {
@@ -216,7 +220,51 @@ pub fn exception_handler(mode: u8, sp: usize) {
     let scause = get_scause();
     
     // data abort
-    if scause == E_STORE_AMO_GUEST_PAGE_FAULT as u64 {
+    if scause == E_STORE_AMO_GUEST_PAGE_FAULT as u64 { // write access
+        let stval = get_stval();
+        if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(stval as usize)) {
+            let value = (get_htinst() as u32 & instruction::RS2_MASK) >> instruction::RS2_OFFSET;
+            ns16550::write_ns16550(stval as usize - ns16550::NS16550_ADDR, value as u64);
+            let sepc = get_sepc();
+            let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
+        } else {
+            let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
+            println!("Exception from S-mode has occured!");
+            println!("[info] virtual address: {:#X}", stval);
+            println!("[info] physical address: {:#X}", physical_address);
+            println!("[info] scause: {:#X}", scause);
+            
+            panic!();
+        }
+
+        let mut sepc = get_sepc();
+        sepc += 4;
+        set_sepc(sepc);
+        return;
+    } else if scause == E_LOAD_GUEST_PAGE_FAULT as u64 { // read access
+        let stval = get_stval();
+        if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(stval as usize)) {
+            let registers_idx = (get_htinst() as u32 & instruction::RD_MASK) >> instruction::RD_OFFSET;
+            let context = unsafe {
+                &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 17)
+            };
+            context[registers_idx as usize] = ns16550::read_ns16550(stval as usize - ns16550::NS16550_ADDR).unwrap();
+            println!("read_ns16550: {}", context[registers_idx as usize]);
+        } else {
+            let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
+            println!("Exception from S-mode has occured!");
+            println!("[info] virtual address: {:#X}", stval);
+            println!("[info] physical address: {:#X}", physical_address);
+            println!("[info] scause: {:#X}", scause);
+            
+            panic!();
+        }
+
+        let mut sepc = get_sepc();
+        sepc += 4;
+        set_sepc(sepc);
+        return;
+    } else {
         let stval = get_stval();
         let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
         println!("Exception from S-mode has occured!");
