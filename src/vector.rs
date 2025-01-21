@@ -227,10 +227,12 @@ pub fn exception_handler(mode: u8, sp: usize) {
             ns16550::write_ns16550(stval as usize - ns16550::NS16550_ADDR, value as u64);
             let sepc = get_sepc();
             let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
+            // println!("[info] virtual address: {:#X}", sepc);
+            // println!("[info] physical address: {:#X}", physical_address);
         } else {
-            let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
             println!("Exception from S-mode has occured!");
             println!("[info] virtual address: {:#X}", stval);
+            let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
             println!("[info] physical address: {:#X}", physical_address);
             println!("[info] scause: {:#X}", scause);
             
@@ -248,12 +250,12 @@ pub fn exception_handler(mode: u8, sp: usize) {
             let context = unsafe {
                 &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 17)
             };
-            context[registers_idx as usize] = ns16550::read_ns16550(stval as usize - ns16550::NS16550_ADDR).unwrap();
-            println!("read_ns16550: {}", context[registers_idx as usize]);
+            context[registers_idx as usize + 1] = ns16550::read_ns16550(stval as usize - ns16550::NS16550_ADDR).unwrap();
+            // println!("read_ns16550: {:#x}, offset: {:#x}", context[registers_idx as usize], stval as usize - ns16550::NS16550_ADDR);
         } else {
-            let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
             println!("Exception from S-mode has occured!");
             println!("[info] virtual address: {:#X}", stval);
+            let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
             println!("[info] physical address: {:#X}", physical_address);
             println!("[info] scause: {:#X}", scause);
             
@@ -266,9 +268,9 @@ pub fn exception_handler(mode: u8, sp: usize) {
         return;
     } else {
         let stval = get_stval();
-        let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
         println!("Exception from S-mode has occured!");
         println!("[info] virtual address: {:#X}", stval);
+        let physical_address = paging::resolve_address_stage2(stval as usize).unwrap();
         println!("[info] physical address: {:#X}", physical_address);
         println!("[info] scause: {:#X}", scause);
     }
@@ -276,9 +278,9 @@ pub fn exception_handler(mode: u8, sp: usize) {
     // instruction abort
     if scause == E_ILLEGAL_INSTRUCTION as u64 {
         let sepc = get_sepc();
-        let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
         println!("Exception from S-Mode has occured!");
         println!("[info] virtual address: {:#X}", sepc);
+        let physical_address = paging::resolve_address_stage2(sepc as usize).unwrap();
         println!("[info] physical address: {:#X}", physical_address);
         println!("[info] scause: {:#X}", scause);
         println!("[info] stval: {:#X}", get_stval());
