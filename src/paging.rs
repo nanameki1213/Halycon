@@ -76,7 +76,7 @@ fn _resolve_address_stage2(
 
     let pte = table[table_index].borrow_mut();
     if !pte.is_valid_pte() {
-        panic!("Not valid pte: {:#X}", pte.0);
+        return Err(());
     }
 
     if table_level == 0 {
