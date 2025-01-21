@@ -2,7 +2,6 @@
 
 use core::char;
 use core::usize;
-use crate::println;
 use crate::print;
 
 pub const NS16550_ADDR: usize = 0x10000000;

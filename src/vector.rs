@@ -1,4 +1,3 @@
-use core::task::Context;
 use core::u64;
 use core::{arch::global_asm, usize};
 
@@ -390,7 +389,7 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                 error: 0,
                 value: 0
             };
-            virtual_sbi(&mut sbi_ret, a7, a6);
+            sbi::virtual_sbi(&mut sbi_ret, a7, a6);
             registers[REGISTER_A0] = sbi_ret.error; // a0
             registers[REGISTER_A1] = sbi_ret.value; // a1;
         },
@@ -404,19 +403,4 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
     };
 }
 
-fn virtual_sbi(sbi_ret: &mut sbi::Sbiret, eid: u64, fid: u64) {
-    match fid {
-        sbi::SBI_FID_PROBE_SBI_EXT => {
-            if eid == sbi::SBI_EXT_BASE {
-                sbi_ret.value = 1;
-            }
-        },
-        sbi::SBI_FID_GET_SBI_IMPLEMENTATION_VERSION => {
-            sbi_ret.value = 2;
-        },
-        _ => {
-            println!("fid: {}", fid);
-            panic!("unrecognized fid");
-        }
-    }
-}
+

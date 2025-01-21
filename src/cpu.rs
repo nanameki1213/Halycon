@@ -90,6 +90,20 @@ pub fn get_xlen_from_misa() -> usize {
     }
 }
 
+// mvendorid
+
+#[inline(always)]
+pub fn get_mvendorid() -> u64 {
+    let mvendorid: u64;
+    unsafe { asm!("csrr {}, mvendorid", out(reg) mvendorid ) };
+    mvendorid
+}
+
+#[inline(always)]
+pub fn set_mvendorid(mvendorid: u64) {
+    unsafe { asm!("csrw mvendorid, {}", in(reg) mvendorid ) };
+}
+
 // misa
 
 #[inline(always)]
