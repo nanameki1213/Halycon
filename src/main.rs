@@ -106,7 +106,7 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) 
             csrs hstatus, {tmp2}
             csrw sepc, {entry_point}
             mv sp, {stack_pointer}
-            mv a0, {dtb_pointer}
+            mv a1, {dtb_pointer}
             sret", 
         tmp1 = in(reg) 0x100 as u64, // set sstatus.SPP
         tmp2 = in(reg) 0x80 as u64, // set hstatus.SPV

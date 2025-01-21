@@ -86,10 +86,11 @@ pub fn create_vm() -> *mut VM {
     println!("[info] loading u-boot...");
     let size = loader::load_bootloader(bootloader_entry_point);
     let dtb_pointer = ram_physical_base_address + size;
-    println!("[info] dtb address: {:#X}", dtb_pointer);
+    println!("[info] dtb virtual address: {:#X}", RAM_VIRTUAL_BASE + size);
+    println!("[info] dtb physical address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer);
 
-    let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE, virtual_entry_point, dtb_pointer);
+    let vm = VM::new(RAM_VIRTUAL_BASE, ram_physical_base_address, RAM_SIZE, virtual_entry_point, RAM_VIRTUAL_BASE + size);
 
     vm
 }
