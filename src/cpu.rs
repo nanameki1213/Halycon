@@ -36,46 +36,48 @@ pub const CSR_MIE_ADDRESS: usize = 0x304;
 // Registers
 pub const REGISTER_ZERO: usize = 0;
 pub const REGISTER_A0: usize = 10;
+pub const REGISTER_A1: usize = 11;
+pub const REGISTER_A6: usize = 16;
 pub const REGISTER_A7: usize = 17;
 pub const REGISTER_T0: usize = 5;
 pub const REGISTER_T2: usize = 7;
 pub const REGISTER_T3: usize = 28;
 pub const REGISTER_T6: usize = 31;
 
-pub struct Registers {
-    pub x0: u64,
-    pub x1: u64,
-    pub x2: u64,
-    pub x3: u64,
-    pub x4: u64,
-    pub x5: u64,
-    pub x6: u64,
-    pub x7: u64,
-    pub x8: u64,
-    pub x9: u64,
-    pub x10: u64,
-    pub x11: u64,
-    pub x12: u64,
-    pub x13: u64,
-    pub x14: u64,
-    pub x15: u64,
-    pub x16: u64,
-    pub x17: u64,
-    pub x18: u64,
-    pub x19: u64,
-    pub x20: u64,
-    pub x21: u64,
-    pub x22: u64,
-    pub x23: u64,
-    pub x24: u64,
-    pub x25: u64,
-    pub x26: u64,
-    pub x27: u64,
-    pub x28: u64,
-    pub x29: u64,
-    pub x30: u64,
-    pub x31: u64,
-}
+// pub struct Registers {
+//     pub x0: u64,
+//     pub x1: u64,
+//     pub x2: u64,
+//     pub x3: u64,
+//     pub x4: u64,
+//     pub x5: u64,
+//     pub x6: u64,
+//     pub x7: u64,
+//     pub x8: u64,
+//     pub x9: u64,
+//     pub x10: u64,
+//     pub x11: u64,
+//     pub x12: u64,
+//     pub x13: u64,
+//     pub x14: u64,
+//     pub x15: u64,
+//     pub x16: u64,
+//     pub x17: u64,
+//     pub x18: u64,
+//     pub x19: u64,
+//     pub x20: u64,
+//     pub x21: u64,
+//     pub x22: u64,
+//     pub x23: u64,
+//     pub x24: u64,
+//     pub x25: u64,
+//     pub x26: u64,
+//     pub x27: u64,
+//     pub x28: u64,
+//     pub x29: u64,
+//     pub x30: u64,
+//     pub x31: u64,
+// }
 
 #[inline(always)]
 pub fn get_xlen_from_misa() -> usize {
