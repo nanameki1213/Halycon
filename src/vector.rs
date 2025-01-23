@@ -6,7 +6,7 @@ use crate::paging;
 use crate::cpu::*;
 use crate::println;
 use crate::sbi;
-use crate::instruction::{self, COMPRESSION, COMPRESSION_FIELD};
+use crate::instruction;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
@@ -296,15 +296,6 @@ fn is_instruction_abort(scause: usize) -> bool {
     scause == E_ENVIRONMENT_CALL_FROM_VS_MODE
 }
 
-fn is_compression_instruction() -> bool {
-    let stval = get_stval();
-    if stval == 0x0 {
-        return false;
-    }
-    (stval & COMPRESSION_FIELD as u64) == COMPRESSION as u64 ||
-    (stval & COMPRESSION_FIELD as u64) == 0x1
-}
-
 #[no_mangle]
 pub fn exception_handler(mode: u8, sp: usize) {
     if mode == M_EXCEPTION {
@@ -333,19 +324,13 @@ pub fn exception_handler(mode: u8, sp: usize) {
     };
     if is_data_abort(scause) { // data abort
         data_abort_handler(scause, contexts);
-        let mut sepc = get_sepc();
-        sepc += 4;
-        set_sepc(sepc);
     } else if is_instruction_abort(scause) { // instruction abort
         instruction_abort_handler(scause, contexts);
-        let mut sepc = get_sepc();
-        if is_compression_instruction() {
-            sepc += 2;
-        } else {
-            sepc += 4;
-        }
-        set_sepc(sepc);
     }
+    // next instruction 
+    let mut sepc = get_sepc();
+    sepc += 4;
+    set_sepc(sepc);
 }
 
 fn write_access(virtual_address: usize, value: u64) {
