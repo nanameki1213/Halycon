@@ -99,11 +99,6 @@ pub fn get_mvendorid() -> u64 {
     mvendorid
 }
 
-#[inline(always)]
-pub fn set_mvendorid(mvendorid: u64) {
-    unsafe { asm!("csrw mvendorid, {}", in(reg) mvendorid ) };
-}
-
 // misa
 
 #[inline(always)]

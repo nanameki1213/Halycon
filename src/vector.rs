@@ -297,9 +297,12 @@ fn is_instruction_abort(scause: usize) -> bool {
 }
 
 fn is_compression_instruction() -> bool {
-    let htinst = get_htinst();
-    (htinst & COMPRESSION_FIELD as u64) == COMPRESSION as u64 ||
-    (htinst & COMPRESSION_FIELD as u64) == 0x1
+    let stval = get_stval();
+    if stval == 0x0 {
+        return false;
+    }
+    (stval & COMPRESSION_FIELD as u64) == COMPRESSION as u64 ||
+    (stval & COMPRESSION_FIELD as u64) == 0x1
 }
 
 #[no_mangle]
@@ -391,7 +394,11 @@ fn data_abort_handler(scause: usize, registers: &mut [u64]) {
 fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
     match scause {
         E_ILLEGAL_INSTRUCTION => {
-            
+            println!("[info] E_ILLEGAL_INSTRUCTION: {:#x}", get_stval());
+            println!("[info] hgatp: {:#x}", get_hgatp());
+            println!("[info] virtual address: {:#x}", get_sepc());
+            println!("[info] physical address: {:#x}", paging::resolve_address_stage2(get_sepc() as usize).unwrap());
+            panic!();
         },
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
             // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
