@@ -23,8 +23,8 @@ pub fn virtual_sbi(sbi_ret: &mut Sbiret, eid: u64, fid: u64) {
             sbi_ret.value = 2;
         },
         SBI_FID_GET_MACHINE_VENDER_ID => {
-            sbi_ret.value = cpu::get_mvendorid();
-        }
+            sbi_ret.value= 0;
+        },
         _ => {
             println!("fid: {}", fid);
             panic!("unrecognized fid");
