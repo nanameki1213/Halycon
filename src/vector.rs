@@ -326,6 +326,13 @@ pub fn exception_handler(mode: u8, sp: usize) {
         data_abort_handler(scause, contexts);
     } else if is_instruction_abort(scause) { // instruction abort
         instruction_abort_handler(scause, contexts);
+    } else {
+        println!("Exception from S-Mode has occured!");
+        println!("[info] scause: {:#X}", get_scause());
+        println!("[info] stval: {:#X}", get_stval());
+
+        panic!();
+
     }
     // next instruction 
     let mut sepc = get_sepc();
