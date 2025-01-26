@@ -1,0 +1,87 @@
+/dts-v1/;
+
+/ {
+  #address-cells = <0x2>;
+  #size-cells = <0x2>;
+  compatible = "riscv-virtio";
+  model = "riscv-virtio,qemu";
+
+  memory@80000000 {
+    device_type = "memory";
+    reg = <0x0 0x80000000 0x0 0x10000000>;
+  };
+
+  cpus {
+    #address-cells = <0x1>;
+    #size-cells = <0x0>;
+    timebase-frequency = <0x989680>;
+
+		cpu@0 {
+			phandle = <0x1>;
+			device_type = "cpu";
+			reg = <0x0>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,cbop-block-size = <0x40>;
+			riscv,cboz-block-size = <0x40>;
+			riscv,cbom-block-size = <0x40>;
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zic64b", "zicbom", "zicbop", "zicboz", "ziccamoa", "ziccif", "zicclsm", "ziccrse", "zicntr", "zicsr", "zifencei", "zihintntl", "zihintpause", "zihpm", "za64rs", "zawrs", "zfa", "zca", "zcd", "zba", "zbb", "zbc", "zbs", "ssccptr", "sscounterenw", "sstc", "sstvala", "sstvecd", "svadu";
+			riscv,isa-base = "rv64i";
+			riscv,isa = "rv64imafdch_zic64b_zicbom_zicbop_zicboz_ziccamoa_ziccif_zicclsm_ziccrse_zicntr_zicsr_zifencei_zihintntl_zihintpause_zihpm_za64rs_zawrs_zfa_zca_zcd_zba_zbb_zbc_zbs_ssccptr_sscounterenw_sstc_sstvala_sstvecd_svadu";
+			mmu-type = "riscv,sv57";
+
+			interrupt-controller {
+				#interrupt-cells = <0x1>;
+				interrupt-controller;
+				compatible = "riscv,cpu-intc";
+				phandle = <0x2>;
+			};
+		};
+
+		cpu-map {
+
+			cluster0 {
+
+				core0 {
+					cpu = <0x1>;
+				};
+			};
+		};
+  };
+
+  serial@10000000 {
+			interrupts = <0xa>;
+			interrupt-parent = <0x3>;
+			clock-frequency = <0x384000>;
+			reg = <0x0 0x10000000 0x0 0x100>;
+			compatible = "ns16550a";
+  };
+
+  rtc@101000 {
+			interrupts = <0xb>;
+			interrupt-parent = <0x3>;
+			reg = <0x0 0x101000 0x0 0x1000>;
+			compatible = "google,goldfish-rtc";
+		};
+  
+  plic@c000000 {
+		phandle = <0x3>;
+		riscv,ndev = <0x5f>;
+		reg = <0x0 0xc000000 0x0 0x600000>;
+		interrupts-extended = <0x2 0xb 0x2 0x9>;
+		interrupt-controller;
+		compatible = "sifive,plic-1.0.0", "riscv,plic0";
+		#address-cells = <0x0>;
+		#interrupt-cells = <0x1>;
+	};
+
+	clint@2000000 {
+		interrupts-extended = <0x2 0x3 0x2 0x7>;
+		reg = <0x0 0x2000000 0x0 0x10000>;
+		compatible = "sifive,clint0", "riscv,clint0";
+	};
+
+  chosen {
+    stdout-path="/serial@10000000:384000";
+  };
+};

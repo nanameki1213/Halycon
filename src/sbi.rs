@@ -1,4 +1,3 @@
-use crate::cpu;
 use crate::println;
 
 pub const SBI_EXT_BASE: u64 = 0x10;
