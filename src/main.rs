@@ -64,6 +64,7 @@ extern "C" fn main() -> usize {
     medeleg |= (1 << 12) as u64;
     medeleg |= (1 << 2) as u64;
     medeleg |= (1 << 23) as u64;
+    medeleg |= (1 << 22) as u64;
     medeleg |= (1 << 21) as u64;
     medeleg |= (1 << 10) as u64;
     set_medeleg(medeleg);
