@@ -1,7 +1,7 @@
 use core::{arch::global_asm, usize};
 
 use crate::cpu::*;
-use crate::instruction::{self, is_csrrs_instruction};
+use crate::instruction;
 use crate::mmio::ns16550;
 use crate::paging;
 use crate::println;
@@ -365,20 +365,19 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
 }
 
 fn data_abort_handler(scause: usize, registers: &mut [u64]) {
+    let mut instruction = instruction::Instruction::new(get_htinst() as u32);
     match scause {
         E_STORE_AMO_GUEST_PAGE_FAULT => {
             // write access
             let stval = get_stval() as usize;
-            let register_idx =
-                (get_htinst() as u32 & instruction::RS2_MASK) >> instruction::RS2_OFFSET;
-            let value = registers[register_idx as usize];
+            let register_idx = instruction.get_rs2();
+            let value = registers[register_idx];
             write_access(stval, value);
         }
         E_LOAD_GUEST_PAGE_FAULT => {
             let stval = get_stval() as usize;
-            let register_idx =
-                (get_htinst() as u32 & instruction::RD_MASK) >> instruction::RD_OFFSET;
-            read_access(stval, register_idx as usize, registers);
+            let register_idx = instruction.get_rd();
+            read_access(stval, register_idx, registers);
         }
         _ => {}
     };
@@ -397,12 +396,12 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
             panic!();
         }
         E_VIRTUAL_INSTRUCTION => {
-            let instruction = get_stval() as u32;
-            if is_csrrs_instruction(instruction) {
-                let csr = (instruction & instruction::CSR_MASK) >> instruction::CSR_OFFSET;
-                if csr == CSR_TIME_ADDRESS as u32 {
-                    let register_number = (instruction & instruction::RD_MASK) >> instruction::RD_OFFSET;
-                    registers[register_number as usize] = get_time();
+            let mut instruction = instruction::Instruction::new(get_stval() as u32);
+            if instruction.is_csrrs_instruction() {
+                let csr = instruction.get_funct12();
+                if csr == CSR_TIME_ADDRESS {
+                    let register_number = instruction.get_rd();
+                    registers[register_number] = get_time();
                 }
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
