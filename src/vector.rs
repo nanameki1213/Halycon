@@ -1,12 +1,12 @@
 use core::u64;
 use core::{arch::global_asm, usize};
 
+use crate::cpu::*;
+use crate::instruction;
 use crate::mmio::ns16550;
 use crate::paging;
-use crate::cpu::*;
 use crate::println;
 use crate::sbi;
-use crate::instruction;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
@@ -288,14 +288,13 @@ pub fn setup_vector() {
 }
 
 fn is_data_abort(scause: usize) -> bool {
-    scause == E_STORE_AMO_GUEST_PAGE_FAULT || 
-    scause == E_LOAD_GUEST_PAGE_FAULT
+    scause == E_STORE_AMO_GUEST_PAGE_FAULT || scause == E_LOAD_GUEST_PAGE_FAULT
 }
 
 fn is_instruction_abort(scause: usize) -> bool {
-    scause == E_ILLEGAL_INSTRUCTION ||
-    scause == E_VIRTUAL_INSTRUCTION ||
-    scause == E_ENVIRONMENT_CALL_FROM_VS_MODE
+    scause == E_ILLEGAL_INSTRUCTION
+        || scause == E_VIRTUAL_INSTRUCTION
+        || scause == E_ENVIRONMENT_CALL_FROM_VS_MODE
 }
 
 #[no_mangle]
@@ -318,15 +317,15 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
         panic!();
     }
-    
+
     let scause = get_scause() as usize;
 
-    let contexts = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32)
-    };
-    if is_data_abort(scause) { // data abort
+    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
+    if is_data_abort(scause) {
+        // data abort
         data_abort_handler(scause, contexts);
-    } else if is_instruction_abort(scause) { // instruction abort
+    } else if is_instruction_abort(scause) {
+        // instruction abort
         instruction_abort_handler(scause, contexts);
     } else {
         println!("Exception from S-Mode has occured!");
@@ -334,9 +333,8 @@ pub fn exception_handler(mode: u8, sp: usize) {
         println!("[info] stval: {:#X}", get_stval());
 
         panic!();
-
     }
-    // next instruction 
+    // next instruction
     let mut sepc = get_sepc();
     sepc += 4;
     set_sepc(sepc);
@@ -344,7 +342,7 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
 fn write_access(virtual_address: usize, value: u64) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-            ns16550::write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u64);
+        ns16550::write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u64);
     } else {
         println!("Exception from S-mode has occured!");
         println!("[info] virtual address: {:#X}", virtual_address);
@@ -356,7 +354,8 @@ fn write_access(virtual_address: usize, value: u64) {
 
 fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-            registers[dst_register_idx] = ns16550::read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap();
+        registers[dst_register_idx] =
+            ns16550::read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap();
     } else {
         println!("Exception from S-mode has occured!");
         println!("[info] virtual address: {:#X}", virtual_address);
@@ -368,20 +367,21 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
 
 fn data_abort_handler(scause: usize, registers: &mut [u64]) {
     match scause {
-        E_STORE_AMO_GUEST_PAGE_FAULT => { // write access
+        E_STORE_AMO_GUEST_PAGE_FAULT => {
+            // write access
             let stval = get_stval() as usize;
-            let register_idx = (get_htinst() as u32 & instruction::RS2_MASK) >> instruction::RS2_OFFSET;
+            let register_idx =
+                (get_htinst() as u32 & instruction::RS2_MASK) >> instruction::RS2_OFFSET;
             let value = registers[register_idx as usize];
             write_access(stval, value);
-        },
+        }
         E_LOAD_GUEST_PAGE_FAULT => {
             let stval = get_stval() as usize;
-            let register_idx = (get_htinst() as u32 & instruction::RD_MASK) >> instruction::RD_OFFSET;
+            let register_idx =
+                (get_htinst() as u32 & instruction::RD_MASK) >> instruction::RD_OFFSET;
             read_access(stval, register_idx as usize, registers);
-        },
-        _ => {
-            
         }
+        _ => {}
     };
 }
 
@@ -391,24 +391,22 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
             println!("[info] E_ILLEGAL_INSTRUCTION: {:#x}", get_stval());
             println!("[info] hgatp: {:#x}", get_hgatp());
             println!("[info] virtual address: {:#x}", get_sepc());
-            println!("[info] physical address: {:#x}", paging::resolve_address_stage2(get_sepc() as usize).unwrap());
+            println!(
+                "[info] physical address: {:#x}",
+                paging::resolve_address_stage2(get_sepc() as usize).unwrap()
+            );
             panic!();
-        },
-        E_VIRTUAL_INSTRUCTION => {
-
-        },
+        }
+        E_VIRTUAL_INSTRUCTION => {}
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
             // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
             let a6 = registers[REGISTER_A6];
             let a7 = registers[REGISTER_A7];
-            let mut sbi_ret = sbi::Sbiret {
-                error: 0,
-                value: 0
-            };
+            let mut sbi_ret = sbi::Sbiret { error: 0, value: 0 };
             sbi::virtual_sbi(&mut sbi_ret, a7, a6);
             registers[REGISTER_A0] = sbi_ret.error; // a0
             registers[REGISTER_A1] = sbi_ret.value; // a1;
-        },
+        }
         _ => {
             println!("Exception from S-mode has occured!");
             println!("[info] virtual address: {:#X}", get_sepc());
@@ -418,5 +416,3 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
         }
     };
 }
-
-

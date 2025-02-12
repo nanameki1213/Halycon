@@ -17,13 +17,13 @@ pub fn virtual_sbi(sbi_ret: &mut Sbiret, eid: u64, fid: u64) {
             if eid == SBI_EXT_BASE {
                 sbi_ret.value = 1;
             }
-        },
+        }
         SBI_FID_GET_SBI_IMPLEMENTATION_VERSION => {
             sbi_ret.value = 2;
-        },
+        }
         SBI_FID_GET_MACHINE_VENDER_ID => {
-            sbi_ret.value= 0;
-        },
+            sbi_ret.value = 0;
+        }
         _ => {
             println!("fid: {}", fid);
             panic!("unrecognized fid");

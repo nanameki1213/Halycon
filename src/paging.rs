@@ -41,7 +41,8 @@ impl TableEntry {
     }
 
     pub fn get_next_table_address(&mut self) -> usize {
-        return (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT) as usize;
+        return (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT)
+            as usize;
     }
 
     pub fn set_output_address(&mut self, address: usize) {
@@ -60,7 +61,7 @@ impl TableEntry {
     pub fn is_valid_pte(&mut self) -> bool {
         (self.0 & (1 << Self::V_OFFSET)) != 0
     }
-} 
+}
 
 fn _resolve_address_stage2(
     virtual_address: usize,
@@ -83,20 +84,18 @@ fn _resolve_address_stage2(
         let offset = virtual_address & ((1 << PAGE_SHIFT) - 1);
         return Ok(pte.get_next_table_address() + offset);
     }
-    
+
     let next_table_address = pte.get_next_table_address();
     _resolve_address_stage2(
         virtual_address,
         next_table_address,
         table_level - 1,
-        (1 << VPN_SIZE) as usize
+        (1 << VPN_SIZE) as usize,
     )
 }
 
 #[allow(dead_code)]
-pub fn resolve_address_stage2(
-    virtual_address: usize
-) -> Result<usize, ()> {
+pub fn resolve_address_stage2(virtual_address: usize) -> Result<usize, ()> {
     let hgatp = get_hgatp();
     let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
@@ -113,10 +112,15 @@ pub fn resolve_address_stage2(
     };
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
-    
-    let physical_address = _resolve_address_stage2(virtual_address, table_address, table_level - 1, top_level_stage_2_num_of_entries)?;
+
+    let physical_address = _resolve_address_stage2(
+        virtual_address,
+        table_address,
+        table_level - 1,
+        top_level_stage_2_num_of_entries,
+    )?;
     Ok(physical_address)
-} 
+}
 
 fn _map_address_stage2(
     physical_address: &mut usize,
@@ -137,7 +141,9 @@ fn _map_address_stage2(
         for e in table[table_index..num_of_entries].iter_mut() {
             e.init();
             e.set_output_address(*physical_address);
-            e.set_permission(permission | (1 <<TableEntry::V_OFFSET) | (1 << TableEntry::U_OFFSET));
+            e.set_permission(
+                permission | (1 << TableEntry::V_OFFSET) | (1 << TableEntry::U_OFFSET),
+            );
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;
             *remaining_size -= PAGE_SIZE;

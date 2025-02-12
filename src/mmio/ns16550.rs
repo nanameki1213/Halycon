@@ -1,20 +1,16 @@
 #![allow(dead_code)]
 
+use crate::print;
 use core::char;
 use core::usize;
-use crate::print;
 
 pub const NS16550_ADDR: usize = 0x10000000;
 const NS16500_RBR: usize = 0x0;
 
 pub fn read_ns16550(offset: usize) -> Result<u64, ()> {
     match offset {
-        0x5 => {
-            Ok(0x60)
-        },
-        _ => {
-            Ok(0)
-        }
+        0x5 => Ok(0x60),
+        _ => Ok(0),
     }
 }
 
@@ -27,13 +23,11 @@ pub fn write_ns16550(offset: usize, value: u64) {
                 }
                 print!("{}", ch);
             }
-        },
+        }
         0x1 => {
             // 割り込みの許可/禁止処理をエミュレートする
-            
-        },
-        _ => {
-        } 
+        }
+        _ => {}
     }
 }
 

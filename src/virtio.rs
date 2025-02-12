@@ -2,8 +2,8 @@
 
 use core::usize;
 
-use crate::{allocate_memory, println};
 use crate::paging::PAGE_SIZE;
+use crate::{allocate_memory, println};
 
 pub static mut VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
 pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
@@ -14,8 +14,8 @@ pub const VIRTQ_ENTRY_NUM: u16 = 64;
 pub const VIRTIO_MMIO_MAGIC: usize = 0x00;
 pub const VIRTIO_MMIO_VERSION: usize = 0x04;
 pub const VIRTIO_MMIO_DEVICEID: usize = 0x08;
-pub const VIRTIO_MMIO_VENDERID : usize = 0x0c;
-pub const VIRTIO_MMIO_DEVICE_FEATURES : usize = 0x10;
+pub const VIRTIO_MMIO_VENDERID: usize = 0x0c;
+pub const VIRTIO_MMIO_DEVICE_FEATURES: usize = 0x10;
 pub const VIRTIO_MMIO_DEVICE_FEATURES_SEL: usize = 0x14;
 pub const VIRTIO_MMIO_DRIVER_FEATURES: usize = 0x20;
 pub const VIRTIO_MMIO_DRIVER_FEATURES_SEL: usize = 0x24;
@@ -40,9 +40,8 @@ pub const VIRTIO_MMIO_STATUS_ACKNOWLEDGE: usize = 1 << 0;
 pub const VIRTIO_MMIO_STATUS_DRIVER: usize = 1 << 1;
 pub const VIRTIO_MMIO_STATUS_DRIVER_OK: usize = 1 << 2;
 pub const VIRTIO_MMIO_STATUS_FEATURES_OK: usize = 1 << 3;
-pub const VIRTIO_MMIO_STATUS_DEVICE_NEEDS_RESET:usize = 1 << 6;
+pub const VIRTIO_MMIO_STATUS_DEVICE_NEEDS_RESET: usize = 1 << 6;
 pub const VIRTIO_MMIO_STATUS_FAILED: usize = 1 << 7;
-
 
 #[repr(C)]
 pub struct VRingDesc {
@@ -130,9 +129,7 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
         return Err(());
     }
     // 4. Allocate and zero the queue memory
-    let vq = unsafe {
-        &mut *(allocate_memory(1, PAGE_SIZE).unwrap() as *mut VirtQueue)
-    };
+    let vq = unsafe { &mut *(allocate_memory(1, PAGE_SIZE).unwrap() as *mut VirtQueue) };
     // 5. Notify the device about the queue size by writing the size to QueueNum
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
     // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
@@ -140,12 +137,30 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     let avail_address = (&(vq.vring.avail) as *const VringAvail) as u64;
     let used_address = (&(vq.vring.used) as *const VRingUsed) as u64;
     const VIRTIO_MMIO_MASK: u64 = (1 << 32) - 1;
-    set_virtio_mmio(VIRTIO_MMIO_DESC_LOW, (desc_address & VIRTIO_MMIO_MASK) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DESC_HIGH, ((desc_address >> 32) & VIRTIO_MMIO_MASK) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DRIVER_LOW, (avail_address & VIRTIO_MMIO_MASK) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DRIVER_HIGH, ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DEVICE_LOW, (used_address & VIRTIO_MMIO_MASK) as u32);
-    set_virtio_mmio(VIRTIO_MMIO_DEVICE_HIGH, ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32);
+    set_virtio_mmio(
+        VIRTIO_MMIO_DESC_LOW,
+        (desc_address & VIRTIO_MMIO_MASK) as u32,
+    );
+    set_virtio_mmio(
+        VIRTIO_MMIO_DESC_HIGH,
+        ((desc_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+    );
+    set_virtio_mmio(
+        VIRTIO_MMIO_DRIVER_LOW,
+        (avail_address & VIRTIO_MMIO_MASK) as u32,
+    );
+    set_virtio_mmio(
+        VIRTIO_MMIO_DRIVER_HIGH,
+        ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+    );
+    set_virtio_mmio(
+        VIRTIO_MMIO_DEVICE_LOW,
+        (used_address & VIRTIO_MMIO_MASK) as u32,
+    );
+    set_virtio_mmio(
+        VIRTIO_MMIO_DEVICE_HIGH,
+        ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+    );
     // 7. Write 0x1 to QueueReady
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
 

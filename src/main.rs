@@ -5,15 +5,15 @@
 
 mod cpu;
 mod console;
+mod instruction;
+mod loader;
 mod memory;
 mod paging;
+mod sbi;
 mod vector;
 mod virtio;
 mod virtio_blk;
-mod loader;
 mod vm;
-mod sbi;
-mod instruction;
 mod mmio {
     pub mod ns16550;
 }
@@ -51,7 +51,7 @@ extern "C" fn main() -> usize {
     set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
     println!("[setup] mie");
 
-    setup_vector(); 
+    setup_vector();
     println!("[setup] mtvec");
     println!("[setup] stvec");
 
@@ -95,7 +95,11 @@ extern "C" fn main() -> usize {
 
     println!("switch to guest");
     unsafe {
-        hs_to_vs((*vm).get_entry_point() as usize, stack_address, (*vm).get_dtb_pointer())
+        hs_to_vs(
+            (*vm).get_entry_point() as usize,
+            stack_address,
+            (*vm).get_dtb_pointer(),
+        )
     };
     // don't return to here
 }

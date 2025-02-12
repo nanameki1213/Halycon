@@ -340,7 +340,7 @@ pub fn get_vstval() -> u64 {
     vstval
 }
 
-// cause 
+// cause
 
 #[inline(always)]
 pub fn get_mcause() -> u64 {
