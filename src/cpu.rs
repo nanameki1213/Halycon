@@ -32,6 +32,7 @@ pub const ENVCFG_ADUE_OFFSET: usize = 61;
 // CSRs address
 pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
 pub const CSR_MIE_ADDRESS: usize = 0x304;
+pub const CSR_TIME_ADDRESS: usize = 0xc01;
 
 // Registers
 pub const REGISTER_ZERO: usize = 0;
@@ -477,4 +478,13 @@ pub fn halt_loop() -> ! {
     loop {
         unsafe { asm!("wfi") };
     }
+}
+
+// time
+
+#[inline(always)]
+pub fn get_time() -> u64 {
+    let time: u64;
+    unsafe { asm!("csrr {}, time", out(reg) time ) };
+    time
 }

@@ -1,3 +1,4 @@
+use core::u64;
 use core::{arch::global_asm, usize};
 
 use crate::cpu::*;
@@ -397,21 +398,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
             panic!();
         }
         E_VIRTUAL_INSTRUCTION => {
-            let instruction = get_stval() as u32;
+            let instruction = get_sepc() as u32;
             if is_csrrs_instruction(instruction) {
-                let csr = (instruction & instruction::CSR_MASK) >> instruction::CSR_OFFSET;
-                if csr == CSR_TIME_ADDRESS as u32 {
-                    let register_number = (instruction & instruction::RD_MASK) >> instruction::RD_OFFSET;
-                    registers[register_number as usize] = get_time();
-                }
-            } else {
-                println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
-                println!("[info] virtual address: {:#x}", get_sepc());
-                println!(
-                    "[info] physical address: {:#x}",
-                    paging::resolve_address_stage2(get_sepc() as usize).unwrap()
-                );
-                panic!();
+                
             }
         }
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
