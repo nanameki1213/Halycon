@@ -10,6 +10,7 @@ use crate::instruction;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
+pub const E_VIRTUAL_INSTRUCTION: usize = 22;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
@@ -293,6 +294,7 @@ fn is_data_abort(scause: usize) -> bool {
 
 fn is_instruction_abort(scause: usize) -> bool {
     scause == E_ILLEGAL_INSTRUCTION ||
+    scause == E_VIRTUAL_INSTRUCTION ||
     scause == E_ENVIRONMENT_CALL_FROM_VS_MODE
 }
 
@@ -391,6 +393,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
             println!("[info] virtual address: {:#x}", get_sepc());
             println!("[info] physical address: {:#x}", paging::resolve_address_stage2(get_sepc() as usize).unwrap());
             panic!();
+        },
+        E_VIRTUAL_INSTRUCTION => {
+
         },
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
             // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
