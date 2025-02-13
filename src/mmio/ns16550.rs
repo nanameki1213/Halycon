@@ -4,6 +4,7 @@ use crate::print;
 use core::char;
 use core::usize;
 
+// TODO: get plic_addr from device tree
 pub const NS16550_ADDR: usize = 0x10000000;
 const NS16500_RBR: usize = 0x0;
 

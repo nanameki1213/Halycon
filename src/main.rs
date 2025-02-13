@@ -9,6 +9,7 @@ mod instruction;
 mod loader;
 mod memory;
 mod paging;
+mod plic;
 mod sbi;
 mod vector;
 mod virtio;
