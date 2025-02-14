@@ -83,6 +83,11 @@ extern "C" fn main() -> usize {
     set_mie(mie);
     println!("[setup] mie");
 
+    let mut mstatus = get_mstatus();
+    mstatus |= MSTATUS_SIE as u64;
+    mstatus |= MSTATUS_MIE as u64;
+    set_mstatus(mstatus);
+
     // 仮想マシンの領域のPMPを設定する;
     // let top_address = 0xF0000000 as usize;
     // let bottom_address = 0x80000000 as usize;

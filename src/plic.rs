@@ -15,25 +15,21 @@ pub fn set_plic_enable(hart: usize, source: usize) {
     let row = source % 32;
     let column = source / 32;
 
-    let plic_enable = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(
-            (PLIC_ADDR + PLIC_ENABLE_BITS_OFFSET + hart * PLIC_ENABLE_BITS_SIZE) as *mut u32,
-            PLIC_SOURCE_NUM / PLIC_WORD_SIZE_BITS
-        )
-    };
-
-    plic_enable[row] = 1 << column;
+    unsafe {
+        core::ptr::write_volatile(
+            (PLIC_ADDR + PLIC_ENABLE_BITS_OFFSET + hart * PLIC_ENABLE_BITS_SIZE + column) as *mut u32,
+            1 << row
+        );
+    }
 }
 
 pub fn set_plic_priority(source: usize, priority: usize) {
-    let plic_priority = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(
-            (PLIC_ADDR + PLIC_PRIORITY_OFFSET + source * PLIC_WORD_SIZE) as *mut u32,
-            PLIC_SOURCE_NUM
-        )
-    };
-
-    plic_priority[source] = priority as u32;
+    unsafe {
+       core::ptr::write_volatile(
+           (PLIC_ADDR + PLIC_PRIORITY_OFFSET + source * PLIC_WORD_SIZE) as *mut u32,
+           priority as u32
+       );
+    }
 }
 
 pub fn set_plic_thresholds(hart: usize, thresholds: usize) {
