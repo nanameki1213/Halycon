@@ -71,6 +71,13 @@ extern "C" fn main() -> usize {
     set_medeleg(medeleg);
     println!("[setup] medeleg: {:#X}", medeleg);
 
+    let mut mideleg = get_mideleg();
+    mideleg |= MIE_MEIE as u64;
+    mideleg |= MIE_VSEIE as u64;
+    mideleg |= XIE_SEIE as u64;
+    set_mideleg(mideleg);
+    println!("[setup] mideleg: {:#X}", mideleg);
+
     let mut hedeleg = get_hedeleg();
     hedeleg |= (1 << 12) as u64;
     hedeleg |= (1 << 7) as u64;

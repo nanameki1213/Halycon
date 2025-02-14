@@ -10,6 +10,7 @@ pub const MSTATUS_SIE: usize = 1 << 1;
 pub const MSTATUS_MIE: usize = 1 << 3;
 
 pub const MIE_MEIE: usize = 1 << 11; // 外部割込み許可
+pub const MIE_VSEIE: usize = 1 << 10;
 pub const MIE_MTIE: usize = 1 << 7; // タイマ割込み許可
 pub const MIE_MSIE: usize = 1 << 3; // ソフトウェア割込み許可
 
@@ -18,6 +19,7 @@ pub const XIE_STIE: usize = 1 << 5; // タイマ割込み許可(Sモード)
 pub const XIE_SSIE: usize = 1 << 1; // ソフトウェア割込み許可(Sモード)
  
 pub const MIP_MEIP: usize = 1 << 11; // 外部割込みペンディング
+pub const MIP_VSEIP: usize = 1 << 10;
 pub const MIP_MTIP: usize = 1 << 7; // タイマ割り込みペンディング
 pub const MIP_MSIP: usize = 1 << 3; // ソフトウェア割込みペンディング
 
@@ -259,6 +261,18 @@ pub fn set_hedeleg(hedeleg: u64) {
 }
 
 // ideleg
+
+#[inline(always)]
+pub fn get_mideleg() -> u64 {
+    let mideleg: u64;
+    unsafe { asm!("csrr {}, mideleg", out(reg) mideleg) };
+    mideleg
+}
+
+#[inline(always)]
+pub fn set_mideleg(mideleg: u64) {
+    unsafe { asm!("csrw mideleg, {}", in(reg) mideleg) };
+}
 
 // atp
 
