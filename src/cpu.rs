@@ -194,6 +194,56 @@ pub fn set_mie(mie: u64) {
     unsafe { asm!("csrw mie, {}", in(reg) mie ) };
 }
 
+#[inline(always)]
+pub fn get_hie() -> u64 {
+    let hie: u64;
+    unsafe { asm!("csrr {}, hie", out(reg) hie ) };
+    hie
+}
+
+#[inline(always)]
+pub fn set_hie(hie: u64) {
+    unsafe { asm!("csrw hie, {}", in(reg) hie ) };
+}
+
+// ip
+
+#[inline(always)]
+pub fn get_mip() -> u64 {
+    let mip: u64;
+    unsafe { asm!("csrr {}, mip", out(reg) mip ) };
+    mip
+}
+
+#[inline(always)]
+pub fn set_mip(mip: u64) {
+    unsafe { asm!("csrw mip, {}", in(reg) mip ) };
+}
+
+#[inline(always)]
+pub fn get_hip() -> u64 {
+    let hip: u64;
+    unsafe { asm!("csrr {}, hip", out(reg) hip ) };
+    hip
+}
+
+#[inline(always)]
+pub fn set_hip(hip: u64) {
+    unsafe { asm!("csrw hip, {}", in(reg) hip ) };
+}
+
+#[inline(always)]
+pub fn get_hvip() -> u64 {
+    let hvip: u64;
+    unsafe { asm!("csrr {}, hvip", out(reg) hvip ) };
+    hvip
+}
+
+#[inline(always)]
+pub fn set_hvip(hvip: u64) {
+    unsafe { asm!("csrw hvip, {}", in(reg) hvip ) };
+}
+
 // edeleg
 
 #[inline(always)]
