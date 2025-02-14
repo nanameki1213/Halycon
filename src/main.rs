@@ -83,6 +83,10 @@ extern "C" fn main() -> usize {
     set_mie(mie);
     println!("[setup] mie");
 
+    let mut hie = get_hie();
+    hie |= XIE_SEIE as u64;
+    set_hie(hie);
+
     let mut mstatus = get_mstatus();
     mstatus |= MSTATUS_SIE as u64;
     mstatus |= MSTATUS_MIE as u64;

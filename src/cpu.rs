@@ -232,18 +232,6 @@ pub fn set_hip(hip: u64) {
     unsafe { asm!("csrw hip, {}", in(reg) hip ) };
 }
 
-#[inline(always)]
-pub fn get_hvip() -> u64 {
-    let hvip: u64;
-    unsafe { asm!("csrr {}, hvip", out(reg) hvip ) };
-    hvip
-}
-
-#[inline(always)]
-pub fn set_hvip(hvip: u64) {
-    unsafe { asm!("csrw hvip, {}", in(reg) hvip ) };
-}
-
 // edeleg
 
 #[inline(always)]
@@ -481,6 +469,20 @@ pub fn get_htinst() -> u64 {
 #[inline(always)]
 pub fn set_htinst(htinst: u64) {
     unsafe { asm!("csrw htinst, {}", in(reg) htinst ) };
+}
+
+// hvip
+
+#[inline(always)]
+pub fn get_hvip() -> u64 {
+    let hvip: u64;
+    unsafe { asm!("csrr {}, hvip", out(reg) hvip ) };
+    hvip
+}
+
+#[inline(always)]
+pub fn set_hvip(hvip: u64) {
+    unsafe { asm!("csrw hvip, {}", in(reg) hvip ) };
 }
 
 // envcfg
