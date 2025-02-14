@@ -91,6 +91,15 @@ pub fn get_xlen_from_misa() -> usize {
     }
 }
 
+// mhartid
+
+#[inline(always)]
+pub fn get_mhartid() -> u64 {
+    let mhartid: u64;
+    unsafe { asm!("csrr {}, mhartid", out(reg) mhartid ) };
+    mhartid
+}
+
 // mvendorid
 
 #[inline(always)]
