@@ -49,7 +49,7 @@ const UART_IRQ: usize = 0xa;
 const PLIC_PRIORITY_MAX: usize = 7; // なんでわかる?
 
 pub fn init_plic() {
-    let hart = cpu::get_mhartid();
+    let hart = cpu::get_mhartid() as usize;
 
     set_plic_enable(hart, UART_IRQ);
     set_plic_priority(UART_IRQ, PLIC_PRIORITY_MAX);

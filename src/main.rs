@@ -77,6 +77,12 @@ extern "C" fn main() -> usize {
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
+    let mut mie = get_mie();
+    mie |= MIE_MEIE as u64;
+    mie |= XIE_SEIE as u64;
+    set_mie(mie);
+    println!("[setup] mie");
+
     // 仮想マシンの領域のPMPを設定する;
     // let top_address = 0xF0000000 as usize;
     // let bottom_address = 0x80000000 as usize;
@@ -84,6 +90,8 @@ extern "C" fn main() -> usize {
     // println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
 
     plic::init_plic();
+
+    mmio::ns16550::ns16500_intr_receive_enable();
 
     set_pmp_all_physical_address(true, true, true);
     println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());

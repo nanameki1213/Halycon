@@ -6,6 +6,25 @@ pub const MXLEN: usize = 64;
 
 pub const MIE_MEIE_OFFSET: usize = 11;
 
+pub const MSTATUS_SIE: usize = 1 << 1;
+pub const MSTATUS_MIE: usize = 1 << 3;
+
+pub const MIE_MEIE: usize = 1 << 11; // 外部割込み許可
+pub const MIE_MTIE: usize = 1 << 7; // タイマ割込み許可
+pub const MIE_MSIE: usize = 1 << 3; // ソフトウェア割込み許可
+
+pub const XIE_SEIE: usize = 1 << 9; // 外部割込み許可(Sモード)
+pub const XIE_STIE: usize = 1 << 5; // タイマ割込み許可(Sモード)
+pub const XIE_SSIE: usize = 1 << 1; // ソフトウェア割込み許可(Sモード)
+ 
+pub const MIP_MEIP: usize = 1 << 11; // 外部割込みペンディング
+pub const MIP_MTIP: usize = 1 << 7; // タイマ割り込みペンディング
+pub const MIP_MSIP: usize = 1 << 3; // ソフトウェア割込みペンディング
+
+pub const XIP_SEIP: usize = 1 << 9; // 外部割込みペンディング(Sモード)
+pub const XIP_STIP: usize = 1 << 5; // タイマ割込みペンディング(Sモード)
+pub const XIP_SSIP: usize = 1 << 1; // ソフトウェア割込みペンディング(Sモード)
+
 pub const TVEC_VECTORED: usize = 1;
 
 pub const MISA_EXTENSION_H_OFFSET: usize = 7;
