@@ -83,6 +83,8 @@ extern "C" fn main() -> usize {
     // set_pmp(top_address, bottom_address, true, true, true);
     // println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
 
+    plic::init_plic();
+
     set_pmp_all_physical_address(true, true, true);
     println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());
 
