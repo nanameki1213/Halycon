@@ -197,6 +197,18 @@ pub fn set_mie(mie: u64) {
 }
 
 #[inline(always)]
+pub fn get_sie() -> u64 {
+    let sie: u64;
+    unsafe { asm!("csrr {}, sie", out(reg) sie ) };
+    sie
+}
+
+#[inline(always)]
+pub fn set_sie(sie: u64) {
+    unsafe { asm!("csrw sie, {}", in(reg) sie ) };
+}
+
+#[inline(always)]
 pub fn get_hie() -> u64 {
     let hie: u64;
     unsafe { asm!("csrr {}, hie", out(reg) hie ) };

@@ -49,8 +49,8 @@ extern "C" fn main() -> usize {
 
     println!("[info] misa: {:#X}", misa);
 
-    set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
-    println!("[setup] mie");
+    // set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
+    // println!("[setup] mie");
 
     setup_vector();
     println!("[setup] mtvec");
@@ -84,11 +84,10 @@ extern "C" fn main() -> usize {
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
-    let mut mie = get_mie();
-    mie |= MIE_MEIE as u64;
-    mie |= XIE_SEIE as u64;
-    set_mie(mie);
-    println!("[setup] mie");
+    let mut sie = get_sie();
+    sie |= XIE_SEIE as u64;
+    set_sie(sie);
+    println!("[setup] sie");
 
     let mut hie = get_hie();
     hie |= XIE_SEIE as u64;
