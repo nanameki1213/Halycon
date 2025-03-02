@@ -594,3 +594,20 @@ pub fn get_time() -> u64 {
     unsafe { asm!("csrr {}, time", out(reg) time ) };
     time
 }
+
+// aia
+
+#[inline(always)]
+pub fn set_miselect(miselect: u64) {
+    unsafe { asm!("csrw miselect, {}", in(reg) miselect ) };
+}
+
+#[inline(always)]
+pub fn set_siselect(siselect: u64) {
+    unsafe { asm!("csrw siselect, {}", in(reg) siselect ) };
+}
+
+#[inline(always)]
+pub fn set_vsiselect(vsiselect: u64) {
+    unsafe { asm!("csrw vsiselect, {}", in(reg) vsiselect ) };
+}
