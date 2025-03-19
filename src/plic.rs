@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::cpu;
 
 // TODO: get plic_addr from device tree

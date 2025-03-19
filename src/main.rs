@@ -10,6 +10,7 @@ mod loader;
 mod memory;
 mod paging;
 mod plic;
+mod aplic;
 mod sbi;
 mod vector;
 mod virtio;
@@ -104,7 +105,7 @@ extern "C" fn main() -> usize {
     // set_pmp(top_address, bottom_address, true, true, true);
     // println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
 
-    // plic::init_plic();
+    aplic::init_aplic();
 
     mmio::ns16550::ns16500_intr_receive_enable();
 
