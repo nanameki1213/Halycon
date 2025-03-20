@@ -4,6 +4,7 @@ use crate::cpu::*;
 use crate::instruction;
 use crate::mmio::ns16550;
 use crate::paging;
+use crate::plic;
 use crate::println;
 use crate::sbi;
 
@@ -12,6 +13,9 @@ pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
 pub const E_VIRTUAL_INSTRUCTION: usize = 22;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
+
+pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
+pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
 #[no_mangle]
 #[link_section = ".data"]
@@ -299,6 +303,20 @@ fn is_instruction_abort(scause: usize) -> bool {
 #[no_mangle]
 pub fn exception_handler(mode: u8, sp: usize) {
     if mode == M_EXCEPTION {
+        if get_mcause() as usize == I_MACHINE_EXTERNAL {
+            let hart = get_mhartid() as usize;
+            if plic::get_plic_claim(hart) != plic::UART_IRQ {
+                panic!();
+            }
+            let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
+            ns16550::uart_fifo_push(c as u8);
+            plic::set_plic_claim(hart, plic::UART_IRQ);
+            // next instruction
+            let mut sepc = get_sepc();
+            sepc += 4;
+            set_sepc(sepc);
+            return;
+        }
         println!("Exception from M-Mode has occured!");
         let mcause = get_mcause();
         println!("[info] mcause: {:#X}", mcause);
@@ -341,7 +359,7 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
 fn write_access(virtual_address: usize, value: u64) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-        ns16550::write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u64);
+        ns16550::emulate_write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u64);
     } else {
         println!("Exception from S-mode has occured!");
         println!("[info] virtual address: {:#X}", virtual_address);
@@ -354,7 +372,7 @@ fn write_access(virtual_address: usize, value: u64) {
 fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         registers[dst_register_idx] =
-            ns16550::read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap();
+            ns16550::emulate_read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap();
     } else {
         println!("Exception from S-mode has occured!");
         println!("[info] virtual address: {:#X}", virtual_address);
