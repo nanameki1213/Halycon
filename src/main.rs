@@ -85,6 +85,11 @@ extern "C" fn main() -> usize {
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
+    let mut mie = get_mie();
+    mie |= MIE_MEIE as u64;
+    set_mie(mie);
+    println!("[setup] mie");
+
     let mut sie = get_sie();
     sie |= XIE_SEIE as u64;
     set_sie(sie);
