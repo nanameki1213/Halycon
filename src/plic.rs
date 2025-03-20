@@ -61,7 +61,7 @@ pub fn set_plic_claim(hart: usize, irq: usize) {
 }
 
 // TODO: analyze from device tree
-const UART_IRQ: usize = 0xa;
+pub const UART_IRQ: usize = 0xa;
 const PLIC_PRIORITY_MAX: usize = 7; // なんでわかる?
 
 pub fn init_plic() {
