@@ -110,7 +110,7 @@ extern "C" fn main() -> usize {
     // set_pmp(top_address, bottom_address, true, true, true);
     // println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
 
-    aplic::init_aplic();
+    plic::init_plic();
 
     mmio::ns16550::ns16500_intr_receive_enable();
 
