@@ -49,7 +49,7 @@ extern "C" fn main() -> usize {
 
     let misa = get_misa();
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
-        println!("this implimentesion is not support hypervisor extension.");
+        println!("this implementation is not support hypervisor extension.");
         return 1;
     }
 
