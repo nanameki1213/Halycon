@@ -1,24 +1,81 @@
-#![allow(dead_code)]
-
+use crate::println;
 use crate::print;
 use core::char;
 use core::usize;
 
 // TODO: get plic_addr from device tree
 pub const NS16550_ADDR: usize = 0x10000000;
-const NS16500_RBR: usize = 0x0;
-const NS16500_IER: usize = 0x1;
+pub const NS16500_RBR: usize = 0x0;
+pub const NS16500_IER: usize = 0x1;
+pub const NS16550_LSR: usize = 0x5;
 
 const NS16550_IER_RX_INTR: usize = 1 << 0;
 
-pub fn read_ns16550(offset: usize) -> Result<u64, ()> {
+const DEFAULT_FIFO_SIZE: usize = 16;
+
+// TODO: make trait
+pub struct Uart {
+    pub fifo: [u8; DEFAULT_FIFO_SIZE],
+    pub head: usize,
+    pub tail: usize,
+}
+
+impl Uart {
+    pub fn fifo_in(&mut self, c: u8) {
+        if (self.tail + 1) % DEFAULT_FIFO_SIZE != self.head {
+            self.fifo[self.tail] = c;
+            self.tail = (self.tail + 1) % DEFAULT_FIFO_SIZE;
+        } else {
+            panic!("fifo is overflow")
+        }
+    }
+
+    pub fn fifo_out(&mut self) -> u8 {
+        if self.head != self.tail {
+            let c = self.fifo[self.head];
+            self.head = (self.head + 1) % DEFAULT_FIFO_SIZE;
+            c
+        } else {
+            panic!("fifo is underflow")
+        }
+    }
+
+    pub fn is_fifo_empty(&mut self) -> bool {
+        self.head == self.tail
+    }
+}
+
+static mut UART: Uart = Uart {
+    fifo: [0;DEFAULT_FIFO_SIZE],
+    head: 0,
+    tail: 0,
+};
+
+pub fn emulate_read_ns16550(offset: usize) -> Result<u64, ()> {
+    let is_empty = unsafe {
+        UART.is_fifo_empty()
+    };
+
     match offset {
-        0x5 => Ok(0x60),
+        NS16500_RBR => {
+            // RBRを読みに来ているということはデータがあると思っている
+            let c = unsafe {
+                UART.fifo_out()
+            };
+            Ok(c as u64)
+        },
+        NS16550_LSR => {
+            if is_empty {
+                Ok(0x60)
+            } else {
+                Ok(0x1)
+            }
+        },
         _ => Ok(0),
     }
 }
 
-pub fn write_ns16550(offset: usize, value: u64) {
+pub fn emulate_write_ns16550(offset: usize, value: u64) {
     match offset {
         0x0 => {
             if let Some(ch) = char::from_u32(value as u32) {
@@ -35,6 +92,12 @@ pub fn write_ns16550(offset: usize, value: u64) {
     }
 }
 
+pub fn uart_fifo_push(c: u8) {
+    unsafe {
+        UART.fifo_in(c);
+    }
+}
+
 pub fn ns16500_intr_receive_enable() {
     let ier_address = (NS16550_ADDR + NS16500_IER) as *mut u32;
 
@@ -43,7 +106,23 @@ pub fn ns16500_intr_receive_enable() {
     };
 
     unsafe {
-        core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u32);
+        core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u32)
+    }
+}
+
+pub fn ns16550_get_by_offset(offset: usize) -> u32 {
+    let address = (NS16550_ADDR + offset) as *mut u32;
+
+    unsafe {
+        core::ptr::read_volatile(address)
+    }
+}
+
+pub fn ns16550_set_by_offset(offset: usize, value: u32) {
+    let address = (NS16550_ADDR + offset) as *mut u32;
+
+    unsafe {
+        core::ptr::write_volatile(address, value)
     }
 }
 
