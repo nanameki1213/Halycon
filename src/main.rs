@@ -40,7 +40,12 @@ macro_rules! bitmask {
 extern "C" fn main() -> usize {
     println!("booting Halycon...");
 
-    println!("[info] XLEN: {}", get_xlen_from_misa());
+    let xlen = get_xlen_from_misa();
+    if xlen != 64 {
+        println!("this implementation is not 64-bit.");
+        return 1;
+    }
+    println!("[info] XLEN: {}", xlen);
 
     let misa = get_misa();
     if (misa & (1 << MISA_EXTENSION_H_OFFSET)) == 0 {
