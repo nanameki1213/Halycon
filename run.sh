@@ -4,7 +4,7 @@ QEMU=~/qemu/build/qemu-system-riscv64
 mv $1 ./bin/disk
 
 $QEMU \
-  -M virt,aia=aplic \
+  -M virt \
   -smp 1 \
   -bios ./bin/disk/u-boot \
   -nographic -m 2G \
