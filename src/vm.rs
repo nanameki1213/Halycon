@@ -7,6 +7,7 @@ use crate::loader;
 use crate::paging;
 use crate::println;
 
+// TODO: static mut はunsafeなので代替を考える
 static mut VMID: usize = 0;
 
 pub struct VM {
@@ -26,6 +27,7 @@ impl VM {
         entry_point: usize,
         dtb_pointer: usize,
     ) -> *mut Self {
+        // グローバルアロケータを作成する
         let vm = unsafe { &mut *(allocate_memory(1, paging::PAGE_SIZE).unwrap() as *mut VM) };
 
         vm.ram_virtual_base_address = ram_virtual_base_address;
