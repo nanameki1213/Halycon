@@ -187,6 +187,7 @@ pub fn is_queue_available(index: u32) -> bool {
 const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x3000;
 
 pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
+    println!("read: {}", offset);
     let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + offset) as *mut u32;
 
     let value = unsafe {
@@ -197,6 +198,7 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
 }
 
 pub fn emulate_write_virtio(offset: usize, value: u32) {
+    println!("write: {}, {}", offset, value);
     let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + offset) as *mut u32;
 
     unsafe {
