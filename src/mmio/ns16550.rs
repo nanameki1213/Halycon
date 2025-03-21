@@ -99,14 +99,14 @@ pub fn uart_fifo_push(c: u8) {
 }
 
 pub fn ns16500_intr_receive_enable() {
-    let ier_address = (NS16550_ADDR + NS16500_IER) as *mut u32;
+    let ier_address = (NS16550_ADDR + NS16500_IER) as *mut u8;
 
     let ier = unsafe {
         core::ptr::read_volatile(ier_address)
     };
 
     unsafe {
-        core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u32)
+        core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u8)
     }
 }
 
