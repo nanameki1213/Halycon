@@ -14,6 +14,8 @@ $QEMU \
   -drive file=./bin/u-boot.bin,if=none,format=raw,id=drive1 \
   -device virtio-blk-device,drive=drive2,bus=virtio-mmio-bus.1 \
   -drive file=./bin/virt.dtb,if=none,format=raw,id=drive2 \
+  -device virtio-blk-device,drive=drive3 \
+  -drive file=/home/nanameki/buildroot-2025.02/output/images/Image,if=none,format=raw,id=drive3 \
   -global virtio-mmio.force-legacy=false \
   --trace events=./trace-events,file=trace.log \
   -D logfile.log -d in_asm \

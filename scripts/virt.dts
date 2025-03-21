@@ -57,6 +57,13 @@
 		compatible = "ns16550a";
   };
 
+  virtio_mmio@10001000 {
+    interrupts = <0x8>;
+    interrupt-parent = <0x3>;
+    reg = <0x0 0x10001000 0x0 0x1000>;
+    compatible = "virtio,mmio";
+  };
+
   rtc@101000 {
     interrupts = <0xb>;
     interrupt-parent = <0x3>;
@@ -83,5 +90,8 @@
 
   chosen {
     stdout-path="/serial@10000000:384000";
+    rng-seed = <0x40ec3684 0xfe54b5f 0x457abc31 0xacc6a4e2 0x9e0fb76 0xe0bdaeb8 0x906fbca9 0xaeb7c9b8 >;
+    bootargs = "earlycon=serial@10000000:384000 console=ttyAMA0";
+    kaslr-seed = <0x3928fc27 0x9caa495e >;
   };
 };
