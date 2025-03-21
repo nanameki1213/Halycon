@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::println;
-use crate::virtio::*;
+use crate::mmio::virtio::*;
 use core::mem::size_of;
 use core::ptr::slice_from_raw_parts_mut;
 use core::usize;

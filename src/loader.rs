@@ -1,6 +1,6 @@
 use crate::allocate_memory;
 use crate::paging;
-use crate::virtio;
+use crate::mmio::virtio;
 use crate::virtio_blk;
 
 pub fn load_bootloader(physical_base_address: usize) -> usize {

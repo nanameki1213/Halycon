@@ -13,11 +13,11 @@ mod plic;
 mod aplic;
 mod sbi;
 mod vector;
-mod virtio;
 mod virtio_blk;
 mod vm;
 mod mmio {
     pub mod ns16550;
+    pub mod virtio;
 }
 
 use crate::cpu::*;

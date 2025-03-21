@@ -5,6 +5,8 @@ use core::usize;
 use crate::paging::PAGE_SIZE;
 use crate::{allocate_memory, println};
 
+// analyze dtb and get mmio address
+pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
 pub static mut VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
 pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
 
@@ -180,4 +182,24 @@ pub fn notify_to_device(index: u32) {
 pub fn is_queue_available(index: u32) -> bool {
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
     get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX) != 0
+}
+
+const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x3000;
+
+pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
+    let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + offset) as *mut u32;
+
+    let value = unsafe {
+        core::ptr::read_volatile(address)
+    };
+
+    Ok(value)
+}
+
+pub fn emulate_write_virtio(offset: usize, value: u32) {
+    let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + offset) as *mut u32;
+
+    unsafe {
+        core::ptr::write_volatile(address, value);
+    }
 }
