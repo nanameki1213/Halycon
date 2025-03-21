@@ -2,7 +2,7 @@ use core::{arch::global_asm, usize};
 
 use crate::cpu::*;
 use crate::instruction;
-use crate::mmio::ns16550;
+use crate::mmio::{ns16550, virtio};
 use crate::paging;
 use crate::plic;
 use crate::println;
@@ -359,9 +359,11 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
 fn write_access(virtual_address: usize, value: u64) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-        ns16550::emulate_write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u64);
+        ns16550::emulate_write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u32);
+    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000).contains(&(&virtual_address)) {
+        virtio::emulate_write_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS, value as u32);
     } else {
-        println!("Exception from S-mode has occured!");
+        println!("write access data abort");
         println!("[info] virtual address: {:#X}", virtual_address);
         let physical_address = paging::resolve_address_stage2(virtual_address).unwrap();
         println!("[info] physical address: {:#X}", physical_address);
@@ -372,9 +374,12 @@ fn write_access(virtual_address: usize, value: u64) {
 fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         registers[dst_register_idx] =
-            ns16550::emulate_read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap();
+            ns16550::emulate_read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap() as u64;
+    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000).contains(&(&virtual_address)) {
+        registers[dst_register_idx] =
+            virtio::emulate_read_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS).unwrap() as u64;
     } else {
-        println!("Exception from S-mode has occured!");
+        println!("read access data abort");
         println!("[info] virtual address: {:#X}", virtual_address);
         let physical_address = paging::resolve_address_stage2(virtual_address).unwrap();
         println!("[info] physical address: {:#X}", physical_address);
