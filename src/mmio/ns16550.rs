@@ -51,7 +51,7 @@ static mut UART: Uart = Uart {
     tail: 0,
 };
 
-pub fn emulate_read_ns16550(offset: usize) -> Result<u64, ()> {
+pub fn emulate_read_ns16550(offset: usize) -> Result<u32, ()> {
     let is_empty = unsafe {
         UART.is_fifo_empty()
     };
@@ -62,7 +62,7 @@ pub fn emulate_read_ns16550(offset: usize) -> Result<u64, ()> {
             let c = unsafe {
                 UART.fifo_out()
             };
-            Ok(c as u64)
+            Ok(c as u32)
         },
         NS16550_LSR => {
             if is_empty {
@@ -75,10 +75,10 @@ pub fn emulate_read_ns16550(offset: usize) -> Result<u64, ()> {
     }
 }
 
-pub fn emulate_write_ns16550(offset: usize, value: u64) {
+pub fn emulate_write_ns16550(offset: usize, value: u32) {
     match offset {
         0x0 => {
-            if let Some(ch) = char::from_u32(value as u32) {
+            if let Some(ch) = char::from_u32(value) {
                 if ch == '\n' {
                     print!("\r");
                 }
