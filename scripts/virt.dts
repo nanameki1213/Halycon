@@ -25,9 +25,9 @@
 			riscv,cbop-block-size = <0x40>;
 			riscv,cboz-block-size = <0x40>;
 			riscv,cbom-block-size = <0x40>;
-			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zic64b", "zicbom", "zicbop", "zicboz", "ziccamoa", "ziccif", "zicclsm", "ziccrse", "zicntr", "zicsr", "zifencei", "zihintntl", "zihintpause", "zihpm", "za64rs", "zawrs", "zfa", "zca", "zcd", "zba", "zbb", "zbc", "zbs", "ssccptr", "sscounterenw", "sstc", "sstvala", "sstvecd", "svadu";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c";
 			riscv,isa-base = "rv64i";
-			riscv,isa = "rv64imafdch_zic64b_zicbom_zicbop_zicboz_ziccamoa_ziccif_zicclsm_ziccrse_zicntr_zicsr_zifencei_zihintntl_zihintpause_zihpm_za64rs_zawrs_zfa_zca_zcd_zba_zbb_zbc_zbs_ssccptr_sscounterenw_sstc_sstvala_sstvecd_svadu";
+			riscv,isa = "rv64imafdc";
 			mmu-type = "riscv,sv57";
 
 			interrupt-controller {
@@ -49,49 +49,27 @@
 		};
   };
 
+  chosen {
+    stdout-path="/serial@10000000:384000";
+    rng-seed = <0x40ec3684 0xfe54b5f 0x457abc31 0xacc6a4e2 0x9e0fb76 0xe0bdaeb8 0x906fbca9 0xaeb7c9b8 >;
+    bootargs = "earlycon=serial@10000000:384000 console=ttyAMA0";
+    kaslr-seed = <0x3928fc27 0x9caa495e >;
+  };
+
   serial@10000000 {
-		interrupts = <0xa>;
-		interrupt-parent = <0x3>;
 		clock-frequency = <0x384000>;
 		reg = <0x0 0x10000000 0x0 0x100>;
 		compatible = "ns16550a";
   };
 
   virtio_mmio@10001000 {
-    interrupts = <0x1>;
-    interrupt-parent = <0x3>;
     reg = <0x0 0x10001000 0x0 0x1000>;
     compatible = "virtio,mmio";
   };
-
-  rtc@101000 {
-    interrupts = <0xb>;
-    interrupt-parent = <0x3>;
-    reg = <0x0 0x101000 0x0 0x1000>;
-    compatible = "google,goldfish-rtc";
-  };
-
-  plic@c000000 {
-		phandle = <0x3>;
-		riscv,ndev = <0x5f>;
-		reg = <0x0 0xc000000 0x0 0x600000>;
-		interrupts-extended = <0x2 0xb 0x2 0x9>;
-		interrupt-controller;
-		compatible = "sifive,plic-1.0.0", "riscv,plic0";
-		#address-cells = <0x0>;
-		#interrupt-cells = <0x1>;
-	};
 
   timer {
     compatible = "riscv,timer";
     interrupts = <0x5>;
     interrupt-parent = <0x2>;
-  };
-
-  chosen {
-    stdout-path="/serial@10000000:384000";
-    rng-seed = <0x40ec3684 0xfe54b5f 0x457abc31 0xacc6a4e2 0x9e0fb76 0xe0bdaeb8 0x906fbca9 0xaeb7c9b8 >;
-    bootargs = "earlycon=serial@10000000:384000 console=ttyAMA0";
-    kaslr-seed = <0x3928fc27 0x9caa495e >;
   };
 };
