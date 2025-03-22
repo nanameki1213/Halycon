@@ -17,10 +17,10 @@ $QEMU \
   -device virtio-blk-device,drive=drive3 \
   -drive file=/home/nanameki/buildroot-2025.02/output/images/Image,if=none,format=raw,id=drive3 \
   -global virtio-mmio.force-legacy=false \
-  --trace events=./trace-events,file=trace.log \
   -D logfile.log -d in_asm \
   # -s -S \
 
+  # --trace events=./trace-events,file=trace.log \
   # -kernel bin/disk/hypervisor \
   # -serial mon:stdio \
   # --no-reboot \
