@@ -16,21 +16,8 @@ git clone https://source.denx.de/u-boot/u-boot.git
 
 cd u-boot
 make qemu-riscv64_smode_defconfig
-```
-u-boot/.configを開き、
-`CONFIG_DEBUG_SBI_CONSOLE=y`を削除したあと、
-```
-CONFIG_DEBUG_UART=y
-CONFIG_DEBUG_UART_NS16550=y
-CONFIG_DEBUG_UART_BASE=0x10000000
-CONFIG_DEBUG_UART_CLOCK=3686400
-```
-を書き込み、保存。
-最後に
-```
 make
 ```
-でビルド完了。
 u-boot/u-boot.binを、Halycon/bin/配下にコピーする
 
 ### Halyconのビルド
@@ -60,7 +47,7 @@ cargo run --release
     - [x] SBIコールの仮想化
     - [x] タイマデバイスの仮想化
     - [ ] ブロックデバイスの仮想化
-        - [ ] virtio-blkデバイスの実装
+        - [x] virtio-blkデバイスの実装(パススルー)
     - [ ] 割り込みコントローラの仮想化
 - [ ] Linuxの起動
 
@@ -73,7 +60,7 @@ cargo run --release
 - [ ] 複数ゲストの起動
 - [ ] ファイルシステムの実装
 - [ ] 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
-- [ ] シリアルデバイス仮想化で、仕様に沿ったエミュレーションを実装する(FIFOなど)
+- [x] シリアルデバイス仮想化で、仕様に沿ったエミュレーションを実装する(FIFOなど)
 
 ## 記事
 ハイパーバイザを開発する際にRISC-Vの仕様を整理するために書いたページです。
