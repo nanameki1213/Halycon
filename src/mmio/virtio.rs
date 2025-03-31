@@ -184,7 +184,7 @@ pub fn is_queue_available(index: u32) -> bool {
     get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX) != 0
 }
 
-const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x3000;
+const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x2000;
 
 pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
     println!("read: {}", offset);
