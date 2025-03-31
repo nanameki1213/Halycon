@@ -2,6 +2,7 @@ use core::{arch::global_asm, usize};
 
 use crate::cpu::*;
 use crate::instruction;
+use crate::instruction::Instruction;
 use crate::mmio::{ns16550, virtio};
 use crate::paging;
 use crate::plic;
@@ -351,9 +352,17 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
         panic!();
     }
+    
+    let mut instruction = Instruction::new(get_htinst() as u32);
+
     // next instruction
     let mut sepc = get_sepc();
-    sepc += 4;
+    let instruction_size = if instruction.is_compression_instruction() {
+        2
+    } else {
+        4
+    };
+    sepc += instruction_size;
     set_sepc(sepc);
 }
 
