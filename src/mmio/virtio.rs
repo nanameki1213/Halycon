@@ -2,7 +2,7 @@
 
 use core::usize;
 
-use crate::paging::PAGE_SIZE;
+use crate::paging::{resolve_address_stage2, PAGE_SIZE};
 use crate::{allocate_memory, println};
 
 // analyze dtb and get mmio address
@@ -198,10 +198,20 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
 }
 
 pub fn emulate_write_virtio(offset: usize, value: u32) {
-    println!("write: {:#X}, {}", offset, value);
+    println!("write: {:#X}, {:#X}", offset, value);
+
     let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + VIRTIO_MMIO_EMULATE_OFFSET + offset) as *mut u32;
 
-    unsafe {
-        core::ptr::write_volatile(address, value);
+    match offset {
+        VIRTIO_MMIO_DESC_LOW | VIRTIO_MMIO_DEVICE_LOW | VIRTIO_MMIO_DRIVER_LOW => {
+            unsafe {
+                core::ptr::write_volatile(address, resolve_address_stage2(value as usize).unwrap() as u32);
+            }
+        },
+        _ => {
+            unsafe {
+                core::ptr::write_volatile(address, value);
+            }
+        }
     }
 }
