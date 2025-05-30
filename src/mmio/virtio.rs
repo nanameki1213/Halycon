@@ -95,6 +95,30 @@ pub struct VirtQueue {
     pub last_avail_index: u16,
 }
 
+// Virtio MMIO によって設定されたQueue情報
+#[repr(C)]
+pub struct VirtQueueMmio {
+    pub queue_num: usize,
+    pub queue_sel: usize,
+    pub desc_address: usize,
+    pub driver_address: usize,
+    pub device_address: usize,
+}
+
+impl VirtQueueMmio {
+    pub const fn new() -> Self {
+        VirtQueueMmio {
+            queue_num: 0,
+            queue_sel: 0,
+            desc_address: 0,
+            driver_address: 0,
+            device_address: 0,
+        }
+    }
+}
+
+static mut VIRTQUEUE: VirtQueueMmio = VirtQueueMmio::new();
+
 #[inline(always)]
 pub fn get_virtio_mmio(offset: usize) -> u32 {
     unsafe {
@@ -203,15 +227,29 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
     let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + VIRTIO_MMIO_EMULATE_OFFSET + offset) as *mut u32;
 
     match offset {
-        VIRTIO_MMIO_DESC_LOW | VIRTIO_MMIO_DEVICE_LOW | VIRTIO_MMIO_DRIVER_LOW => {
-            unsafe {
-                core::ptr::write_volatile(address, resolve_address_stage2(value as usize).unwrap() as u32);
+        VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
+            if value as usize != VIRTQUEUE.queue_sel {
+                println!("invalid queue num");
+                return;
             }
+            
+            let desc_address = resolve_address_stage2(VIRTQUEUE.desc_address).unwrap();
         },
-        _ => {
-            unsafe {
-                core::ptr::write_volatile(address, value);
-            }
-        }
+        VIRTIO_MMIO_QUEUE_NUM => unsafe {
+            VIRTQUEUE.queue_num = value as usize;
+        },
+        VIRTIO_MMIO_QUEUE_SEL => unsafe {
+            VIRTQUEUE.queue_sel = value as usize;
+        },
+        VIRTIO_MMIO_DESC_LOW => unsafe {
+            VIRTQUEUE.desc_address = value as usize;
+        },
+        VIRTIO_MMIO_DRIVER_LOW => unsafe {
+            VIRTQUEUE.driver_address = value as usize;
+        },
+        VIRTIO_MMIO_DEVICE_LOW => unsafe {
+            VIRTQUEUE.device_address = value as usize;
+        },
+        _ => {},
     }
 }
