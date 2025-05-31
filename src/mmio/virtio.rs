@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::mmio::virtio;
 use crate::paging::{resolve_address_stage2, PAGE_SIZE};
 use crate::{allocate_memory, println};
 use crate::virtio_blk;
@@ -219,19 +220,33 @@ const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x2000;
 pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
     let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + VIRTIO_MMIO_EMULATE_OFFSET + offset) as *mut u32;
 
+    let mut value = unsafe {
+        core::ptr::read_volatile(address)
+    };
+    
     match offset {
+        VIRTIO_MMIO_VERSION => unsafe {
+            VIRTQUEUE.features = (
+                virtio_blk::VIRTIO_BLK_F_SEG_MAX |
+                virtio_blk::VIRTIO_BLK_F_GEOMETRY |
+                virtio_blk::VIRTIO_BLK_F_BLK_SIZE |
+                virtio_blk::VIRTIO_BLK_F_FLUSH |
+                virtio_blk::VIRTIO_BLK_F_TOPOLOGY |
+                virtio_blk::VIRTIO_BLK_F_DISCARD |
+                virtio_blk::VIRTIO_BLK_F_WRITE_ZEROES
+            ) as u64;
+            println!("features: {:#x}", VIRTQUEUE.features);
+        }
         VIRTIO_MMIO_STATUS => unsafe {
-            println!("read: {:#X}, {:#X}", offset, VIRTQUEUE.status as u32);
-            return Ok(VIRTQUEUE.status as u32);
+            value = VIRTQUEUE.status as u32;
         },
         VIRTIO_MMIO_DEVICE_FEATURES => unsafe {
+            let shift = VIRTQUEUE.features_sel * 32;
+            println!("shift: {}", shift);
+            value = (VIRTQUEUE.features >> shift) as u32;
         }
         _ => {}
     }
-
-    let value = unsafe {
-        core::ptr::read_volatile(address)
-    };
 
     println!("read: {:#X}, {:#X}", offset, value);
     Ok(value)
