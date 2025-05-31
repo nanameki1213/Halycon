@@ -4,13 +4,13 @@
 #[macro_use]
 
 mod cpu;
+mod aplic;
 mod console;
 mod instruction;
 mod loader;
 mod memory;
 mod paging;
 mod plic;
-mod aplic;
 mod sbi;
 mod vector;
 mod virtio_blk;

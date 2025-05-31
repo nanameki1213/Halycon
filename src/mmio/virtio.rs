@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 
+use core::usize;
+
 use crate::mmio::virtio;
 use crate::paging::{resolve_address_stage2, PAGE_SIZE};
+use crate::virtio_blk::{self, VirtioBlkReq};
 use crate::{allocate_memory, println};
-use crate::virtio_blk;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -45,7 +47,14 @@ pub const VIRTIO_MMIO_STATUS_FEATURES_OK: usize = 1 << 3;
 pub const VIRTIO_MMIO_STATUS_DEVICE_NEEDS_RESET: usize = 1 << 6;
 pub const VIRTIO_MMIO_STATUS_FAILED: usize = 1 << 7;
 
+// virtio feature bits
+pub const VIRTIO_F_INDIRECT_DESC: u64 = 1 << 28;
+pub const VIRTIO_F_EVENT_IDX: u64 = 1 << 29;
+pub const VIRTIO_F_VERSION_1: u64 = 1 << 32;
+pub const VIRTIO_F_RING_RESET: u64 = 1 << 40;
+
 #[repr(C)]
+#[derive(Debug)]
 pub struct VRingDesc {
     pub addr: u64,
     pub len: u32,
@@ -104,8 +113,10 @@ pub struct VirtQueueMmio {
     pub driver_address: u64,
     pub device_address: u64,
     pub status: u8,
-    pub features: u64,
-    pub features_sel: u32,
+    pub device_features: u64,
+    pub device_features_sel: u32,
+    pub driver_features: u64,
+    pub driver_features_sel: u32,
 }
 
 impl VirtQueueMmio {
@@ -117,8 +128,10 @@ impl VirtQueueMmio {
             driver_address: 0,
             device_address: 0,
             status: 0,
-            features: 0,
-            features_sel: 0,
+            device_features: 0,
+            device_features_sel: 0,
+            driver_features: 0,
+            driver_features_sel: 0,
         }
     }
 }
@@ -215,35 +228,35 @@ pub fn is_queue_available(index: u32) -> bool {
     get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX) != 0
 }
 
-const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x2000;
-
 pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
-    let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + VIRTIO_MMIO_EMULATE_OFFSET + offset) as *mut u32;
+    let address = unsafe { (virtio::VIRTIO_MMIO_ADDRESS + offset) as *mut u32 };
 
-    let mut value = unsafe {
-        core::ptr::read_volatile(address)
-    };
-    
+    let mut value = unsafe { core::ptr::read_volatile(address) };
+
     match offset {
         VIRTIO_MMIO_VERSION => unsafe {
-            VIRTQUEUE.features =
-                virtio_blk::VIRTIO_BLK_F_SEG_MAX |
-                virtio_blk::VIRTIO_BLK_F_GEOMETRY |
-                virtio_blk::VIRTIO_BLK_F_BLK_SIZE |
-                virtio_blk::VIRTIO_BLK_F_FLUSH |
-                virtio_blk::VIRTIO_BLK_F_TOPOLOGY |
-                virtio_blk::VIRTIO_BLK_F_DISCARD |
-                virtio_blk::VIRTIO_BLK_F_WRITE_ZEROES;
-            println!("features: {:#x}", VIRTQUEUE.features);
+            VIRTQUEUE.device_features = virtio_blk::VIRTIO_BLK_F_SEG_MAX
+                | virtio_blk::VIRTIO_BLK_F_GEOMETRY
+                | virtio_blk::VIRTIO_BLK_F_BLK_SIZE
+                | virtio_blk::VIRTIO_BLK_F_FLUSH
+                | virtio_blk::VIRTIO_BLK_F_TOPOLOGY
+                | virtio_blk::VIRTIO_BLK_F_DISCARD
+                | virtio_blk::VIRTIO_BLK_F_WRITE_ZEROES
+                | VIRTIO_F_INDIRECT_DESC
+                | VIRTIO_F_EVENT_IDX
+                | VIRTIO_F_VERSION_1
+                | VIRTIO_F_RING_RESET;
+        },
+        VIRTIO_MMIO_QUEUE_READY => {
+            value = VIRTIO_DEFAULT_INDEX;
         }
         VIRTIO_MMIO_STATUS => unsafe {
             value = VIRTQUEUE.status as u32;
         },
         VIRTIO_MMIO_DEVICE_FEATURES => unsafe {
-            let shift = VIRTQUEUE.features_sel * 32;
-            println!("shift: {}", shift);
-            value = (VIRTQUEUE.features >> shift) as u32;
-        }
+            let shift = VIRTQUEUE.device_features_sel * 32;
+            value = (VIRTQUEUE.device_features >> shift) as u32;
+        },
         _ => {}
     }
 
@@ -260,19 +273,29 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
                 println!("invalid queue num");
                 return;
             }
-            
+
             let desc_address = resolve_address_stage2(VIRTQUEUE.desc_address as usize).unwrap();
-            let desc_ring = &*(desc_address as *const VRingDesc);
-            let request_address = resolve_address_stage2(desc_ring.addr as usize).unwrap();
+            let desc_ring = &mut *core::ptr::slice_from_raw_parts_mut(
+                desc_address as *mut VRingDesc,
+                VIRTQ_ENTRY_NUM as usize,
+            );
+            let request_address = resolve_address_stage2(desc_ring[0].addr as usize).unwrap();
             let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
-            
-            if desc_ring.flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
+
+            if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
+                let mut req = VirtioBlkReq {
+                    req_type: 0,
+                    reserved: 0,
+                    sector: 0,
+                    data: [0; 512],
+                    status: 0,
+                };
                 virtio_blk::read_write_disk(
                     &mut *VIRTUAL_VQ,
-                    virtio_blk_req.data.as_mut_ptr() as *mut usize ,
-                    virtio_blk_req,
+                    virtio_blk_req.data.as_mut_ptr() as *mut usize,
+                    &mut req,
                     virtio_blk_req.sector,
-                    false
+                    false,
                 );
             }
 
@@ -280,12 +303,14 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             let used_ring = &mut *(device_address as *mut VRingUsed);
             used_ring.idx += 1;
 
-            virtio_blk_req.status |= virtio_blk::VIRTIO_BLK_S_OK as u8;
+            virtio_blk_req.status = virtio_blk::VIRTIO_BLK_S_OK as u8;
+            println!("after req: {:?}", virtio_blk_req);
         },
         VIRTIO_MMIO_QUEUE_READY => unsafe {
+            virtio::VIRTIO_MMIO_ADDRESS = 0x10003000;
             virtio_blk::init_virtio_blk();
             VIRTUAL_VQ = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
-        }
+        },
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
             VIRTQUEUE.queue_num = value;
         },
@@ -293,14 +318,21 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             VIRTQUEUE.queue_sel = value;
         },
         VIRTIO_MMIO_DEVICE_FEATURES_SEL => unsafe {
-            VIRTQUEUE.features_sel = value;
-        }
+            VIRTQUEUE.device_features_sel = value;
+        },
+        VIRTIO_MMIO_DRIVER_FEATURES_SEL => unsafe {
+            VIRTQUEUE.driver_features_sel = value;
+        },
+        VIRTIO_MMIO_DRIVER_FEATURES => unsafe {
+            let shift = VIRTQUEUE.driver_features_sel * 32;
+            VIRTQUEUE.driver_features = ((value as u64) << shift) as u64;
+        },
         VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
             VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u8;
-        }
+        },
         VIRTIO_MMIO_STATUS => unsafe {
             VIRTQUEUE.status = value as u8;
-        }
+        },
         VIRTIO_MMIO_DESC_LOW => unsafe {
             VIRTQUEUE.desc_address = value as u64;
         },
@@ -310,6 +342,6 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
         VIRTIO_MMIO_DEVICE_LOW => unsafe {
             VIRTQUEUE.device_address = value as u64;
         },
-        _ => {},
+        _ => {}
     }
 }

@@ -1,5 +1,5 @@
-use crate::println;
 use crate::print;
+use crate::println;
 use core::char;
 use core::usize;
 
@@ -46,31 +46,27 @@ impl Uart {
 }
 
 static mut UART: Uart = Uart {
-    fifo: [0;DEFAULT_FIFO_SIZE],
+    fifo: [0; DEFAULT_FIFO_SIZE],
     head: 0,
     tail: 0,
 };
 
 pub fn emulate_read_ns16550(offset: usize) -> Result<u32, ()> {
-    let is_empty = unsafe {
-        UART.is_fifo_empty()
-    };
+    let is_empty = unsafe { UART.is_fifo_empty() };
 
     match offset {
         NS16500_RBR => {
             // RBRを読みに来ているということはデータがあると思っている
-            let c = unsafe {
-                UART.fifo_out()
-            };
+            let c = unsafe { UART.fifo_out() };
             Ok(c as u32)
-        },
+        }
         NS16550_LSR => {
             if is_empty {
                 Ok(0x60)
             } else {
                 Ok(0x1)
             }
-        },
+        }
         _ => Ok(0),
     }
 }
@@ -101,29 +97,21 @@ pub fn uart_fifo_push(c: u8) {
 pub fn ns16500_intr_receive_enable() {
     let ier_address = (NS16550_ADDR + NS16500_IER) as *mut u8;
 
-    let ier = unsafe {
-        core::ptr::read_volatile(ier_address)
-    };
+    let ier = unsafe { core::ptr::read_volatile(ier_address) };
 
-    unsafe {
-        core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u8)
-    }
+    unsafe { core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u8) }
 }
 
 pub fn ns16550_get_by_offset(offset: usize) -> u32 {
     let address = (NS16550_ADDR + offset) as *mut u32;
 
-    unsafe {
-        core::ptr::read_volatile(address)
-    }
+    unsafe { core::ptr::read_volatile(address) }
 }
 
 pub fn ns16550_set_by_offset(offset: usize, value: u32) {
     let address = (NS16550_ADDR + offset) as *mut u32;
 
-    unsafe {
-        core::ptr::write_volatile(address, value)
-    }
+    unsafe { core::ptr::write_volatile(address, value) }
 }
 
 pub fn putc(c: u8) {

@@ -5,8 +5,8 @@ pub const APLIC_ADDR: usize = 0xc000000;
 
 const APLIC_DOMAINCFG_OFFSET: usize = 0x0;
 const APLIC_SOURCECFG_OFFSET: usize = 0x4;
-const APLIC_SETIE_OFFSET: usize     = 0x1e00;
-const APLIC_IDC_OFFSET: usize       = 0x4000;
+const APLIC_SETIE_OFFSET: usize = 0x1e00;
+const APLIC_IDC_OFFSET: usize = 0x4000;
 
 const APLIC_WORD_SIZE: usize = 4;
 

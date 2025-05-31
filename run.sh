@@ -15,10 +15,10 @@ $QEMU \
   -device virtio-blk-device,drive=drive2,bus=virtio-mmio-bus.1 \
   -drive file=./bin/virt.dtb,if=none,format=raw,id=drive2 \
   -device virtio-blk-device,drive=drive3,bus=virtio-mmio-bus.2 \
-  -drive file=./bin/disk/hypervisor,if=none,format=raw,id=drive3 \
+  -drive file=fat:rw:bin/disk/,if=none,format=raw,id=drive3 \
   -global virtio-mmio.force-legacy=false \
   -D logfile.log -d in_asm,int \
-  # -s -S \
+  -s -S \
 
   # --trace events=./trace-events,file=trace.log \
   # -kernel bin/disk/hypervisor \

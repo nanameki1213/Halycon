@@ -17,7 +17,7 @@ pub const MIE_MSIE: usize = 1 << 3; // ソフトウェア割込み許可
 pub const XIE_SEIE: usize = 1 << 9; // 外部割込み許可(Sモード)
 pub const XIE_STIE: usize = 1 << 5; // タイマ割込み許可(Sモード)
 pub const XIE_SSIE: usize = 1 << 1; // ソフトウェア割込み許可(Sモード)
- 
+
 pub const MIP_MEIP: usize = 1 << 11; // 外部割込みペンディング
 pub const MIP_VSEIP: usize = 1 << 10;
 pub const MIP_MTIP: usize = 1 << 7; // タイマ割り込みペンディング

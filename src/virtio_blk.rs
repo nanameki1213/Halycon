@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use crate::println;
 use crate::mmio::virtio::*;
+use crate::println;
 use core::mem::size_of;
 use core::ptr::slice_from_raw_parts_mut;
 use core::usize;
@@ -31,6 +31,7 @@ pub const VIRTIO_BLK_F_DISCARD: u64 = 1 << 13;
 pub const VIRTIO_BLK_F_WRITE_ZEROES: u64 = 1 << 14;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct VirtioBlkReq {
     pub req_type: u32,
     pub reserved: u32,

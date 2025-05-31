@@ -352,7 +352,7 @@ pub fn exception_handler(mode: u8, sp: usize) {
 
         panic!();
     }
-    
+
     let mut instruction = Instruction::new(get_htinst() as u32);
 
     // next instruction
@@ -369,8 +369,13 @@ pub fn exception_handler(mode: u8, sp: usize) {
 fn write_access(virtual_address: usize, value: u64) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         ns16550::emulate_write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u32);
-    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000).contains(&(virtual_address)) {
-        virtio::emulate_write_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS, value as u32);
+    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
+        .contains(&(virtual_address))
+    {
+        virtio::emulate_write_virtio(
+            virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,
+            value as u32,
+        );
     } else {
         println!("write access data abort");
         println!("[info] virtual address: {:#X}", virtual_address);
@@ -384,9 +389,12 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         registers[dst_register_idx] =
             ns16550::emulate_read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap() as u64;
-    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000).contains(&(virtual_address)) {
+    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
+        .contains(&(virtual_address))
+    {
         registers[dst_register_idx] =
-            virtio::emulate_read_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS).unwrap() as u64;
+            virtio::emulate_read_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS)
+                .unwrap() as u64;
     } else {
         println!("read access data abort");
         println!("[info] virtual address: {:#X}", virtual_address);

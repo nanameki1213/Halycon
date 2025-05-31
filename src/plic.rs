@@ -21,24 +21,25 @@ pub fn set_plic_enable(hart: usize, source: usize) {
 
     unsafe {
         core::ptr::write_volatile(
-            (PLIC_ADDR + PLIC_ENABLE_BITS_OFFSET + hart * PLIC_ENABLE_BITS_SIZE + column) as *mut u32,
-            1 << row
+            (PLIC_ADDR + PLIC_ENABLE_BITS_OFFSET + hart * PLIC_ENABLE_BITS_SIZE + column)
+                as *mut u32,
+            1 << row,
         );
     }
 }
 
 pub fn set_plic_priority(source: usize, priority: usize) {
     unsafe {
-       core::ptr::write_volatile(
-           (PLIC_ADDR + PLIC_PRIORITY_OFFSET + source * PLIC_WORD_SIZE) as *mut u32,
-           priority as u32
-       );
+        core::ptr::write_volatile(
+            (PLIC_ADDR + PLIC_PRIORITY_OFFSET + source * PLIC_WORD_SIZE) as *mut u32,
+            priority as u32,
+        );
     }
 }
 
 pub fn set_plic_thresholds(hart: usize, thresholds: usize) {
     let plic_thresholds_address = (PLIC_ADDR + 0x200000 + hart * 0x1000) as *mut u32;
-    
+
     unsafe {
         core::ptr::write_volatile(plic_thresholds_address, thresholds as u32);
     }
@@ -47,9 +48,7 @@ pub fn set_plic_thresholds(hart: usize, thresholds: usize) {
 pub fn get_plic_claim(hart: usize) -> usize {
     let plic_claim_address = (PLIC_ADDR + PLIC_CLAIM_OFFSET + PLIC_CLAIM_SIZE * hart) as *mut u32;
 
-    unsafe {
-        core::ptr::read_volatile(plic_claim_address) as usize
-    }
+    unsafe { core::ptr::read_volatile(plic_claim_address) as usize }
 }
 
 pub fn set_plic_claim(hart: usize, irq: usize) {
