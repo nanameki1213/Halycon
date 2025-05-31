@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
-use core::usize;
-
 use crate::paging::{resolve_address_stage2, PAGE_SIZE};
 use crate::{allocate_memory, println};
+use crate::virtio_blk;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -103,6 +102,7 @@ pub struct VirtQueueMmio {
     pub desc_address: usize,
     pub driver_address: usize,
     pub device_address: usize,
+    pub status: u8,
 }
 
 impl VirtQueueMmio {
@@ -113,11 +113,13 @@ impl VirtQueueMmio {
             desc_address: 0,
             driver_address: 0,
             device_address: 0,
+            status: 0,
         }
     }
 }
 
 static mut VIRTQUEUE: VirtQueueMmio = VirtQueueMmio::new();
+static mut VIRTUAL_VQ: *mut VirtQueue = core::ptr::null_mut();
 
 #[inline(always)]
 pub fn get_virtio_mmio(offset: usize) -> u32 {
@@ -213,6 +215,13 @@ const VIRTIO_MMIO_EMULATE_OFFSET: usize = 0x2000;
 pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
     let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + VIRTIO_MMIO_EMULATE_OFFSET + offset) as *mut u32;
 
+    match offset {
+        VIRTIO_MMIO_STATUS => unsafe {
+            return Ok(VIRTQUEUE.status as u32);
+        }
+        _ => {}
+    }
+
     let value = unsafe {
         core::ptr::read_volatile(address)
     };
@@ -224,8 +233,6 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
 pub fn emulate_write_virtio(offset: usize, value: u32) {
     println!("write: {:#X}, {:#X}", offset, value);
 
-    let address = (VIRTIO_MMIO_DEFAULT_ADDRESS + VIRTIO_MMIO_EMULATE_OFFSET + offset) as *mut u32;
-
     match offset {
         VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
             if value as usize != VIRTQUEUE.queue_sel {
@@ -234,13 +241,42 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             }
             
             let desc_address = resolve_address_stage2(VIRTQUEUE.desc_address).unwrap();
+            let desc_ring = &*(desc_address as *const VRingDesc);
+            let request_address = resolve_address_stage2(desc_ring.addr as usize).unwrap();
+            let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
+            
+            if desc_ring.flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
+                virtio_blk::read_write_disk(
+                    &mut *VIRTUAL_VQ,
+                    virtio_blk_req.data.as_mut_ptr() as *mut usize ,
+                    virtio_blk_req,
+                    virtio_blk_req.sector,
+                    false
+                );
+            }
+
+            let device_address = resolve_address_stage2(VIRTQUEUE.device_address).unwrap();
+            let used_ring = &mut *(device_address as *mut VRingUsed);
+            used_ring.idx += 1;
+
+            virtio_blk_req.status |= virtio_blk::VIRTIO_BLK_S_OK as u8;
         },
+        VIRTIO_MMIO_QUEUE_READY => unsafe {
+            virtio_blk::init_virtio_blk();
+            VIRTUAL_VQ = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
+        }
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
             VIRTQUEUE.queue_num = value as usize;
         },
         VIRTIO_MMIO_QUEUE_SEL => unsafe {
             VIRTQUEUE.queue_sel = value as usize;
         },
+        VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
+            VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u8;
+        }
+        VIRTIO_MMIO_STATUS => unsafe {
+            VIRTQUEUE.status = value as u8;
+        }
         VIRTIO_MMIO_DESC_LOW => unsafe {
             VIRTQUEUE.desc_address = value as usize;
         },
