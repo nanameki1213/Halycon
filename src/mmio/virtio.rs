@@ -103,6 +103,7 @@ pub struct VirtQueueMmio {
     pub driver_address: usize,
     pub device_address: usize,
     pub status: u8,
+    pub features_sel: u32,
 }
 
 impl VirtQueueMmio {
@@ -114,6 +115,7 @@ impl VirtQueueMmio {
             driver_address: 0,
             device_address: 0,
             status: 0,
+            features_sel: 0,
         }
     }
 }
@@ -217,7 +219,11 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
 
     match offset {
         VIRTIO_MMIO_STATUS => unsafe {
+            println!("read: {:#X}, {:#X}", offset, VIRTQUEUE.status as u32);
             return Ok(VIRTQUEUE.status as u32);
+        },
+        VIRTIO_MMIO_DEVICE_FEATURES_SEL => unsafe {
+
         }
         _ => {}
     }
@@ -271,6 +277,9 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
         VIRTIO_MMIO_QUEUE_SEL => unsafe {
             VIRTQUEUE.queue_sel = value as usize;
         },
+        VIRTIO_MMIO_DEVICE_FEATURES_SEL => unsafe {
+            VIRTQUEUE.features_sel = value;
+        }
         VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
             VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u8;
         }
