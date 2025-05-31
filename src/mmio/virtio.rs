@@ -97,12 +97,13 @@ pub struct VirtQueue {
 // Virtio MMIO によって設定されたQueue情報
 #[repr(C)]
 pub struct VirtQueueMmio {
-    pub queue_num: usize,
-    pub queue_sel: usize,
-    pub desc_address: usize,
-    pub driver_address: usize,
-    pub device_address: usize,
+    pub queue_num: u32,
+    pub queue_sel: u32,
+    pub desc_address: u64,
+    pub driver_address: u64,
+    pub device_address: u64,
     pub status: u8,
+    pub features: u64,
     pub features_sel: u32,
 }
 
@@ -115,6 +116,7 @@ impl VirtQueueMmio {
             driver_address: 0,
             device_address: 0,
             status: 0,
+            features: 0,
             features_sel: 0,
         }
     }
@@ -222,8 +224,7 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
             println!("read: {:#X}, {:#X}", offset, VIRTQUEUE.status as u32);
             return Ok(VIRTQUEUE.status as u32);
         },
-        VIRTIO_MMIO_DEVICE_FEATURES_SEL => unsafe {
-
+        VIRTIO_MMIO_DEVICE_FEATURES => unsafe {
         }
         _ => {}
     }
@@ -241,12 +242,12 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
 
     match offset {
         VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
-            if value as usize != VIRTQUEUE.queue_sel {
+            if value != VIRTQUEUE.queue_sel {
                 println!("invalid queue num");
                 return;
             }
             
-            let desc_address = resolve_address_stage2(VIRTQUEUE.desc_address).unwrap();
+            let desc_address = resolve_address_stage2(VIRTQUEUE.desc_address as usize).unwrap();
             let desc_ring = &*(desc_address as *const VRingDesc);
             let request_address = resolve_address_stage2(desc_ring.addr as usize).unwrap();
             let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
@@ -261,7 +262,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
                 );
             }
 
-            let device_address = resolve_address_stage2(VIRTQUEUE.device_address).unwrap();
+            let device_address = resolve_address_stage2(VIRTQUEUE.device_address as usize).unwrap();
             let used_ring = &mut *(device_address as *mut VRingUsed);
             used_ring.idx += 1;
 
@@ -272,10 +273,10 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             VIRTUAL_VQ = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
         }
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
-            VIRTQUEUE.queue_num = value as usize;
+            VIRTQUEUE.queue_num = value;
         },
         VIRTIO_MMIO_QUEUE_SEL => unsafe {
-            VIRTQUEUE.queue_sel = value as usize;
+            VIRTQUEUE.queue_sel = value;
         },
         VIRTIO_MMIO_DEVICE_FEATURES_SEL => unsafe {
             VIRTQUEUE.features_sel = value;
@@ -287,13 +288,13 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             VIRTQUEUE.status = value as u8;
         }
         VIRTIO_MMIO_DESC_LOW => unsafe {
-            VIRTQUEUE.desc_address = value as usize;
+            VIRTQUEUE.desc_address = value as u64;
         },
         VIRTIO_MMIO_DRIVER_LOW => unsafe {
-            VIRTQUEUE.driver_address = value as usize;
+            VIRTQUEUE.driver_address = value as u64;
         },
         VIRTIO_MMIO_DEVICE_LOW => unsafe {
-            VIRTQUEUE.device_address = value as usize;
+            VIRTQUEUE.device_address = value as u64;
         },
         _ => {},
     }
