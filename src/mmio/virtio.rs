@@ -226,15 +226,14 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
     
     match offset {
         VIRTIO_MMIO_VERSION => unsafe {
-            VIRTQUEUE.features = (
+            VIRTQUEUE.features =
                 virtio_blk::VIRTIO_BLK_F_SEG_MAX |
                 virtio_blk::VIRTIO_BLK_F_GEOMETRY |
                 virtio_blk::VIRTIO_BLK_F_BLK_SIZE |
                 virtio_blk::VIRTIO_BLK_F_FLUSH |
                 virtio_blk::VIRTIO_BLK_F_TOPOLOGY |
                 virtio_blk::VIRTIO_BLK_F_DISCARD |
-                virtio_blk::VIRTIO_BLK_F_WRITE_ZEROES
-            ) as u64;
+                virtio_blk::VIRTIO_BLK_F_WRITE_ZEROES;
             println!("features: {:#x}", VIRTQUEUE.features);
         }
         VIRTIO_MMIO_STATUS => unsafe {

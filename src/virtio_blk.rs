@@ -19,16 +19,16 @@ pub const VIRTIO_BLK_S_IOERR: usize = 1;
 pub const VIRTIO_BLK_S_UNSUPP: usize = 2;
 
 // block device feature bits
-pub const VIRTIO_BLK_F_SIZE_MAX: usize = 1 << 1;
-pub const VIRTIO_BLK_F_SEG_MAX: usize = 1 << 2;
-pub const VIRTIO_BLK_F_GEOMETRY: usize = 1 << 4;
-pub const VIRTIO_BLK_F_RO: usize = 1 << 5;
-pub const VIRTIO_BLK_F_BLK_SIZE: usize = 1 << 6;
-pub const VIRTIO_BLK_F_FLUSH: usize = 1 << 9;
-pub const VIRTIO_BLK_F_TOPOLOGY: usize = 1 << 10;
-pub const VIRTIO_BLK_F_MQ: usize = 1 << 12;
-pub const VIRTIO_BLK_F_DISCARD: usize = 1 << 13;
-pub const VIRTIO_BLK_F_WRITE_ZEROES: usize = 1 << 14;
+pub const VIRTIO_BLK_F_SIZE_MAX: u64 = 1 << 1;
+pub const VIRTIO_BLK_F_SEG_MAX: u64 = 1 << 2;
+pub const VIRTIO_BLK_F_GEOMETRY: u64 = 1 << 4;
+pub const VIRTIO_BLK_F_RO: u64 = 1 << 5;
+pub const VIRTIO_BLK_F_BLK_SIZE: u64 = 1 << 6;
+pub const VIRTIO_BLK_F_FLUSH: u64 = 1 << 9;
+pub const VIRTIO_BLK_F_TOPOLOGY: u64 = 1 << 10;
+pub const VIRTIO_BLK_F_MQ: u64 = 1 << 12;
+pub const VIRTIO_BLK_F_DISCARD: u64 = 1 << 13;
+pub const VIRTIO_BLK_F_WRITE_ZEROES: u64 = 1 << 14;
 
 #[repr(C)]
 pub struct VirtioBlkReq {
