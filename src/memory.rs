@@ -11,6 +11,7 @@ pub unsafe extern "C" fn init_allocation() {
         static mut _free_area: u8;
     }
     FREE_ADDRESS = core::ptr::addr_of!(_free_area) as *const u8 as usize;
+    println!("setup: {:#x}", FREE_ADDRESS);
 }
 
 pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<usize, ()> {
