@@ -31,6 +31,7 @@ pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<u
 
     let top_address = FREE_ADDRESS;
     FREE_ADDRESS += paging::PAGE_SIZE * num_of_pages;
+    println!("update: {:#x}", FREE_ADDRESS);
     Ok(top_address)
 }
 

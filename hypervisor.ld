@@ -25,6 +25,13 @@ SECTIONS
   }
 
   . = ALIGN(4096);
+
+  .intr_stack (NOLOAD) : {
+    _intr_stack_start = .;
+    . = . + 0x3000;
+    _intr_stack_end = .;
+  }
+
   _free_area = . ;
 
 }

@@ -90,7 +90,10 @@ machine_exception_handler:
     sd x31, 31*8(sp)
     lb a0, M_EXCEPTION
     mv a1, sp
+    la sp, _intr_stack_start
+    sd a1, 0(sp)
     call exception_handler
+    ld sp, 0(sp)
     ld x0, 0*8(sp)
     ld x1, 1*8(sp)
     ld x2, 2*8(sp)
@@ -166,7 +169,10 @@ supervisor_exception_handler:
     sd x31, 31*8(sp)
     lb a0, S_EXCEPTION
     mv a1, sp
+    la sp, _intr_stack_start
+    sd a1, 0(sp)
     call exception_handler
+    ld sp, 0(sp)
     ld x0, 0*8(sp)
     ld x1, 1*8(sp)
     ld x2, 2*8(sp)
@@ -242,7 +248,10 @@ virtual_supervisor_exception_handler:
     sd x31, 31*8(sp)
     lb a0, VS_EXCEPTION
     mv a1, sp
+    la sp, _intr_stack_start
+    sd a1, 0(sp)
     call exception_handler
+    ld sp, 0(sp)
     ld x0, 0*8(sp)
     ld x1, 1*8(sp)
     ld x2, 2*8(sp)
