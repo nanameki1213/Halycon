@@ -280,8 +280,16 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
                 VIRTQ_ENTRY_NUM as usize,
             );
             let request_address = resolve_address_stage2(desc_ring[0].addr as usize).unwrap();
+            let data_address = resolve_address_stage2(desc_ring[1].addr as usize).unwrap();
+            let status_address = resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
             let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
 
+            println!("desc[0]: {:?}", desc_ring[0]);
+            println!("desc[1]: {:?}", desc_ring[1]);
+            println!("desc[2]: {:?}", desc_ring[2]);
+
+            println!("virtio: {:?}", virtio_blk_req);
+            
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
                 let mut req = VirtioBlkReq {
                     req_type: 0,
@@ -292,7 +300,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
                 };
                 virtio_blk::read_write_disk(
                     &mut *VIRTUAL_VQ,
-                    virtio_blk_req.data.as_mut_ptr() as *mut usize,
+                    data_address as *mut usize,
                     &mut req,
                     virtio_blk_req.sector,
                     false,
@@ -303,8 +311,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             let used_ring = &mut *(device_address as *mut VRingUsed);
             used_ring.idx += 1;
 
-            virtio_blk_req.status = virtio_blk::VIRTIO_BLK_S_OK as u8;
-            println!("after req: {:?}", virtio_blk_req);
+            core::ptr::write_volatile(status_address, virtio_blk::VIRTIO_BLK_S_OK as u8);
         },
         VIRTIO_MMIO_QUEUE_READY => unsafe {
             virtio::VIRTIO_MMIO_ADDRESS = 0x10003000;
