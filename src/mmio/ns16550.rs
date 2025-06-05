@@ -88,6 +88,22 @@ pub fn emulate_write_ns16550(offset: usize, value: u32) {
     }
 }
 
+pub fn read_ns16550(offset: usize) -> Result<u32, ()> {
+    let address = (NS16550_ADDR + offset) as *const u32;
+
+    unsafe {
+        Ok(core::ptr::read_volatile(address))
+    }
+}
+
+pub fn write_ns16550(offset: usize, value: u32) {
+    let address = (NS16550_ADDR + offset) as *mut u32;
+
+    unsafe {
+        core::ptr::write_volatile(address, value as u32);
+    }
+}
+
 pub fn uart_fifo_push(c: u8) {
     unsafe {
         UART.fifo_in(c);

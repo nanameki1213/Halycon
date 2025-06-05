@@ -288,7 +288,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             println!("desc[1]: {:?}", desc_ring[1]);
             println!("desc[2]: {:?}", desc_ring[2]);
 
-            println!("virtio: {:?}", virtio_blk_req);
+            // println!("virtio: {:?}", virtio_blk_req);
             
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
                 let mut req = VirtioBlkReq {
