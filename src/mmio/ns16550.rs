@@ -88,19 +88,27 @@ pub fn emulate_write_ns16550(offset: usize, value: u32) {
     }
 }
 
-pub fn read_ns16550(offset: usize) -> Result<u32, ()> {
-    let address = (NS16550_ADDR + offset) as *const u32;
-
-    unsafe {
-        Ok(core::ptr::read_volatile(address))
+pub fn read_ns16550(offset: usize) -> Result<u64, ()> {
+    match offset {
+        0x5 => Ok(0x60),
+        _ => Ok(0),
     }
 }
 
 pub fn write_ns16550(offset: usize, value: u32) {
-    let address = (NS16550_ADDR + offset) as *mut u32;
-
-    unsafe {
-        core::ptr::write_volatile(address, value as u32);
+    match offset {
+        0x0 => {
+            if let Some(ch) = char::from_u32(value) {
+                if ch == '\n' {
+                    print!("\r");
+                }
+                print!("{}", ch);
+            }
+        }
+        0x1 => {
+            // 割り込みの許可/禁止処理をエミュレートする
+        }
+        _ => {}
     }
 }
 
