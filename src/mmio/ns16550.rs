@@ -1,5 +1,6 @@
+#![allow(dead_code)]
+
 use crate::print;
-use crate::println;
 use core::char;
 use core::usize;
 

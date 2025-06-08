@@ -318,8 +318,8 @@ pub fn exception_handler(mode: u8, sp: usize) {
             if plic::get_plic_claim(hart) != plic::UART_IRQ {
                 panic!();
             }
-            let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
-            ns16550::uart_fifo_push(c as u8);
+            // let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
+            // ns16550::uart_fifo_push(c as u8);
             plic::set_plic_claim(hart, plic::UART_IRQ);
             // next instruction
             let mut sepc = get_sepc();
