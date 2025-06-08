@@ -471,6 +471,32 @@ pub fn set_vscause(vscause: u64) {
     unsafe { asm!("csrw vscause, {}", in(reg) vscause) };
 }
 
+// scratch
+
+#[inline(always)]
+pub fn get_mscratch() -> u64 {
+    let mscratch: u64;
+    unsafe { asm!("csrr {}, mscratch", out(reg) mscratch ) };
+    mscratch
+}
+
+#[inline(always)]
+pub fn set_mscratch(mscratch: u64) {
+    unsafe { asm!("csrw mscratch, {}", in(reg) mscratch) };
+}
+
+#[inline(always)]
+pub fn get_sscratch() -> u64 {
+    let sscratch: u64;
+    unsafe { asm!("csrr {}, sscratch", out(reg) sscratch ) };
+    sscratch
+}
+
+#[inline(always)]
+pub fn set_sscratch(sscratch: u64) {
+    unsafe { asm!("csrw sscratch, {}", in(reg) sscratch) };
+}
+
 // inst
 
 #[inline(always)]
