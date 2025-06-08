@@ -90,7 +90,7 @@ machine_exception_handler:
     sd x31, 31*8(sp)
     lb a0, M_EXCEPTION
     csrw mscratch, sp
-    la sp, _intr_stack_pointer
+    la sp, _intr_stack_end
     call exception_handler
     csrr sp, mscratch
     ld x0, 0*8(sp)
@@ -168,7 +168,7 @@ supervisor_exception_handler:
     sd x31, 31*8(sp)
     lb a0, S_EXCEPTION
     csrw sscratch, sp
-    la sp, _intr_stack_pointer
+    la sp, _intr_stack_end
     call exception_handler
     csrr sp, sscratch
     ld x0, 0*8(sp)
@@ -246,7 +246,7 @@ virtual_supervisor_exception_handler:
     sd x31, 31*8(sp)
     lb a0, VS_EXCEPTION
     csrw sscratch, sp
-    la sp, _intr_stack_pointer
+    la sp, _intr_stack_end
     call exception_handler
     csrr sp, sscratch
     ld x0, 0*8(sp)
