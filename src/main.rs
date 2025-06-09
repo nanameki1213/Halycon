@@ -125,6 +125,11 @@ extern "C" fn main() -> usize {
     unsafe { init_allocation() };
     println!("[setup] allocater");
 
+    extern "C" {
+        static _intr_stack_end: u8;
+    }
+    unsafe { println!("[info] intr stack pointer: {:#X}", &_intr_stack_end as *const u8 as usize); }
+
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
