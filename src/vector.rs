@@ -88,11 +88,19 @@ machine_exception_handler:
     sd x29, 29*8(sp)
     sd x30, 30*8(sp)
     sd x31, 31*8(sp)
+    csrr a0, mstatus
+    li t0, 0x8000000000
+    and t1, a0, t0
     lb a0, M_EXCEPTION
+    beq t1, x0, NOT_STACK_M
     csrw mscratch, sp
     la sp, _intr_stack_end
     call exception_handler
     csrr sp, mscratch
+    jal x0, END_INTR_M
+NOT_STACK_M:
+    call exception_handler
+END_INTR_M:
     ld x0, 0*8(sp)
     ld x1, 1*8(sp)
     ld x2, 2*8(sp)
@@ -392,6 +400,7 @@ fn write_access(virtual_address: usize, value: u64) {
     }
 }
 
+#[no_mangle]
 fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         registers[dst_register_idx] =

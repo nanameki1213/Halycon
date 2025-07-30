@@ -51,6 +51,7 @@ pub fn get_plic_claim(hart: usize) -> usize {
     unsafe { core::ptr::read_volatile(plic_claim_address) as usize }
 }
 
+#[no_mangle]
 pub fn set_plic_claim(hart: usize, irq: usize) {
     let plic_claim_address = (PLIC_ADDR + PLIC_CLAIM_OFFSET + PLIC_CLAIM_SIZE * hart) as *mut u32;
 

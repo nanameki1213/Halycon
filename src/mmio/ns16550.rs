@@ -96,6 +96,7 @@ pub fn read_ns16550(offset: usize) -> Result<u64, ()> {
     }
 }
 
+#[no_mangle]
 pub fn write_ns16550(offset: usize, value: u32) {
     match offset {
         0x0 => {
