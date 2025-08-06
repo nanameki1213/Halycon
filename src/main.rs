@@ -4,6 +4,7 @@
 #[macro_use]
 
 mod cpu;
+mod dts;
 mod aplic;
 mod console;
 mod instruction;
@@ -22,6 +23,7 @@ mod mmio {
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
+use dts::{check_fdt_header, FdtHeader};
 use memory::*;
 use vector::setup_vector;
 
@@ -38,7 +40,25 @@ macro_rules! bitmask {
 
 #[no_mangle]
 extern "C" fn main() -> usize {
+    let mut dtb_pointer: *const usize;
+    unsafe {
+        asm!(
+            "mv {0}, s1",
+            out(reg) dtb_pointer
+            )
+    }
+
     println!("booting Halycon...");
+
+    println!("dtb pointer: {:#X}", dtb_pointer as usize);
+
+    let fdt_header = unsafe {
+        *(dtb_pointer as usize as *const FdtHeader)
+    };
+    match check_fdt_header(fdt_header) {
+        Ok(()) => {},
+        Err(msg) => panic!("{}", msg),
+    }
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
