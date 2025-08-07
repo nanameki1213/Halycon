@@ -4,7 +4,7 @@
 #[macro_use]
 
 mod cpu;
-mod dts;
+mod fdt;
 mod aplic;
 mod console;
 mod instruction;

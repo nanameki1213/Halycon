@@ -7,3 +7,4 @@ edition = "2021"
 opt-level = 0
 
 [dependencies]
+byteorder = "1"

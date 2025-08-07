@@ -1,3 +1,5 @@
+use byteorder::{BigEndian, LittleEndian, NativeEndian, ByteOrder};
+
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
 
