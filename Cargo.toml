@@ -7,4 +7,4 @@ edition = "2021"
 opt-level = 0
 
 [dependencies]
-byteorder = "1"
+byteorder = { version = "1", default-features = false }

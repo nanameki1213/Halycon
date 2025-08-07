@@ -23,7 +23,6 @@ mod mmio {
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
-use dts::{check_fdt_header, FdtHeader};
 use memory::*;
 use vector::setup_vector;
 use core::str;
@@ -67,20 +66,24 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         panic!("dtb pointer not configured.");
     }
 
-    let dtb_pointer: usize = unsafe {
+    let fdt_pointer: usize = unsafe {
         match hex_ptr_to_usize(*argv) {
             Ok(address) => address,
-            Err(_) => panic!("dtb pointer not configured."),
+            Err(_) => panic!("fdt pointer not configured."),
         }
     };
     println!("booting Halycon...");
 
-    println!("dtb pointer: {:#X}", dtb_pointer);
+    println!("fdt pointer: {:#X}", fdt_pointer);
 
     let fdt_header = unsafe {
-        *(dtb_pointer as usize as *const FdtHeader)
+        match fdt::parse_fdt_header(fdt_pointer) {
+            Ok(header) => header,
+            Err(_) => panic!("cannnot read fdt header."),
+        }
     };
-    match check_fdt_header(fdt_header) {
+
+    match fdt::check_fdt_header(fdt_header) {
         Ok(()) => {},
         Err(msg) => panic!("{}", msg),
     }
