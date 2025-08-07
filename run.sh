@@ -18,7 +18,7 @@ $QEMU \
   -drive file=./disk.img,if=none,format=raw,id=drive3 \
   -global virtio-mmio.force-legacy=false \
   -D logfile.log -d in_asm,int \
-  -s -S \
+  # -s -S \
 
   # --trace events=./trace-events,file=trace.log \
   # -kernel bin/disk/hypervisor \
