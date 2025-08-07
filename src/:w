@@ -26,7 +26,9 @@ use core::{arch::asm, usize};
 use dts::{check_fdt_header, FdtHeader};
 use memory::*;
 use vector::setup_vector;
+use core::ffi::c_char;
 use core::str;
+use core::str::FromStr;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -68,14 +70,12 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     }
 
     let dtb_pointer: usize = unsafe {
-        match hex_ptr_to_usize(*argv) {
-            Ok(address) => address,
-            Err(_) => panic!("dtb pointer not configured."),
-        }
-    };
+        
+    }
+
     println!("booting Halycon...");
 
-    println!("dtb pointer: {:#X}", dtb_pointer);
+    println!("dtb pointer: {:#X}", dtb_pointer as usize);
 
     let fdt_header = unsafe {
         *(dtb_pointer as usize as *const FdtHeader)
