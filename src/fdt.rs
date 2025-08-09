@@ -1,13 +1,14 @@
-use byteorder::{BigEndian, LittleEndian, NativeEndian, ByteOrder};
+use byteorder::{BigEndian, ByteOrder};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
 
-#[derive(Copy, Clone)]
+#[derive(Debug)]
 pub struct FdtHeader {
     pub magic: u32,
     pub totalsize: u32,
     pub off_dt_struct: u32,
+    pub off_dt_strings: u32,
     pub off_mem_rsvmap: u32,
     pub version: u32,
     pub last_comp_version: u32,
@@ -21,15 +22,16 @@ pub unsafe fn parse_fdt_header(fdt_pointer: usize) -> Result<FdtHeader, ()> {
     let buf = core::slice::from_raw_parts(ptr, core::mem::size_of::<FdtHeader>());
 
     let header = FdtHeader {
-        magic:              LittleEndian::read_u32(&buf[0..2]),
-        totalsize:          LittleEndian::read_u32(&buf[2..4]),
-        off_dt_struct:      LittleEndian::read_u32(&buf[4..6]),
-        off_mem_rsvmap:     LittleEndian::read_u32(&buf[6..8]),
-        version:            LittleEndian::read_u32(&buf[8..10]),
-        last_comp_version:  LittleEndian::read_u32(&buf[10..12]),
-        boot_cpuid_phys:    LittleEndian::read_u32(&buf[12..14]),
-        size_dt_strings:    LittleEndian::read_u32(&buf[14..16]),
-        size_dt_struct:     LittleEndian::read_u32(&buf[16..18]),
+        magic:              BigEndian::read_u32(&buf[0..4]),
+        totalsize:          BigEndian::read_u32(&buf[4..8]),
+        off_dt_struct:      BigEndian::read_u32(&buf[8..12]),
+        off_dt_strings:     BigEndian::read_u32(&buf[12..16]),
+        off_mem_rsvmap:     BigEndian::read_u32(&buf[16..20]),
+        version:            BigEndian::read_u32(&buf[20..24]),
+        last_comp_version:  BigEndian::read_u32(&buf[24..28]),
+        boot_cpuid_phys:    BigEndian::read_u32(&buf[28..32]),
+        size_dt_strings:    BigEndian::read_u32(&buf[32..36]),
+        size_dt_struct:     BigEndian::read_u32(&buf[36..40]),
     };
 
     Ok(header)
