@@ -38,7 +38,7 @@ macro_rules! bitmask {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
-// no_std環境下での文字列処理関数
+// allocが使えない環境下での文字列操作関数
 unsafe fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
     if ptr.is_null() {
         return Err(());
