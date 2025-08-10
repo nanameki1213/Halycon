@@ -76,6 +76,13 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     println!("fdt pointer: {:#X}", fdt_pointer);
 
+    unsafe {
+        match fdt::parse_fdt(fdt_pointer) {
+            Ok(()) => {},
+            Err(msg) => panic!("{}", msg),
+        }
+    }
+
     let fdt_header = unsafe {
         match fdt::parse_fdt_header(fdt_pointer) {
             Ok(header) => header,
@@ -83,10 +90,12 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         }
     };
 
-    match fdt::check_fdt_header(fdt_header) {
+    match fdt::check_fdt_header(&fdt_header) {
         Ok(()) => {},
         Err(msg) => panic!("{}", msg),
     }
+
+    println!("{:?}", fdt_header);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
