@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ByteOrder};
-
 use crate::println;
+use core::ffi::CStr;
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -25,6 +25,21 @@ pub struct FdtHeader {
     pub size_dt_struct: u32,
 }
 
+#[derive(Debug)]
+#[repr(C)]
+struct FdtPropData {
+    len: u32,
+    nameoff: u32,
+}
+
+pub unsafe fn get_cstr(ptr: *const u8) -> Result<&'static str, ()> {
+    let c_str = CStr::from_ptr(ptr as *const u8);
+    match c_str.to_str() {
+        Ok(str) => { return Ok(str); },
+        Err(_) => { return Err(()) },
+    }
+}
+
 pub unsafe fn parse_fdt(fdt_pointer: usize) -> Result<(), &'static str> {
     let header = match parse_fdt_header(fdt_pointer) {
         Ok(header) => header,
@@ -44,7 +59,26 @@ pub unsafe fn parse_fdt(fdt_pointer: usize) -> Result<(), &'static str> {
             Err(()) => { 0 },
         };
         current = current.add(1);
-        println!("token: {:#X}", token);
+        match token {
+            FDT_BEGIN_NODE => {
+                let unit_name = get_cstr(current as *const u8).unwrap();
+                println!("unit_name: {}", unit_name)
+            },
+            FDT_PROP => {
+                let ptr = current as *const u8;
+                let buf = core::slice::from_raw_parts(ptr, core::mem::size_of::<FdtPropData>());
+                
+                let prop_data = FdtPropData {
+                    len:        BigEndian::read_u32(&buf[0..4]),
+                    nameoff:    BigEndian::read_u32(&buf[4..8]),
+                };
+
+                println!("{:?}", prop_data);
+            },
+            FDT_END_NODE => {},
+            FDT_NOP => {},
+            _ => {},
+        }
         if token == FDT_END {
             break;
         }
