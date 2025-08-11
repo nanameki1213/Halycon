@@ -11,6 +11,22 @@ pub const FDT_PROP: u32 = 0x3;
 pub const FDT_NOP: u32 = 0x4;
 pub const FDT_END: u32 = 0x9;
 
+pub enum FdtError {
+    InvalidMagic = 100,
+    UnsupportedVersion= 101,
+    UnexpectedEOF = 102,
+}
+
+impl FdtError {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FdtError::InvalidMagic => "invalid header magic",
+            FdtError::UnsupportedVersion => "unsupported version",
+            FdtError::UnexpectedEOF => "unexpected EOF",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct FdtHeader {
     pub magic: u32,
@@ -40,29 +56,23 @@ pub unsafe fn get_cstr(ptr: *const u8) -> Result<&'static str, ()> {
     }
 }
 
-pub unsafe fn parse_fdt(fdt_pointer: usize) -> Result<(), &'static str> {
-    let header = match parse_fdt_header(fdt_pointer) {
-        Ok(header) => header,
-        Err(_) => return Err("Cannnot parse fdt header"),
-    };
+pub unsafe fn parse_fdt(fdt_pointer: usize) -> Result<(), FdtError> {
+    let header = parse_fdt_header(fdt_pointer);
 
     match check_fdt_header(&header) {
         Ok(()) => {},
-        Err(msg) => return Err(msg),
+        Err(error) => return Err(error),
     }
 
     let fdt_struct_pointer = (fdt_pointer as usize + header.off_dt_struct as usize) as *const u32;
     let mut current = fdt_struct_pointer;
     loop {
-        let token = match fdt_token_iteration(&header, fdt_struct_pointer, &mut current) {
-            Ok(token) => { token },
-            Err(()) => { 0 },
-        };
+        let token = fdt_token_iteration(&header, fdt_struct_pointer, &mut current)?;
         current = current.add(1);
         match token {
             FDT_BEGIN_NODE => {
                 let unit_name = get_cstr(current as *const u8).unwrap();
-                println!("unit_name: {}", unit_name)
+                println!("unit_name: {}", unit_name);
             },
             FDT_PROP => {
                 let ptr = current as *const u8;
@@ -77,17 +87,15 @@ pub unsafe fn parse_fdt(fdt_pointer: usize) -> Result<(), &'static str> {
             },
             FDT_END_NODE => {},
             FDT_NOP => {},
+            FDT_END => { break; }
             _ => {},
-        }
-        if token == FDT_END {
-            break;
         }
     }
 
     Ok(())
 }
 
-pub unsafe fn parse_fdt_header(fdt_pointer: usize) -> Result<FdtHeader, ()> {
+pub unsafe fn parse_fdt_header(fdt_pointer: usize) -> FdtHeader {
     let ptr = fdt_pointer as *const u8;
     let buf = core::slice::from_raw_parts(ptr, core::mem::size_of::<FdtHeader>());
 
@@ -104,29 +112,33 @@ pub unsafe fn parse_fdt_header(fdt_pointer: usize) -> Result<FdtHeader, ()> {
         size_dt_struct:     BigEndian::read_u32(&buf[36..40]),
     };
 
-    Ok(header)
+    header
 }
 
-pub fn check_fdt_header(header: &FdtHeader) -> Result<(), &'static str> {
+pub fn check_fdt_header(header: &FdtHeader) -> Result<(), FdtError> {
     if header.magic != FDT_MAGIC {
-        return Err("fdt magic value is invalid.");
+        return Err(FdtError::InvalidMagic);
     }
 
     if header.version != FDT_VERSION {
-        return Err("fdt version is not supported.");
+        return Err(FdtError::UnsupportedVersion);
     }
 
     Ok(())
 }
 
-pub unsafe fn fdt_token_iteration(header: &FdtHeader, start_address: *const u32, current: &mut *const u32) -> Result<u32, ()> {
+unsafe fn fdt_token_iteration(header: &FdtHeader, start_address: *const u32, current: &mut *const u32) -> Result<u32, FdtError> {
     let end_address = (start_address as usize + header.size_dt_struct as usize) as *const u32;
 
     if !(start_address..end_address).contains(current) {
-        return Err(());
+        panic!("precondition: fdt pointer is not pointing to fdt struct data");
     }
 
     loop {
+        if *current == end_address {
+            return Err(FdtError::UnexpectedEOF);
+        }
+
         let byte = core::slice::from_raw_parts(*current as *const u8, core::mem::size_of::<u32>());
 
         match BigEndian::read_u32(byte) {
