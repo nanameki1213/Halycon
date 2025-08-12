@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ByteOrder};
 use crate::println;
-use core::ffi::CStr;
+use core::{ffi::CStr, usize};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -84,6 +84,15 @@ pub unsafe fn parse_fdt(fdt_pointer: usize) -> Result<(), FdtError> {
                 };
 
                 println!("{:?}", prop_data);
+                let str_ptr = (fdt_pointer + header.off_dt_strings as usize + prop_data.nameoff as usize) as *const u8;
+                let name = get_cstr(str_ptr).unwrap();
+                
+                current = current.add(core::mem::size_of::<FdtPropData>() / 4);
+                let prop_buf = core::slice::from_raw_parts(current as *const u8, prop_data.len as usize);
+                let prop_value = str::from_utf8_unchecked(prop_buf);
+
+                println!("name: {}", name);
+                println!("property value: {}", prop_value);
             },
             FDT_END_NODE => {},
             FDT_NOP => {},
