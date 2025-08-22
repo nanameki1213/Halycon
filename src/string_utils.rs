@@ -2,9 +2,7 @@ use core::str;
 
 // allocが使えない環境下での文字列操作関数
 pub unsafe fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
-    if ptr.is_null() {
-        return Err(());
-    }
+    assert!(ptr.is_null());
 
     let mut len = 0;
     while *ptr.add(len) != 0 {
@@ -23,9 +21,7 @@ pub unsafe fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
 }
 
 pub unsafe fn hex_ptr_to_usize_length(ptr: *const u8, len: usize) -> Result<usize, ()> {
-    if ptr.is_null() {
-        return Err(());
-    }
+    assert!(ptr.is_null());
 
     let slice = core::slice::from_raw_parts(ptr, len);
     let s = match str::from_utf8(slice) {
