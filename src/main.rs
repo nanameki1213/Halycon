@@ -56,7 +56,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("fdt pointer: {:#X}", fdt_pointer);
 
     unsafe {
-        match fdt::parse_fdt(fdt_pointer) {
+        match fdt::parse_host_fdt(fdt_pointer as *const u32) {
             Ok(()) => {},
             Err(error) => panic!("{}", error.as_str()),
         }
