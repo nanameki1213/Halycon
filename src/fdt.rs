@@ -1,7 +1,6 @@
 use byteorder::{BigEndian, ByteOrder};
 use crate::println;
 use core::{ffi::CStr, mem::MaybeUninit, usize};
-use crate::string_utils::hex_ptr_to_usize_length;
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -112,11 +111,9 @@ pub unsafe fn parse_host_fdt(fdt_pointer: *const u32) -> Result<(), FdtError> {
                     if prop_value == "memory\0" {
                         if let Some(reg_value) = search_fdt_property(&context, current_address, "reg")? {
                             println!("reg value: {:?}", reg_value.as_bytes());
-                            let mut bytes = reg_value.as_bytes().as_ptr();
-                            let address = hex_ptr_to_usize_length(bytes, 8).unwrap();
-                            bytes = bytes.add(8);
-                            let size = hex_ptr_to_usize_length(bytes, 8).unwrap();
-
+                            let bytes: &[u8] = reg_value.as_bytes();
+                            let address = BigEndian::read_u64(&bytes[0..8]);
+                            let size = BigEndian::read_u64(&bytes[8..16]);
                             println!("memory: {:#X}, {:#X}", address, size);
                         }
                     }
