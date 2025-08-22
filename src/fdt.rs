@@ -103,14 +103,13 @@ pub unsafe fn parse_host_fdt(fdt_pointer: *const u32) -> Result<(), FdtError> {
         current_address = current_address.add(1);
         match token {
             FDT_BEGIN_NODE => {
-                let unit_name = get_cstr(current_address as *const u8).unwrap();
-                println!("unit_name: {}", unit_name);
+                // let unit_name = get_cstr(current_address as *const u8).unwrap();
+                // println!("unit_name: {}", unit_name);
 
                 // メモリ情報を探索
                 if let Some(prop_value) = search_fdt_property(&context, current_address, "device_type")? {
                     if prop_value == "memory\0" {
                         if let Some(reg_value) = search_fdt_property(&context, current_address, "reg")? {
-                            println!("reg value: {:?}", reg_value.as_bytes());
                             let bytes: &[u8] = reg_value.as_bytes();
                             let address = BigEndian::read_u64(&bytes[0..8]);
                             let size = BigEndian::read_u64(&bytes[8..16]);
