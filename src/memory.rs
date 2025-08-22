@@ -5,6 +5,8 @@ use crate::paging;
 use crate::println;
 
 pub static mut FREE_ADDRESS: usize = 0;
+pub static mut HOST_RAM_ADDRESS: usize = 0;
+pub static mut HOST_RAM_SIZE: usize = 0;
 
 pub unsafe extern "C" fn init_allocation() {
     extern "C" {

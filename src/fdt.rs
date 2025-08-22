@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use crate::println;
+use crate::{println, HOST_RAM_ADDRESS, HOST_RAM_SIZE};
 use core::{ffi::CStr, mem::MaybeUninit, usize};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
@@ -114,6 +114,9 @@ pub unsafe fn parse_host_fdt(fdt_pointer: *const u32) -> Result<(), FdtError> {
                             let address = BigEndian::read_u64(&bytes[0..8]);
                             let size = BigEndian::read_u64(&bytes[8..16]);
                             println!("memory: {:#X}, {:#X}", address, size);
+
+                            HOST_RAM_ADDRESS = address as usize;
+                            HOST_RAM_SIZE = size as usize;
                         }
                     }
                 }
