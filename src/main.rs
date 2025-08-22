@@ -4,6 +4,7 @@
 #[macro_use]
 
 mod cpu;
+mod string_utils;
 mod fdt;
 mod aplic;
 mod console;
@@ -25,7 +26,7 @@ use crate::cpu::*;
 use core::{arch::asm, usize};
 use memory::*;
 use vector::setup_vector;
-use core::str;
+use string_utils::hex_ptr_to_usize;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -37,28 +38,6 @@ macro_rules! bitmask {
 // fn intr_disable() {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
-
-// allocが使えない環境下での文字列操作関数
-unsafe fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
-    if ptr.is_null() {
-        return Err(());
-    }
-
-    let mut len = 0;
-    while *ptr.add(len) != 0 {
-        len += 1;
-    }
-
-    let slice = core::slice::from_raw_parts(ptr, len);
-    let s = match str::from_utf8(slice) {
-        Ok(s) => s,
-        Err(_) => return Err(()),
-    };
-
-    let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
-
-    usize::from_str_radix(s, 16).map_err(|_| ())
-}
 
 #[no_mangle]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
