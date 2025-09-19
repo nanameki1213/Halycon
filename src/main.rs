@@ -4,16 +4,16 @@
 #[macro_use]
 
 mod cpu;
-mod string_utils;
-mod fdt;
 mod aplic;
 mod console;
+mod fdt;
 mod instruction;
 mod loader;
 mod memory;
 mod paging;
 mod plic;
 mod sbi;
+mod string_utils;
 mod vector;
 mod virtio_blk;
 mod vm;
@@ -25,8 +25,8 @@ mod mmio {
 use crate::cpu::*;
 use core::{arch::asm, usize};
 use memory::*;
-use vector::setup_vector;
 use string_utils::hex_ptr_to_usize;
+use vector::setup_vector;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -57,7 +57,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     unsafe {
         match fdt::parse_host_fdt(fdt_pointer as *const u32) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(error) => panic!("{}", error.as_str()),
         }
     }
@@ -150,7 +150,12 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     extern "C" {
         static _intr_stack_end: u8;
     }
-    unsafe { println!("[info] intr stack pointer: {:#X}", &_intr_stack_end as *const u8 as usize); }
+    unsafe {
+        println!(
+            "[info] intr stack pointer: {:#X}",
+            &_intr_stack_end as *const u8 as usize
+        );
+    }
 
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;

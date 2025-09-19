@@ -1,9 +1,8 @@
-use core::str;
 use crate::println;
+use core::str;
 
 // allocが使えない環境下での文字列操作関数
 pub unsafe fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
-
     let mut len = 0;
     while *ptr.add(len) != 0 {
         len += 1;
@@ -23,7 +22,10 @@ pub unsafe fn slice_to_usize(slice: &[u8]) -> Result<usize, ()> {
         Err(_) => return Err(()),
     };
 
-    let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+    let s = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
 
     usize::from_str_radix(s, 16).map_err(|_| ())
 }

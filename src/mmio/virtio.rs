@@ -281,7 +281,8 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             );
             let request_address = resolve_address_stage2(desc_ring[0].addr as usize).unwrap();
             let data_address = resolve_address_stage2(desc_ring[1].addr as usize).unwrap();
-            let status_address = resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
+            let status_address =
+                resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
             let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
 
             println!("desc[0]: {:?}", desc_ring[0]);
@@ -289,7 +290,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             println!("desc[2]: {:?}", desc_ring[2]);
 
             // println!("virtio: {:?}", virtio_blk_req);
-            
+
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
                 let mut req = VirtioBlkReq {
                     req_type: 0,

@@ -1,5 +1,5 @@
-use byteorder::{BigEndian, ByteOrder};
 use crate::{println, HOST_RAM_ADDRESS, HOST_RAM_SIZE};
+use byteorder::{BigEndian, ByteOrder};
 use core::{ffi::CStr, mem::MaybeUninit, usize};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
@@ -13,7 +13,7 @@ pub const FDT_END: u32 = 0x9;
 
 pub enum FdtError {
     InvalidMagic = 100,
-    UnsupportedVersion= 101,
+    UnsupportedVersion = 101,
     UnexpectedEOF = 102,
 }
 
@@ -57,7 +57,8 @@ impl FdtContext {
 
     pub fn contains_struct_block(&self, address: *const u32) -> bool {
         let start_address = self.get_struct_block_address();
-        let end_address = (start_address as usize + self.header.size_dt_struct as usize) as *const u32;
+        let end_address =
+            (start_address as usize + self.header.size_dt_struct as usize) as *const u32;
 
         (start_address..end_address).contains(&address)
     }
@@ -75,8 +76,10 @@ pub static mut HOST_FDT_CONTEXT: MaybeUninit<FdtContext> = MaybeUninit::<FdtCont
 pub unsafe fn get_cstr(ptr: *const u8) -> Result<&'static str, ()> {
     let c_str = CStr::from_ptr(ptr as *const u8);
     match c_str.to_str() {
-        Ok(str) => { return Ok(str); },
-        Err(_) => { return Err(()) },
+        Ok(str) => {
+            return Ok(str);
+        }
+        Err(_) => return Err(()),
     }
 }
 
@@ -93,7 +96,7 @@ pub unsafe fn parse_host_fdt(fdt_pointer: *const u32) -> Result<(), FdtError> {
     let header = &context.header;
 
     match check_fdt_header(&header) {
-        Ok(()) => {},
+        Ok(()) => {}
         Err(error) => return Err(error),
     }
 
@@ -107,9 +110,13 @@ pub unsafe fn parse_host_fdt(fdt_pointer: *const u32) -> Result<(), FdtError> {
                 // println!("unit_name: {}", unit_name);
 
                 // メモリ情報を探索
-                if let Some(prop_value) = search_fdt_property(&context, current_address, "device_type")? {
+                if let Some(prop_value) =
+                    search_fdt_property(&context, current_address, "device_type")?
+                {
                     if prop_value == "memory\0" {
-                        if let Some(reg_value) = search_fdt_property(&context, current_address, "reg")? {
+                        if let Some(reg_value) =
+                            search_fdt_property(&context, current_address, "reg")?
+                        {
                             let bytes: &[u8] = reg_value.as_bytes();
                             let address = BigEndian::read_u64(&bytes[0..8]);
                             let size = BigEndian::read_u64(&bytes[8..16]);
@@ -121,10 +128,12 @@ pub unsafe fn parse_host_fdt(fdt_pointer: *const u32) -> Result<(), FdtError> {
                     }
                 }
             }
-            FDT_END_NODE => {},
-            FDT_NOP => {},
-            FDT_END => { break; }
-            _ => {},
+            FDT_END_NODE => {}
+            FDT_NOP => {}
+            FDT_END => {
+                break;
+            }
+            _ => {}
         }
     }
 
@@ -136,16 +145,16 @@ pub unsafe fn parse_fdt_header(fdt_pointer: *const u32) -> FdtHeader {
     let buf = core::slice::from_raw_parts(ptr, core::mem::size_of::<FdtHeader>());
 
     let header = FdtHeader {
-        magic:              BigEndian::read_u32(&buf[0..4]),
-        totalsize:          BigEndian::read_u32(&buf[4..8]),
-        off_dt_struct:      BigEndian::read_u32(&buf[8..12]),
-        off_dt_strings:     BigEndian::read_u32(&buf[12..16]),
-        off_mem_rsvmap:     BigEndian::read_u32(&buf[16..20]),
-        version:            BigEndian::read_u32(&buf[20..24]),
-        last_comp_version:  BigEndian::read_u32(&buf[24..28]),
-        boot_cpuid_phys:    BigEndian::read_u32(&buf[28..32]),
-        size_dt_strings:    BigEndian::read_u32(&buf[32..36]),
-        size_dt_struct:     BigEndian::read_u32(&buf[36..40]),
+        magic: BigEndian::read_u32(&buf[0..4]),
+        totalsize: BigEndian::read_u32(&buf[4..8]),
+        off_dt_struct: BigEndian::read_u32(&buf[8..12]),
+        off_dt_strings: BigEndian::read_u32(&buf[12..16]),
+        off_mem_rsvmap: BigEndian::read_u32(&buf[16..20]),
+        version: BigEndian::read_u32(&buf[20..24]),
+        last_comp_version: BigEndian::read_u32(&buf[24..28]),
+        boot_cpuid_phys: BigEndian::read_u32(&buf[28..32]),
+        size_dt_strings: BigEndian::read_u32(&buf[32..36]),
+        size_dt_struct: BigEndian::read_u32(&buf[36..40]),
     };
 
     header
@@ -163,7 +172,10 @@ pub fn check_fdt_header(header: &FdtHeader) -> Result<(), FdtError> {
     Ok(())
 }
 
-unsafe fn fdt_token_iteration(fdt: &FdtContext, current_address: &mut *const u32) -> Result<u32, FdtError> {
+unsafe fn fdt_token_iteration(
+    fdt: &FdtContext,
+    current_address: &mut *const u32,
+) -> Result<u32, FdtError> {
     assert!(fdt.contains_struct_block(*current_address));
 
     loop {
@@ -171,14 +183,15 @@ unsafe fn fdt_token_iteration(fdt: &FdtContext, current_address: &mut *const u32
             return Err(FdtError::UnexpectedEOF);
         }
 
-        let byte = core::slice::from_raw_parts(*current_address as *const u8, core::mem::size_of::<u32>());
+        let byte =
+            core::slice::from_raw_parts(*current_address as *const u8, core::mem::size_of::<u32>());
 
         match BigEndian::read_u32(byte) {
-            FDT_BEGIN_NODE  => { return Ok(FDT_BEGIN_NODE) },
-            FDT_END_NODE    => { return Ok(FDT_END_NODE) },
-            FDT_PROP        => { return Ok(FDT_PROP) },
-            FDT_NOP         => { return Ok(FDT_NOP) },
-            FDT_END         => { return Ok(FDT_END) },
+            FDT_BEGIN_NODE => return Ok(FDT_BEGIN_NODE),
+            FDT_END_NODE => return Ok(FDT_END_NODE),
+            FDT_PROP => return Ok(FDT_PROP),
+            FDT_NOP => return Ok(FDT_NOP),
+            FDT_END => return Ok(FDT_END),
             _ => {}
         }
 
@@ -186,7 +199,10 @@ unsafe fn fdt_token_iteration(fdt: &FdtContext, current_address: &mut *const u32
     }
 }
 
-unsafe fn skip_fdt_node(fdt: &FdtContext, mut node_address: *const u32) -> Result<*const u32, FdtError> {
+unsafe fn skip_fdt_node(
+    fdt: &FdtContext,
+    mut node_address: *const u32,
+) -> Result<*const u32, FdtError> {
     let mut token = fdt_token_iteration(fdt, &mut node_address)?;
     while token != FDT_END_NODE {
         node_address = node_address.add(1);
@@ -201,7 +217,11 @@ unsafe fn skip_fdt_node(fdt: &FdtContext, mut node_address: *const u32) -> Resul
     Ok(node_address)
 }
 
-unsafe fn search_fdt_property(fdt: &FdtContext, mut node_address: *const u32, search_name: &'static str) -> Result<Option<&'static str>, FdtError> {
+unsafe fn search_fdt_property(
+    fdt: &FdtContext,
+    mut node_address: *const u32,
+    search_name: &'static str,
+) -> Result<Option<&'static str>, FdtError> {
     let mut token = fdt_token_iteration(fdt, &mut node_address)?;
     while token != FDT_END_NODE {
         node_address = node_address.add(1);
@@ -209,23 +229,24 @@ unsafe fn search_fdt_property(fdt: &FdtContext, mut node_address: *const u32, se
             node_address = skip_fdt_node(&fdt, node_address)?;
         }
         if token == FDT_PROP {
-
             let ptr = node_address as *const u8;
             let buf = core::slice::from_raw_parts(ptr, core::mem::size_of::<FdtPropData>());
 
             let prop_data = FdtPropData {
-                len:        BigEndian::read_u32(&buf[0..4]),
-                nameoff:    BigEndian::read_u32(&buf[4..8]),
+                len: BigEndian::read_u32(&buf[0..4]),
+                nameoff: BigEndian::read_u32(&buf[4..8]),
             };
 
-            let prop_name_ptr = (fdt.get_strings_block_address() as usize + prop_data.nameoff as usize) as *const u8;
+            let prop_name_ptr = (fdt.get_strings_block_address() as usize
+                + prop_data.nameoff as usize) as *const u8;
             let prop_name = get_cstr(prop_name_ptr).unwrap();
 
             if prop_name == search_name {
                 node_address = node_address.add(core::mem::size_of::<FdtPropData>() / 4); // prop_data分だけポインタを進める
-                let prop_buf = core::slice::from_raw_parts(node_address as *const u8, prop_data.len as usize);
+                let prop_buf =
+                    core::slice::from_raw_parts(node_address as *const u8, prop_data.len as usize);
                 let prop_value = str::from_utf8_unchecked(prop_buf);
-                
+
                 return Ok(Some(prop_value));
             }
         }
@@ -234,4 +255,3 @@ unsafe fn search_fdt_property(fdt: &FdtContext, mut node_address: *const u32, se
 
     Ok(None)
 }
-
