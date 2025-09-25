@@ -1,4 +1,5 @@
 use crate::{println, HOST_RAM_ADDRESS, HOST_RAM_SIZE};
+use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
 use core::{ffi::CStr, mem::MaybeUninit, usize};
 
@@ -254,4 +255,27 @@ unsafe fn search_fdt_property(
     }
 
     Ok(None)
+}
+
+pub struct MemoryEntry {
+    address: usize,
+    size: usize,
+}
+
+pub enum MmioType {}
+
+// TODO: MMIO関係の定義はmmioディレクトリ配下に移動する
+pub enum MmioDeviceType {
+    Uart,
+    VirtioMmio,
+}
+
+pub struct MmioEntry {
+    address: usize,
+    size: usize,
+}
+
+pub struct DeviceTreeInfo<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> {
+    memory: ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>,
+    mmio: ArrayVec<MmioEntry, MAX_MMIO_ENTRIES>,
 }
