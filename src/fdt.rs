@@ -169,7 +169,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         }
     }
 
-    fn fdt_node_iteration(fdt: &mut FdtContext) -> Result<u32, FdtError> {
+    fn fdt_node_iteration(fdt: &mut FdtContext) -> Result<bool, FdtError> {
         assert!(fdt.contains_struct_block());
         loop {
             if !fdt.contains_struct_block() {
@@ -178,44 +178,38 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             let token = Self::read_be32(fdt.get_struct_block_current_address());
             fdt.struct_current_offset += 1;
             match token {
-                FDT_BEGIN_NODE => return Ok(FDT_BEGIN_NODE),
+                FDT_BEGIN_NODE => return Ok(true),
                 FDT_PROP => {
                     let prop_data = Self::get_prop_data(fdt.get_struct_block_current_address());
                     fdt.struct_current_offset += (core::mem::size_of::<FdtPropData>()
                         + prop_data.len as usize)
                         / core::mem::size_of::<u32>();
                 }
-                FDT_END => return Ok(FDT_END),
+                FDT_END => return Ok(false),
                 _ => {}
             }
         }
     }
 
-    fn fdt_token_iteration(fdt: &mut FdtContext) -> Result<u32, FdtError> {
+    fn fdt_prop_iteration(fdt: &mut FdtContext) -> Result<bool, FdtError> {
         assert!(fdt.contains_struct_block());
-        let mut current_address = fdt.get_struct_block_current_address();
         loop {
             if !fdt.contains_struct_block() {
                 return Err(FdtError::UnexpectedEOF);
             }
-
-            let byte = unsafe {
-                core::slice::from_raw_parts(
-                    current_address as *const u8,
-                    core::mem::size_of::<u32>(),
-                )
-            };
-
-            match BigEndian::read_u32(byte) {
-                FDT_BEGIN_NODE => return Ok(FDT_BEGIN_NODE),
-                FDT_END_NODE => return Ok(FDT_END_NODE),
-                FDT_PROP => return Ok(FDT_PROP),
-                FDT_NOP => return Ok(FDT_NOP),
-                FDT_END => return Ok(FDT_END),
+            let token = Self::read_be32(fdt.get_struct_block_current_address());
+            // println!(
+            //     "offset: {:#X}, token: {}",
+            //     fdt.header.off_dt_struct as usize + fdt.struct_current_offset * 4,
+            //     token
+            // );
+            fdt.struct_current_offset += 1;
+            match token {
+                FDT_BEGIN_NODE => Self::skip_fdt_node(fdt)?,
+                FDT_PROP => return Ok(true),
+                FDT_END_NODE => return Ok(false),
                 _ => {}
             }
-            fdt.struct_current_offset += 1;
-            current_address = fdt.get_struct_block_current_address();
         }
     }
 
@@ -224,49 +218,38 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         mut fdt: FdtContext,
         search_name: &'static str,
     ) -> Result<Option<&'static str>, FdtError> {
-        let mut token = Self::fdt_token_iteration(&mut fdt)?;
-        while token != FDT_END_NODE {
-            fdt.struct_current_offset += 1;
-            // 入れ子になっているNodeはスキップ
-            if token == FDT_BEGIN_NODE {
-                Self::skip_fdt_node(&mut fdt)?;
-            } else if token == FDT_PROP {
-                let prop_data = Self::get_prop_data(fdt.get_struct_block_current_address());
-                let prop_name_ptr = (fdt.get_strings_block_address() as usize
-                    + prop_data.nameoff as usize) as *const u8;
-                let prop_name = unsafe { get_cstr(prop_name_ptr).unwrap() };
+        while Self::fdt_prop_iteration(&mut fdt)? {
+            let prop_data = Self::get_prop_data(fdt.get_struct_block_current_address());
+            let prop_name_ptr = (fdt.get_strings_block_address() as usize
+                + prop_data.nameoff as usize) as *const u8;
+            let prop_name = unsafe { get_cstr(prop_name_ptr).unwrap() };
+            // println!("({:#x})prop_name: {}", fdt.header.off_dt_struct as usize + fdt.struct_current_offset * 4, prop_name);
+            fdt.struct_current_offset +=
+                core::mem::size_of::<FdtPropData>() / core::mem::size_of::<u32>();
 
-                // println!("({:#x})prop_name: {}", fdt.header.off_dt_struct as usize + fdt.struct_current_offset * 4, prop_name);
+            if prop_name == search_name {
+                let prop_buf = unsafe {
+                    core::slice::from_raw_parts(
+                        fdt.get_struct_block_current_address() as *const u8,
+                        prop_data.len as usize,
+                    )
+                };
+                let prop_value = unsafe { str::from_utf8_unchecked(prop_buf) };
 
-                fdt.struct_current_offset +=
-                    core::mem::size_of::<FdtPropData>() / core::mem::size_of::<u32>();
+                // println!("{} = {}", search_name, prop_value);
 
-                if prop_name == search_name {
-                    let prop_buf = unsafe {
-                        core::slice::from_raw_parts(
-                            fdt.get_struct_block_current_address() as *const u8,
-                            prop_data.len as usize,
-                        )
-                    };
-                    let prop_value = unsafe { str::from_utf8_unchecked(prop_buf) };
-
-                    // println!("{} = {}", search_name, prop_value);
-
-                    return Ok(Some(prop_value));
-                }
-                fdt.struct_current_offset += prop_data.len as usize / core::mem::size_of::<u32>();
+                return Ok(Some(prop_value));
             }
-            token = Self::fdt_token_iteration(&mut fdt)?;
+            fdt.struct_current_offset += prop_data.len as usize / core::mem::size_of::<u32>();
         }
-
         Ok(None)
     }
 
     fn skip_fdt_node(fdt: &mut FdtContext) -> Result<(), FdtError> {
-        let mut token = Self::fdt_token_iteration(fdt)?;
+        let mut token = Self::read_be32(fdt.get_struct_block_current_address());
         while token != FDT_END_NODE {
             fdt.struct_current_offset += 1;
-            token = Self::fdt_token_iteration(fdt)?;
+            token = Self::read_be32(fdt.get_struct_block_current_address());
             if token == FDT_BEGIN_NODE {
                 Self::skip_fdt_node(fdt)?;
             }
@@ -283,65 +266,41 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             struct_current_offset: 0,
             header: header,
         };
-
         Self::check_fdt_header(header)?;
+        while Self::fdt_node_iteration(&mut fdt_context)? {
+            // println!(
+            //     "BEGIN: {:#x}",
+            //     fdt_context.header.off_dt_struct as usize + fdt_context.struct_current_offset * 4
+            // );
+            if let Some(prop_value) = Self::search_fdt_property(fdt_context, "device_type")? {
+                if prop_value == "memory\0" {
+                    if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")? {
+                        let bytes: &[u8] = reg_value.as_bytes();
+                        let address = BigEndian::read_u64(&bytes[0..8]);
+                        let size = BigEndian::read_u64(&bytes[8..16]);
+                        println!("memory: {:#X}, {:#X}", address, size);
 
-        loop {
-            let token = Self::fdt_node_iteration(&mut fdt_context)?;
-            match token {
-                FDT_BEGIN_NODE => {
-                    // println!(
-                    //     "BEGIN: {:#x}",
-                    //     fdt_context.header.off_dt_struct as usize
-                    //         + fdt_context.struct_current_offset * 4
-                    // );
-                    if let Some(prop_value) = Self::search_fdt_property(fdt_context, "device_type")?
-                    {
-                        if prop_value == "memory\0" {
-                            if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")?
-                            {
-                                let bytes: &[u8] = reg_value.as_bytes();
-                                let address = BigEndian::read_u64(&bytes[0..8]);
-                                let size = BigEndian::read_u64(&bytes[8..16]);
-                                println!("memory: {:#X}, {:#X}", address, size);
-
-                                self.memory.push(MemoryEntry {
-                                    address: address as usize,
-                                    size: size as usize,
-                                })
-                            }
-                        }
-                    } else if let Some(prop_value) =
-                        Self::search_fdt_property(fdt_context, "compatible")?
-                    {
-                        if prop_value == "virtio,mmio\0" {
-                            // println!("search reg...");
-                            if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")?
-                            {
-                                let bytes: &[u8] = reg_value.as_bytes();
-                                let address = BigEndian::read_u64(&bytes[0..8]);
-                                let size = BigEndian::read_u64(&bytes[8..16]);
-                                println!("virtio,mmio: {:#X}, {:#X}", address, size);
-
-                                self.mmio.push(MmioEntry {
-                                    address: address as usize,
-                                    size: size as usize,
-                                })
-                            }
-                        }
+                        self.memory.push(MemoryEntry {
+                            address: address as usize,
+                            size: size as usize,
+                        })
                     }
                 }
-                FDT_END_NODE => {
-                    // println!(
-                    //     "END: {:#x}",
-                    //     fdt_context.header.off_dt_struct as usize
-                    //         + fdt_context.struct_current_offset * 4
-                    // );
+            } else if let Some(prop_value) = Self::search_fdt_property(fdt_context, "compatible")? {
+                if prop_value == "virtio,mmio\0" {
+                    // println!("search reg...");
+                    if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")? {
+                        let bytes: &[u8] = reg_value.as_bytes();
+                        let address = BigEndian::read_u64(&bytes[0..8]);
+                        let size = BigEndian::read_u64(&bytes[8..16]);
+                        println!("virtio,mmio: {:#X}, {:#X}", address, size);
+
+                        self.mmio.push(MmioEntry {
+                            address: address as usize,
+                            size: size as usize,
+                        })
+                    }
                 }
-                FDT_END => {
-                    break;
-                }
-                _ => {}
             }
         }
 
