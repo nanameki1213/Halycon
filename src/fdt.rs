@@ -13,9 +13,9 @@ pub const FDT_NOP: u32 = 0x4;
 pub const FDT_END: u32 = 0x9;
 
 pub enum FdtError {
-    InvalidMagic = 100,
-    UnsupportedVersion = 101,
-    UnexpectedEOF = 102,
+    InvalidMagic,
+    UnsupportedVersion,
+    UnexpectedEOF,
 }
 
 impl FdtError {
