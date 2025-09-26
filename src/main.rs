@@ -24,6 +24,7 @@ mod mmio {
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
+use fdt::DeviceTreeInfo;
 use memory::*;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
@@ -34,6 +35,9 @@ macro_rules! bitmask {
         ((1 << (($high - $low) + 1)) - 1) << $low
     };
 }
+
+const MAX_MEMORY_ENTRIES: usize = 32;
+const MAX_MMIO_ENTRIES: usize = 64;
 
 // fn intr_disable() {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
@@ -55,11 +59,12 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     println!("fdt pointer: {:#X}", fdt_pointer);
 
-    unsafe {
-        match fdt::parse_host_fdt(fdt_pointer as *const u32) {
-            Ok(()) => {}
-            Err(error) => panic!("{}", error.as_str()),
-        }
+    let mut host_dt: DeviceTreeInfo<MAX_MEMORY_ENTRIES, MAX_MMIO_ENTRIES> =
+        fdt::DeviceTreeInfo::new();
+
+    match host_dt.parse(fdt_pointer as *const u32) {
+        Ok(()) => {}
+        Err(error) => panic!("{}", error.as_str()),
     }
 
     let xlen = get_xlen_from_misa();
