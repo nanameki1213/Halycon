@@ -95,11 +95,6 @@ pub struct MemoryEntry {
 }
 
 // TODO: MMIO関係の定義はmmioディレクトリ配下に移動する
-pub enum MmioDeviceType {
-    Uart,
-    VirtioMmio,
-}
-
 pub struct MmioEntry {
     address: usize,
     size: usize,
