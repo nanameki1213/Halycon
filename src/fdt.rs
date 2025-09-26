@@ -16,6 +16,7 @@ pub enum FdtError {
     InvalidMagic,
     UnsupportedVersion,
     UnexpectedEOF,
+    CapacityExceeded,
 }
 
 impl FdtError {
@@ -24,7 +25,14 @@ impl FdtError {
             FdtError::InvalidMagic => "invalid header magic",
             FdtError::UnsupportedVersion => "unsupported version",
             FdtError::UnexpectedEOF => "unexpected EOF",
+            FdtError::CapacityExceeded => "capacity exceeded",
         }
+    }
+}
+
+impl<T> From<arrayvec::CapacityError<T>> for FdtError {
+    fn from(_: arrayvec::CapacityError<T>) -> Self {
+        FdtError::CapacityExceeded
     }
 }
 
@@ -275,10 +283,10 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         let size = BigEndian::read_u64(&bytes[8..16]);
                         println!("memory: {:#X}, {:#X}", address, size);
 
-                        self.memory.push(MemoryEntry {
+                        self.memory.try_push(MemoryEntry {
                             address: address as usize,
                             size: size as usize,
-                        })
+                        })?
                     }
                 }
             } else if let Some(prop_value) = Self::search_fdt_property(fdt_context, "compatible")? {
@@ -290,10 +298,10 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         let size = BigEndian::read_u64(&bytes[8..16]);
                         println!("virtio,mmio: {:#X}, {:#X}", address, size);
 
-                        self.mmio.push(MmioEntry {
+                        self.mmio.try_push(MmioEntry {
                             address: address as usize,
                             size: size as usize,
-                        })
+                        })?
                     }
                 }
             }
