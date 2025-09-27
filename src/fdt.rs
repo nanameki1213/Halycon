@@ -59,7 +59,6 @@ pub struct FdtHeader {
     pub size_dt_struct: u32,
 }
 
-#[derive(Clone, Copy)]
 pub struct FdtContext {
     fdt_address: *const u32,
     struct_current_offset: usize,
@@ -74,8 +73,8 @@ impl FdtContext {
             as *const u32;
     }
 
-    pub fn get_struct_block_address(&self) -> *const u32 {
-        return (self.header.off_dt_struct as usize + self.fdt_address as usize) as *const u32;
+    pub fn get_struct_block_address(&self, offset: usize) -> *const u32 {
+        return (self.header.off_dt_struct as usize + self.fdt_address as usize + offset * core::mem::size_of::<u32>()) as *const u32;
     }
 
     pub fn get_strings_block_address(&self) -> *const u32 {
@@ -95,10 +94,18 @@ struct FdtPropData {
     nameoff: u32,
 }
 
+#[derive(Debug)]
+struct FdtProp {
+    name: &'static str,
+    value: &'static [u8],
+}
+
+struct FdtNodeProps<const MAX_NODE_PROPS: usize> {
+    props: ArrayVec<FdtProp, MAX_NODE_PROPS>,
+}
+
 pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
-    let c_str = unsafe {
-        CStr::from_ptr(ptr as *const u8)
-    };
+    let c_str = unsafe { CStr::from_ptr(ptr as *const u8) };
     match c_str.to_str() {
         Ok(str) => {
             return Ok(str);
@@ -182,6 +189,40 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         }
     }
 
+    fn get_prop(fdt: &FdtContext, offset: &mut usize, prop_data: &FdtPropData) -> Result<FdtProp, FdtError> {
+        let prop_name_ptr =
+            (fdt.get_strings_block_address() as usize + prop_data.nameoff as usize) as *const u8;
+        let prop_name = get_cstr(prop_name_ptr)?;
+        let u32_size = core::mem::size_of::<u32>();
+
+        *offset +=
+            core::mem::size_of::<FdtPropData>() / u32_size;
+        let prop_value = unsafe {
+            core::slice::from_raw_parts(
+                fdt.get_struct_block_address(*offset) as *const u8,
+                prop_data.len as usize,
+            )
+        };
+        *offset += prop_data.len as usize / u32_size;
+
+        Ok(FdtProp {
+            name: prop_name,
+            value: prop_value,
+        })
+    }
+
+    fn search_prop<const MAX_NODE_PROPS: usize>(
+        props: &FdtNodeProps<MAX_NODE_PROPS>,
+        search_name: &'static str,
+    ) -> Option<&'static [u8]> {
+        for prop in props.props.iter() {
+            if prop.name == search_name {
+                return Some(prop.value);
+            }
+        }
+        None
+    }
+
     fn fdt_node_iteration(fdt: &mut FdtContext) -> Result<bool, FdtError> {
         assert!(fdt.contains_struct_block());
         loop {
@@ -204,21 +245,21 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         }
     }
 
-    fn fdt_prop_iteration(fdt: &mut FdtContext) -> Result<bool, FdtError> {
+    fn fdt_prop_iteration(fdt: &FdtContext, offset: &mut usize) -> Result<bool, FdtError> {
         assert!(fdt.contains_struct_block());
         loop {
             if !fdt.contains_struct_block() {
                 return Err(FdtError::UnexpectedEOF);
             }
-            let token = Self::read_be32(fdt.get_struct_block_current_address());
+            let token = Self::read_be32(fdt.get_struct_block_address(*offset));
             // println!(
             //     "offset: {:#X}, token: {}",
-            //     fdt.header.off_dt_struct as usize + fdt.struct_current_offset * 4,
+            //     fdt.header.off_dt_struct as usize + *offset * 4,
             //     token
             // );
-            fdt.struct_current_offset += 1;
+            *offset += 1;
             match token {
-                FDT_BEGIN_NODE => Self::skip_fdt_node(fdt)?,
+                FDT_BEGIN_NODE => Self::skip_fdt_node(fdt, offset)?,
                 FDT_PROP => return Ok(true),
                 FDT_END_NODE => return Ok(false),
                 _ => {}
@@ -226,45 +267,35 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         }
     }
 
-    // Node内のPROPERTYからsearch_nameで指定された文字列のものを探す
-    fn search_fdt_property(
-        mut fdt: FdtContext,
-        search_name: &'static str,
-    ) -> Result<Option<&[u8]>, FdtError> {
-        while Self::fdt_prop_iteration(&mut fdt)? {
-            let prop_data = Self::get_prop_data(fdt.get_struct_block_current_address());
-            let prop_name_ptr = (fdt.get_strings_block_address() as usize
-                + prop_data.nameoff as usize) as *const u8;
-            let prop_name = get_cstr(prop_name_ptr)?;
-            // println!("({:#x})prop_name: {}", fdt.header.off_dt_struct as usize + fdt.struct_current_offset * 4, prop_name);
-            fdt.struct_current_offset +=
-                core::mem::size_of::<FdtPropData>() / core::mem::size_of::<u32>();
+    fn scan_node_properties<const MAX_NODE_PROPS: usize>(
+        fdt: &FdtContext,
+        offset: &mut usize,
+    ) -> Result<FdtNodeProps<MAX_NODE_PROPS>, FdtError> {
+        let mut props: FdtNodeProps<MAX_NODE_PROPS> = FdtNodeProps {
+            props: ArrayVec::new(),
+        };
+        while Self::fdt_prop_iteration(fdt, offset)? {
+            // println!("({:#X})prop", fdt.header.off_dt_struct as usize + *offset * 4);
+            let current_address = fdt.get_struct_block_address(*offset);
+            let prop_data = Self::get_prop_data(current_address);
+            let prop = Self::get_prop(fdt, offset, &prop_data)?;
 
-            if prop_name == search_name {
-                let prop_value = unsafe {
-                    core::slice::from_raw_parts(
-                        fdt.get_struct_block_current_address() as *const u8,
-                        prop_data.len as usize,
-                    )
-                };
-
-                return Ok(Some(prop_value));
-            }
-            fdt.struct_current_offset += prop_data.len as usize / core::mem::size_of::<u32>();
+            props.props.try_push(prop)?;
         }
-        Ok(None)
+
+        Ok(props)
     }
 
-    fn skip_fdt_node(fdt: &mut FdtContext) -> Result<(), FdtError> {
+    fn skip_fdt_node(fdt: &FdtContext, offset: &mut usize) -> Result<(), FdtError> {
         let mut token = Self::read_be32(fdt.get_struct_block_current_address());
         while token != FDT_END_NODE {
-            fdt.struct_current_offset += 1;
-            token = Self::read_be32(fdt.get_struct_block_current_address());
+            *offset += 1;
+            token = Self::read_be32(fdt.get_struct_block_address(*offset));
             if token == FDT_BEGIN_NODE {
-                Self::skip_fdt_node(fdt)?;
+                Self::skip_fdt_node(fdt, offset)?;
             }
         }
-        fdt.struct_current_offset += 1;
+        *offset += 1;
 
         Ok(())
     }
@@ -277,14 +308,20 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             header: header,
         };
         Self::check_fdt_header(header)?;
+
+        const MAX_NODE_PROPS: usize = 32;
+
         while Self::fdt_node_iteration(&mut fdt_context)? {
             // println!(
             //     "BEGIN: {:#x}",
             //     fdt_context.header.off_dt_struct as usize + fdt_context.struct_current_offset * 4
             // );
-            if let Some(prop_value) = Self::search_fdt_property(fdt_context, "device_type")? {
+            let mut prop_offset = fdt_context.struct_current_offset;
+            let props = Self::scan_node_properties::<MAX_NODE_PROPS>(&fdt_context, &mut prop_offset)?;
+            // println!("props: {:?}", props.props);
+            if let Some(prop_value) = Self::search_prop(&props, "device_type") {
                 if prop_value == "memory\0".as_bytes() {
-                    if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")? {
+                    if let Some(reg_value) = Self::search_prop(&props, "reg") {
                         let bytes: &[u8] = reg_value;
                         let address = BigEndian::read_u64(&bytes[0..8]);
                         let size = BigEndian::read_u64(&bytes[8..16]);
@@ -296,10 +333,9 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         })?
                     }
                 }
-            } else if let Some(prop_value) = Self::search_fdt_property(fdt_context, "compatible")? {
+            } else if let Some(prop_value) = Self::search_prop(&props, "compatible") {
                 if prop_value == "virtio,mmio\0".as_bytes() {
-                    // println!("search reg...");
-                    if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")? {
+                    if let Some(reg_value) = Self::search_prop(&props, "reg") {
                         let bytes: &[u8] = reg_value;
                         let address = BigEndian::read_u64(&bytes[0..8]);
                         let size = BigEndian::read_u64(&bytes[8..16]);
