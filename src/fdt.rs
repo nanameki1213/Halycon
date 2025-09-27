@@ -1,7 +1,7 @@
 use crate::println;
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
-use core::{ffi::CStr, fmt, usize};
+use core::{ffi::CStr, fmt, str::Utf8Error, usize};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -17,6 +17,7 @@ pub enum FdtError {
     UnsupportedVersion,
     UnexpectedEOF,
     CapacityExceeded,
+    StringError(core::str::Utf8Error),
 }
 
 impl fmt::Display for FdtError {
@@ -26,7 +27,14 @@ impl fmt::Display for FdtError {
             FdtError::UnsupportedVersion => write!(f, "FDT version is not supported."),
             FdtError::UnexpectedEOF => write!(f, "FDT parse: Unexpected EOF."),
             FdtError::CapacityExceeded => write!(f, "FDT parse: capacity exceeded."),
+            FdtError::StringError(err) => write!(f, "FDT parse: string error: {}", err),
         }
+    }
+}
+
+impl From<Utf8Error> for FdtError {
+    fn from(value: Utf8Error) -> Self {
+        FdtError::StringError(value)
     }
 }
 
@@ -87,13 +95,15 @@ struct FdtPropData {
     nameoff: u32,
 }
 
-pub unsafe fn get_cstr(ptr: *const u8) -> Result<&'static str, ()> {
-    let c_str = CStr::from_ptr(ptr as *const u8);
+pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
+    let c_str = unsafe {
+        CStr::from_ptr(ptr as *const u8)
+    };
     match c_str.to_str() {
         Ok(str) => {
             return Ok(str);
         }
-        Err(_) => return Err(()),
+        Err(err) => return Err(err),
     }
 }
 
@@ -220,26 +230,23 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
     fn search_fdt_property(
         mut fdt: FdtContext,
         search_name: &'static str,
-    ) -> Result<Option<&'static str>, FdtError> {
+    ) -> Result<Option<&[u8]>, FdtError> {
         while Self::fdt_prop_iteration(&mut fdt)? {
             let prop_data = Self::get_prop_data(fdt.get_struct_block_current_address());
             let prop_name_ptr = (fdt.get_strings_block_address() as usize
                 + prop_data.nameoff as usize) as *const u8;
-            let prop_name = unsafe { get_cstr(prop_name_ptr).unwrap() };
+            let prop_name = get_cstr(prop_name_ptr)?;
             // println!("({:#x})prop_name: {}", fdt.header.off_dt_struct as usize + fdt.struct_current_offset * 4, prop_name);
             fdt.struct_current_offset +=
                 core::mem::size_of::<FdtPropData>() / core::mem::size_of::<u32>();
 
             if prop_name == search_name {
-                let prop_buf = unsafe {
+                let prop_value = unsafe {
                     core::slice::from_raw_parts(
                         fdt.get_struct_block_current_address() as *const u8,
                         prop_data.len as usize,
                     )
                 };
-                let prop_value = unsafe { str::from_utf8_unchecked(prop_buf) };
-
-                // println!("{} = {}", search_name, prop_value);
 
                 return Ok(Some(prop_value));
             }
@@ -276,9 +283,9 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             //     fdt_context.header.off_dt_struct as usize + fdt_context.struct_current_offset * 4
             // );
             if let Some(prop_value) = Self::search_fdt_property(fdt_context, "device_type")? {
-                if prop_value == "memory\0" {
+                if prop_value == "memory\0".as_bytes() {
                     if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")? {
-                        let bytes: &[u8] = reg_value.as_bytes();
+                        let bytes: &[u8] = reg_value;
                         let address = BigEndian::read_u64(&bytes[0..8]);
                         let size = BigEndian::read_u64(&bytes[8..16]);
                         println!("memory: {:#X}, {:#X}", address, size);
@@ -290,10 +297,10 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                     }
                 }
             } else if let Some(prop_value) = Self::search_fdt_property(fdt_context, "compatible")? {
-                if prop_value == "virtio,mmio\0" {
+                if prop_value == "virtio,mmio\0".as_bytes() {
                     // println!("search reg...");
                     if let Some(reg_value) = Self::search_fdt_property(fdt_context, "reg")? {
-                        let bytes: &[u8] = reg_value.as_bytes();
+                        let bytes: &[u8] = reg_value;
                         let address = BigEndian::read_u64(&bytes[0..8]);
                         let size = BigEndian::read_u64(&bytes[8..16]);
                         println!("virtio,mmio: {:#X}, {:#X}", address, size);
