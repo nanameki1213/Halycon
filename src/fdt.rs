@@ -27,7 +27,7 @@ impl fmt::Display for FdtError {
             FdtError::UnsupportedVersion => write!(f, "FDT version is not supported."),
             FdtError::UnexpectedEOF => write!(f, "FDT parse: Unexpected EOF."),
             FdtError::CapacityExceeded => write!(f, "FDT parse: capacity exceeded."),
-            FdtError::StringError(err) => write!(f, "FDT parse: string error: {}", err),
+            FdtError::StringError(err) => write!(f, "FDT parse: string error: {}.", err),
         }
     }
 }
@@ -74,7 +74,9 @@ impl FdtContext {
     }
 
     pub fn get_struct_block_address(&self, offset: usize) -> *const u32 {
-        return (self.header.off_dt_struct as usize + self.fdt_address as usize + offset * core::mem::size_of::<u32>()) as *const u32;
+        return (self.header.off_dt_struct as usize
+            + self.fdt_address as usize
+            + offset * core::mem::size_of::<u32>()) as *const u32;
     }
 
     pub fn get_strings_block_address(&self) -> *const u32 {
@@ -189,14 +191,17 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         }
     }
 
-    fn get_prop(fdt: &FdtContext, offset: &mut usize, prop_data: &FdtPropData) -> Result<FdtProp, FdtError> {
+    fn get_prop(
+        fdt: &FdtContext,
+        offset: &mut usize,
+        prop_data: &FdtPropData,
+    ) -> Result<FdtProp, FdtError> {
         let prop_name_ptr =
             (fdt.get_strings_block_address() as usize + prop_data.nameoff as usize) as *const u8;
         let prop_name = get_cstr(prop_name_ptr)?;
         let u32_size = core::mem::size_of::<u32>();
 
-        *offset +=
-            core::mem::size_of::<FdtPropData>() / u32_size;
+        *offset += core::mem::size_of::<FdtPropData>() / u32_size;
         let prop_value = unsafe {
             core::slice::from_raw_parts(
                 fdt.get_struct_block_address(*offset) as *const u8,
@@ -303,9 +308,9 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
     pub fn parse(&mut self, fdt_address: *const u32) -> Result<(), FdtError> {
         let header = self.parse_header(fdt_address);
         let mut fdt_context = FdtContext {
-            fdt_address: fdt_address,
+            fdt_address,
             struct_current_offset: 0,
-            header: header,
+            header,
         };
         Self::check_fdt_header(header)?;
 
@@ -317,7 +322,8 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             //     fdt_context.header.off_dt_struct as usize + fdt_context.struct_current_offset * 4
             // );
             let mut prop_offset = fdt_context.struct_current_offset;
-            let props = Self::scan_node_properties::<MAX_NODE_PROPS>(&fdt_context, &mut prop_offset)?;
+            let props =
+                Self::scan_node_properties::<MAX_NODE_PROPS>(&fdt_context, &mut prop_offset)?;
             // println!("props: {:?}", props.props);
             if let Some(prop_value) = Self::search_prop(&props, "device_type") {
                 if prop_value == "memory\0".as_bytes() {
