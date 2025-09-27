@@ -1,7 +1,7 @@
 use crate::println;
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
-use core::{ffi::CStr, usize};
+use core::{ffi::CStr, fmt, usize};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -19,13 +19,13 @@ pub enum FdtError {
     CapacityExceeded,
 }
 
-impl FdtError {
-    pub fn as_str(&self) -> &'static str {
+impl fmt::Display for FdtError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FdtError::InvalidMagic => "invalid header magic",
-            FdtError::UnsupportedVersion => "unsupported version",
-            FdtError::UnexpectedEOF => "unexpected EOF",
-            FdtError::CapacityExceeded => "capacity exceeded",
+            FdtError::InvalidMagic => write!(f, "FDT header contains invalid magic number."),
+            FdtError::UnsupportedVersion => write!(f, "FDT version is not supported."),
+            FdtError::UnexpectedEOF => write!(f, "FDT parse: Unexpected EOF."),
+            FdtError::CapacityExceeded => write!(f, "FDT parse: capacity exceeded."),
         }
     }
 }

@@ -64,7 +64,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     match host_dt.parse(fdt_pointer as *const u32) {
         Ok(()) => {}
-        Err(error) => panic!("{}", error.as_str()),
+        Err(error) => panic!("{}", error),
     }
 
     let xlen = get_xlen_from_misa();
