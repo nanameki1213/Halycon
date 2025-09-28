@@ -11,7 +11,6 @@ use core::usize;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
-pub static mut VIRTIO_MMIO_ADDRESS: usize = 0x10001000;
 pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
 
 pub const VIRTIO_VERSION: usize = 0x2;
@@ -161,6 +160,12 @@ impl VirtQueue {
             last_avail_index: 0,
         }
     }
+
+    pub fn connect_to_avail_ring(&mut self, desc_idx: u16) {
+        let idx = self.vring.avail.idx as usize;
+        self.vring.avail.ring[idx % VIRTQ_ENTRY_NUM as usize] = desc_idx;
+        self.vring.avail.idx = idx as u16 + 1;
+    }
 }
 
 // Virtio MMIO によって設定されたQueue情報
@@ -195,101 +200,103 @@ impl VirtQueueMmio {
     }
 }
 
+pub struct VirtioMmio {
+    base_address: usize,
+}
+
+impl VirtioMmio {
+    pub const fn new(base_address: usize) -> Self {
+        VirtioMmio { base_address }
+    }
+
+    pub fn get_virtio_mmio(&self, offset: usize) -> u32 {
+        unsafe {
+            let addr = (self.base_address + offset) as *mut u32;
+            core::ptr::read_volatile(addr)
+        }
+    }
+
+    pub fn set_virtio_mmio(&self, offset: usize, value: u32) {
+        unsafe {
+            let addr = (self.base_address + offset) as *mut u32;
+            core::ptr::write_volatile(addr, value);
+        }
+    }
+
+    pub fn init_virt_queue(&self, index: u32) -> Result<Box<VirtQueue>, ()> {
+        let version = self.get_virtio_mmio(VIRTIO_MMIO_VERSION);
+        if version != VIRTIO_VERSION as u32 {
+            println!("virtio version is not compatible");
+            return Err(());
+        }
+        // 1. Select the queue writing its index to QueueSel.
+        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
+        // 2. Check if the queue is not already in use (ここではu-bootが先に制御しているので無視)
+        // if get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY) != 0 {
+        //     println!("queue is already in use: {:#X}", get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY));
+        //     return Err(());
+        // }
+        // 3. Read maxium queue size (number of elements) from QueueNumMax
+        let max_size = self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX);
+        if max_size == 0 {
+            println!("queue is invalid");
+            return Err(());
+        }
+        // 4. Allocate and zero the queue memory
+        let vq: Box<VirtQueue> = Box::new(VirtQueue::new());
+        // 5. Notify the device about the queue size by writing the size to QueueNum
+        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
+        // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
+        let desc_address = vq.vring.desc.as_ptr() as u64;
+        let avail_address = (&(vq.vring.avail) as *const VringAvail) as u64;
+        let used_address = (&(vq.vring.used) as *const VRingUsed) as u64;
+        const VIRTIO_MMIO_MASK: u64 = (1 << 32) - 1;
+        self.set_virtio_mmio(
+            VIRTIO_MMIO_DESC_LOW,
+            (desc_address & VIRTIO_MMIO_MASK) as u32,
+        );
+        self.set_virtio_mmio(
+            VIRTIO_MMIO_DESC_HIGH,
+            ((desc_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+        );
+        self.set_virtio_mmio(
+            VIRTIO_MMIO_DRIVER_LOW,
+            (avail_address & VIRTIO_MMIO_MASK) as u32,
+        );
+        self.set_virtio_mmio(
+            VIRTIO_MMIO_DRIVER_HIGH,
+            ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+        );
+        self.set_virtio_mmio(
+            VIRTIO_MMIO_DEVICE_LOW,
+            (used_address & VIRTIO_MMIO_MASK) as u32,
+        );
+        self.set_virtio_mmio(
+            VIRTIO_MMIO_DEVICE_HIGH,
+            ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+        );
+        // 7. Write 0x1 to QueueReady
+        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
+
+        Ok(vq)
+    }
+
+    pub fn notify_to_device(&self, index: u32) {
+        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_NOTIFY, index);
+    }
+
+    pub fn is_queue_available(&self, index: u32) -> bool {
+        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
+        self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX) != 0
+    }
+}
+
 static mut VIRTQUEUE: VirtQueueMmio = VirtQueueMmio::new();
-static mut VIRTUAL_VQ: *mut VirtQueue = core::ptr::null_mut();
 
-#[inline(always)]
-pub fn get_virtio_mmio(offset: usize) -> u32 {
-    unsafe {
-        let addr = (VIRTIO_MMIO_ADDRESS + offset) as *mut u32;
-        core::ptr::read_volatile(addr)
-    }
-}
-
-#[inline(always)]
-pub fn set_virtio_mmio(offset: usize, value: u32) {
-    unsafe {
-        let addr = (VIRTIO_MMIO_ADDRESS + offset) as *mut u32;
-        core::ptr::write_volatile(addr, value);
-    }
-}
-
-pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
-    let version = get_virtio_mmio(VIRTIO_MMIO_VERSION);
-    if version != VIRTIO_VERSION as u32 {
-        println!("virtio version is not compatible");
-        return Err(());
-    }
-    // 1. Select the queue writing its index to QueueSel.
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
-    // 2. Check if the queue is not already in use (ここではu-bootが先に制御しているので無視)
-    // if get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY) != 0 {
-    //     println!("queue is already in use: {:#X}", get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY));
-    //     return Err(());
-    // }
-    // 3. Read maxium queue size (number of elements) from QueueNumMax
-    let max_size = get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX);
-    if max_size == 0 {
-        println!("queue is invalid");
-        return Err(());
-    }
-    // 4. Allocate and zero the queue memory
-    let mut vq: Box<VirtQueue> = Box::new(VirtQueue::new());
-    // 5. Notify the device about the queue size by writing the size to QueueNum
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
-    // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
-    let desc_address = vq.vring.desc.as_ptr() as u64;
-    let avail_address = (&(vq.vring.avail) as *const VringAvail) as u64;
-    let used_address = (&(vq.vring.used) as *const VRingUsed) as u64;
-    const VIRTIO_MMIO_MASK: u64 = (1 << 32) - 1;
-    set_virtio_mmio(
-        VIRTIO_MMIO_DESC_LOW,
-        (desc_address & VIRTIO_MMIO_MASK) as u32,
-    );
-    set_virtio_mmio(
-        VIRTIO_MMIO_DESC_HIGH,
-        ((desc_address >> 32) & VIRTIO_MMIO_MASK) as u32,
-    );
-    set_virtio_mmio(
-        VIRTIO_MMIO_DRIVER_LOW,
-        (avail_address & VIRTIO_MMIO_MASK) as u32,
-    );
-    set_virtio_mmio(
-        VIRTIO_MMIO_DRIVER_HIGH,
-        ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
-    );
-    set_virtio_mmio(
-        VIRTIO_MMIO_DEVICE_LOW,
-        (used_address & VIRTIO_MMIO_MASK) as u32,
-    );
-    set_virtio_mmio(
-        VIRTIO_MMIO_DEVICE_HIGH,
-        ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
-    );
-    // 7. Write 0x1 to QueueReady
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
-
-    let ptr = Box::into_raw(vq);
-    Ok(ptr)
-}
-
-pub fn connect_to_avail_ring(queue: &mut VirtQueue, desc_idx: u16) {
-    let idx = queue.vring.avail.idx as usize;
-    queue.vring.avail.ring[idx % VIRTQ_ENTRY_NUM as usize] = desc_idx;
-    queue.vring.avail.idx = idx as u16 + 1;
-}
-
-pub fn notify_to_device(index: u32) {
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_NOTIFY, index);
-}
-
-pub fn is_queue_available(index: u32) -> bool {
-    set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
-    get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX) != 0
-}
+static mut EMULATE_VIRTIO_MMIO_ADDRESS: usize = 0x10003000;
 
 pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
-    let address = unsafe { (virtio::VIRTIO_MMIO_ADDRESS + offset) as *mut u32 };
+    let address = unsafe { (virtio::EMULATE_VIRTIO_MMIO_ADDRESS + offset) as *mut u32 };
 
     let mut value = unsafe { core::ptr::read_volatile(address) };
 
@@ -352,17 +359,16 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             // println!("virtio: {:?}", virtio_blk_req);
 
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
-                let mut req = VirtioBlkReq {
-                    req_type: 0,
-                    reserved: 0,
-                    sector: 0,
-                    data: [0; 512],
-                    status: 0,
+                let mut block_device = match virtio_blk::VirtioBlk::new(EMULATE_VIRTIO_MMIO_ADDRESS) {
+                    Ok(virtio_blk) => virtio_blk,
+                    Err(_) => {
+                        println!("can't set up block device.");
+                        panic!();
+                    }
                 };
-                virtio_blk::read_write_disk(
-                    &mut *VIRTUAL_VQ,
+                block_device.init_virtio_blk();
+                block_device.read_write_disk(
                     data_address as *mut usize,
-                    &mut req,
                     virtio_blk_req.sector,
                     false,
                 );
@@ -375,9 +381,6 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             core::ptr::write_volatile(status_address, virtio_blk::VIRTIO_BLK_S_OK as u8);
         },
         VIRTIO_MMIO_QUEUE_READY => unsafe {
-            virtio::VIRTIO_MMIO_ADDRESS = 0x10003000;
-            virtio_blk::init_virtio_blk();
-            VIRTUAL_VQ = init_virtio_mmio(VIRTIO_DEFAULT_INDEX).unwrap();
         },
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
             VIRTQUEUE.queue_num = value;
