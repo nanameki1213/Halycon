@@ -2,6 +2,7 @@ use crate::println;
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
 use core::{ffi::CStr, fmt, str::Utf8Error, usize};
+use crate::MemoryEntry;
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -116,11 +117,6 @@ pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
     }
 }
 
-pub struct MemoryEntry {
-    address: usize,
-    size: usize,
-}
-
 // TODO: MMIO関係の定義はmmioディレクトリ配下に移動する
 pub struct MmioEntry {
     address: usize,
@@ -128,8 +124,8 @@ pub struct MmioEntry {
 }
 
 pub struct DeviceTreeInfo<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> {
-    memory: ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>,
-    mmio: ArrayVec<MmioEntry, MAX_MMIO_ENTRIES>,
+    pub memory: ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>,
+    pub mmio: ArrayVec<MmioEntry, MAX_MMIO_ENTRIES>,
 }
 
 impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>

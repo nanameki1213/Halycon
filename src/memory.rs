@@ -3,16 +3,24 @@ use core::usize;
 use crate::cpu::*;
 use crate::paging;
 use crate::println;
+use arrayvec::ArrayVec;
+
+pub struct MemoryEntry {
+    pub address: usize,
+    pub size: usize,
+}
 
 pub static mut FREE_ADDRESS: usize = 0;
-pub static mut HOST_RAM_ADDRESS: usize = 0;
-pub static mut HOST_RAM_SIZE: usize = 0;
 
-pub unsafe extern "C" fn init_allocation() {
+pub unsafe extern "C" fn init_allocation<const MAX_MEMORY_ENTRIES: usize>(memory_entries: &ArrayVec<MemoryEntry, NAX_MEMORY_ENTRIES>) {
     extern "C" {
         static mut _free_area: u8;
     }
     FREE_ADDRESS = core::ptr::addr_of!(_free_area) as *const u8 as usize;
+
+    if memory_entries.len() == 1 {
+
+    }
 }
 
 pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<usize, ()> {

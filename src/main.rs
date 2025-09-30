@@ -149,7 +149,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     set_pmp_all_physical_address(true, true, true);
     println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());
 
-    unsafe { init_allocation() };
+    unsafe { init_allocation(host_dt.memory) };
     println!("[setup] allocater");
 
     extern "C" {
