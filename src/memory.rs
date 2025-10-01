@@ -12,7 +12,7 @@ pub struct MemoryEntry {
 
 pub static mut FREE_ADDRESS: usize = 0;
 
-pub unsafe extern "C" fn init_allocation<const MAX_MEMORY_ENTRIES: usize>(memory_entries: &ArrayVec<MemoryEntry, NAX_MEMORY_ENTRIES>) {
+pub unsafe extern "C" fn init_allocation<const MAX_MEMORY_ENTRIES: usize>(memory_entries: &ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>) {
     extern "C" {
         static mut _free_area: u8;
     }
