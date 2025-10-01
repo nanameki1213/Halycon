@@ -9,3 +9,4 @@ opt-level = 0
 [dependencies]
 byteorder = { version = "1", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }
+spin = "0.10.0"
