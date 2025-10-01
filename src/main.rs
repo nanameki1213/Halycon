@@ -24,8 +24,8 @@ mod mmio {
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
-use fdt::DeviceTreeInfo;
 use memory::*;
+use fdt::DeviceTreeInfo;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
 
@@ -66,6 +66,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         Ok(()) => {}
         Err(error) => panic!("{}", error),
     }
+
+    unsafe {
+        MEMORY_ALLOCATOR.init(&host_dt.memory[0]);
+    }
+    println!("[setup] allocater");
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -148,9 +153,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     set_pmp_all_physical_address(true, true, true);
     println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());
-
-    unsafe { init_allocation(host_dt.memory) };
-    println!("[setup] allocater");
 
     extern "C" {
         static _intr_stack_end: u8;

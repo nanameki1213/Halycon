@@ -1,10 +1,8 @@
 use core::usize;
 
 use crate::cpu::*;
-use crate::fdt::DeviceTreeInfo;
 use crate::paging;
 use crate::println;
-use arrayvec::ArrayVec;
 
 pub struct MemoryEntry {
     pub address: usize,
@@ -13,95 +11,62 @@ pub struct MemoryEntry {
 
 pub struct MemoryAllocator {
     free_memory_entry: MemoryEntry,
-    offset: usize,
+    free_address: usize,
+}
+
+pub enum MemoryAllocatorError {
+    OutOfMemory,
+}
+
+impl core::fmt::Debug for MemoryAllocatorError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MemoryAllocatorError::OutOfMemory => write!(f, "OutOfMemory"),
+        }
+    }
 }
 
 impl MemoryAllocator {
-    pub const fn new(memory_entry: &MemoryEntry) -> Self {
+    pub const fn new() -> Self {
+        MemoryAllocator {
+            free_memory_entry: MemoryEntry {
+                address: 0,
+                size: 0,
+            },
+            free_address: 0,
+        }
+    }
+
+    pub fn init(&mut self, memory_entry: &MemoryEntry) {
+        self.free_memory_entry = MemoryEntry {
+            address: memory_entry.address,
+            size: memory_entry.size,
+        };
         extern "C" {
             static mut _free_area: u8;
         }
         let free_start_address = core::ptr::addr_of!(_free_area) as *const u8 as usize;
+        self.free_address = free_start_address;
+    } 
 
-        let free_area = MemoryEntry {
-            address: free_start_address,
-            size: memory_entry.size - (free_start_address - memory_entry.address),
-        };
-        
-        Self {
-            free_memory_entry: free_area,
-            offset: 0,
-        }
-    }
-
-    pub fn get_free_memory_address(&self) -> usize {
-        self.free_memory_entry.address + self.offset
-    }
-
-    pub fn allocate(&mut self, num_of_pages: usize, alignment: usize) -> Result<usize, ()> {
+    pub fn allocate(&mut self, num_of_pages: usize, alignment: usize) -> Result<usize, MemoryAllocatorError> {
         let align_mask = alignment - 1;
-        if (self.get_free_memory_address() & align_mask) != 0 {
-            self.get_free_memory_address() &= !align_mask;
-            self.get_free_memory_address() += alignment;
+        if (self.free_address & align_mask) != 0 {
+            self.free_address &= !align_mask;
+            self.free_address += alignment;
         }
 
-        let top_address = self.free_start_address;
-        self.free_start_address += paging::PAGE_SIZE * num_of_pages;
-        if self.free_start_address - (self.memory_entries[0].address + self.free_area_offset) > self.memory_entries[0].size {
-            Err(())
+        let top_address = self.free_address;
+        self.free_address += paging::PAGE_SIZE * num_of_pages;
+        if self.free_address > self.free_memory_entry.address + self.free_memory_entry.size {
+            Err(MemoryAllocatorError::OutOfMemory)
         } else {
             Ok(top_address)
         }
     }
 }
 
-pub static mut FREE_OFFSET: usize = 0;
-
-pub unsafe extern "C" fn init_allocation<const MAX_MEMORY_ENTRIES: usize>(memory_entries: &ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>) {
-    extern "C" {
-        static mut _free_area: u8;
-    }
-    let free_start_address = core::ptr::addr_of!(_free_area) as *const u8 as usize;
-
-    if memory_entries.len() == 1 {
-        let entry = &memory_entries[0];
-        println!(
-            "memory entry: address: {:#X}, size: {:#X}",
-            entry.address, entry.size
-        );
-        if entry.address <= free_start_address && free_start_address < entry.address + entry.size {
-            let free_area_offset = free_start_address - entry.address;
-            let free_area_size = entry.size - free_area_offset;
-            println!(
-                "free area: address: {:#X}, size: {:#X}",
-                free_start_address, free_area_size
-            );
-            return;
-        } else {
-            println!("no free area in the memory entry.");
-            return;
-        }
-    } else {
-        println!("multiple memory entries are not supported.");
-        return;
-    }
-}
-
-pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<usize, ()> {
-    let align_mask = alignment - 1;
-    // println!("FREE_ADDRESS: {:#X}", FREE_ADDRESS);
-    // println!("align_mask: {:#X}", align_mask);
-    if (FREE_ADDRESS & align_mask) != 0 {
-        // println!("align: {:#X}", FREE_ADDRESS & align_mask);
-        FREE_ADDRESS &= !align_mask;
-        FREE_ADDRESS += alignment;
-        // println!("after alignment address: {:#X}", FREE_ADDRESS);
-    }
-
-    let top_address = FREE_ADDRESS;
-    FREE_ADDRESS += paging::PAGE_SIZE * num_of_pages;
-    Ok(top_address)
-}
+pub static mut MEMORY_ALLOCATOR: MemoryAllocator = MemoryAllocator::new();
 
 #[allow(dead_code)]
 pub fn set_pmp(

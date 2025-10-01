@@ -1,7 +1,7 @@
 use core::borrow::BorrowMut;
 use core::usize;
 
-use crate::allocate_memory;
+use crate::MEMORY_ALLOCATOR;
 use crate::cpu::*;
 use crate::println;
 
@@ -159,7 +159,7 @@ fn _map_address_stage2(
         e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
+            next_table_address = unsafe { MEMORY_ALLOCATOR.allocate(1, 0x1000).unwrap() };
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
         }
@@ -194,7 +194,7 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
+    let table_address = unsafe { MEMORY_ALLOCATOR.allocate(4, 1 << 14).unwrap() };
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 

@@ -1,7 +1,7 @@
 use core::arch::riscv64;
 use core::usize;
 
-use crate::allocate_memory;
+use crate::MEMORY_ALLOCATOR;
 use crate::cpu::*;
 use crate::loader;
 use crate::paging;
@@ -28,7 +28,7 @@ impl VM {
         dtb_pointer: usize,
     ) -> *mut Self {
         // グローバルアロケータを作成する
-        let vm = unsafe { &mut *(allocate_memory(1, paging::PAGE_SIZE).unwrap() as *mut VM) };
+        let vm = unsafe { &mut *(MEMORY_ALLOCATOR.allocate(1, paging::PAGE_SIZE).unwrap() as *mut VM) };
 
         vm.ram_virtual_base_address = ram_virtual_base_address;
         vm.ram_physical_base_address = ram_physical_base_address;
@@ -57,7 +57,7 @@ pub fn create_vm() -> *mut VM {
     const RAM_SIZE: usize = 0x10000000;
 
     let ram_physical_base_address =
-        unsafe { allocate_memory(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE).unwrap() };
+        unsafe { MEMORY_ALLOCATOR.allocate(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE).unwrap() };
 
     let table_address = paging::map_address_stage2(
         ram_physical_base_address,
