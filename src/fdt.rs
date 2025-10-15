@@ -1,8 +1,8 @@
+use crate::memory::MemoryEntry;
 use crate::println;
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
 use core::{ffi::CStr, fmt, str::Utf8Error, usize};
-use crate::memory::MemoryEntry;
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
