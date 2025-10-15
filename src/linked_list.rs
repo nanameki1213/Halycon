@@ -1,17 +1,18 @@
+#[derive(Clone, Copy)]
 pub struct LinkedList  {
     head: *mut usize,
 }
 
 impl LinkedList {
-    pub fn new() -> Self {
-        LinkedList { head: std::ptr::null_mut() }
+    pub const fn new() -> Self {
+        LinkedList { head: core::ptr::null_mut() }
     }
 
     pub fn is_empty(&self) -> bool {
         self.head.is_null()
     }
 
-    pub fn push(&mut self, value: *mut usize) {
+    pub unsafe fn push(&mut self, value: *mut usize) {
         *value = self.head as usize;
         self.head = value;
     }
@@ -27,7 +28,7 @@ impl LinkedList {
     }
 
     pub fn iter(&self) -> LinkedListIterator {
-
+        
     }
 }
 

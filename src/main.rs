@@ -5,12 +5,13 @@
 
 mod cpu;
 mod aplic;
-mod btree_set;
 mod console;
+mod linked_list;
 mod fdt;
 mod instruction;
 mod loader;
 mod memory;
+mod allocator;
 mod paging;
 mod plic;
 mod sbi;
