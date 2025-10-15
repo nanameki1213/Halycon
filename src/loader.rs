@@ -1,7 +1,7 @@
-use crate::MEMORY_ALLOCATOR;
 use crate::mmio::virtio;
 use crate::paging;
 use crate::virtio_blk;
+use crate::MEMORY_ALLOCATOR;
 
 pub fn load_bootloader(physical_base_address: usize) -> usize {
     load_virtio_blk(physical_base_address)
@@ -22,8 +22,10 @@ fn load_virtio_blk(physical_base_address: usize) -> usize {
     let vq = virtio::init_virtio_mmio(virtio::VIRTIO_DEFAULT_INDEX).unwrap();
 
     unsafe {
-        let virtio_blk_req =
-            &mut *(MEMORY_ALLOCATOR.allocate(1, paging::PAGE_SIZE).unwrap() as *mut virtio_blk::VirtioBlkReq);
+        let virtio_blk_req = &mut *(MEMORY_ALLOCATOR
+            .lock()
+            .allocate(1, paging::PAGE_SIZE)
+            .unwrap() as *mut virtio_blk::VirtioBlkReq);
         let mut load_address = physical_base_address;
         for i in 0..capacity {
             virtio_blk::read_write_disk(

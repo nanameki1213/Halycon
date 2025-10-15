@@ -5,6 +5,7 @@
 
 mod cpu;
 mod aplic;
+mod btree_set;
 mod console;
 mod fdt;
 mod instruction;
@@ -24,8 +25,8 @@ mod mmio {
 
 use crate::cpu::*;
 use core::{arch::asm, usize};
-use memory::*;
 use fdt::DeviceTreeInfo;
+use memory::*;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
 
@@ -67,9 +68,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         Err(error) => panic!("{}", error),
     }
 
-    unsafe {
-        MEMORY_ALLOCATOR.init(&host_dt.memory[0]);
-    }
+    MEMORY_ALLOCATOR.lock().init(&host_dt.memory[0]);
     println!("[setup] allocater");
 
     let xlen = get_xlen_from_misa();

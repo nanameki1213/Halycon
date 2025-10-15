@@ -3,6 +3,7 @@ use core::usize;
 use crate::cpu::*;
 use crate::paging;
 use crate::println;
+use spin::Mutex;
 
 pub struct MemoryEntry {
     pub address: usize,
@@ -47,9 +48,13 @@ impl MemoryAllocator {
         }
         let free_start_address = core::ptr::addr_of!(_free_area) as *const u8 as usize;
         self.free_address = free_start_address;
-    } 
+    }
 
-    pub fn allocate(&mut self, num_of_pages: usize, alignment: usize) -> Result<usize, MemoryAllocatorError> {
+    pub fn allocate(
+        &mut self,
+        num_of_pages: usize,
+        alignment: usize,
+    ) -> Result<usize, MemoryAllocatorError> {
         let align_mask = alignment - 1;
         if (self.free_address & align_mask) != 0 {
             self.free_address &= !align_mask;
@@ -66,7 +71,7 @@ impl MemoryAllocator {
     }
 }
 
-pub static mut MEMORY_ALLOCATOR: MemoryAllocator = MemoryAllocator::new();
+pub static MEMORY_ALLOCATOR: Mutex<MemoryAllocator> = Mutex::new(MemoryAllocator::new());
 
 #[allow(dead_code)]
 pub fn set_pmp(
