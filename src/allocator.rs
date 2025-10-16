@@ -1,7 +1,11 @@
+use spin::Mutex;
+
 use crate::{linked_list, println};
-use core::alloc::Layout;
+use core::alloc::{GlobalAlloc, Layout};
 use core::cmp::{max, min};
+use core::ops::Deref;
 use core::ptr::NonNull;
+use core::usize;
 
 fn align_up(address: usize, align: usize) -> usize {
     (address + align - 1) & !(align - 1)
@@ -126,5 +130,39 @@ impl<const ORDER: usize> Heap<ORDER> {
                 }
             }
         }
+    }
+}
+
+pub struct LockedHeap<const ORDER: usize>(Mutex<Heap<ORDER>>);
+
+impl<const ORDER: usize> LockedHeap<ORDER> {
+    pub const fn new() -> Self {
+        LockedHeap(Mutex::new(Heap::<ORDER>::new()))
+    }
+
+    pub const fn empty() -> Self {
+        LockedHeap(Mutex::new(Heap::<ORDER>::new()))
+    }
+}
+
+impl<const ORDER: usize> Deref for LockedHeap<ORDER> {
+    type Target = Mutex<Heap<ORDER>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+unsafe impl<const ORDER: usize> GlobalAlloc for LockedHeap<ORDER> {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.0
+            .lock()
+            .alloc(layout)
+            .ok()
+            .map_or(core::ptr::null_mut(), |allocation| allocation.as_ptr())
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.0.lock().dealloc(NonNull::new_unchecked(ptr), layout);
     }
 }
