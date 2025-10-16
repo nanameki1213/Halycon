@@ -1,11 +1,15 @@
+use core::marker::PhantomData;
+
 #[derive(Clone, Copy)]
-pub struct LinkedList  {
+pub struct LinkedList {
     head: *mut usize,
 }
 
 impl LinkedList {
     pub const fn new() -> Self {
-        LinkedList { head: core::ptr::null_mut() }
+        LinkedList {
+            head: core::ptr::null_mut(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -27,25 +31,80 @@ impl LinkedList {
         }
     }
 
-    pub fn iter(&self) -> LinkedListIterator {
-        
+    pub fn iter(&self) -> LinkedListIter<'_> {
+        LinkedListIter {
+            curr: self.head,
+            list: PhantomData,
+        }
+    }
+
+    pub fn iter_mut(&self) -> LinkedListIterMut<'_> {
+        LinkedListIterMut {
+            list: PhantomData,
+            prev: core::ptr::null_mut(),
+            curr: self.head,
+        }
     }
 }
 
-pub struct LinkedListIterator {
-    current: *mut usize,
+pub struct LinkedListIter<'a> {
+    curr: *mut usize,
+    list: PhantomData<&'a LinkedList>,
 }
 
-impl Iterator for LinkedListIteretor {
+impl<'a> Iterator for LinkedListIter<'a> {
     type Item = *mut usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current.is_null() {
+        if self.curr.is_null() {
             None
         } else {
-            let value = self.current;
-            self.current = unsafe { *value as *mut usize };
-            Some(value)
+            let item = self.curr;
+            let next = unsafe { *item as *mut usize };
+            self.curr = next;
+            Some(item)
+        }
+    }
+}
+
+pub struct ListNode {
+    prev: *mut usize,
+    curr: *mut usize,
+}
+
+impl ListNode {
+    pub fn pop(self) -> *mut usize {
+        unsafe {
+            *(self.prev) = *(self.curr);
+        }
+        self.curr
+    }
+
+    pub fn value(&self) -> *mut usize {
+        self.curr
+    }
+}
+
+pub struct LinkedListIterMut<'a> {
+    list: PhantomData<&'a mut LinkedList>,
+    prev: *mut usize,
+    curr: *mut usize,
+}
+
+impl<'a> Iterator for LinkedListIterMut<'a> {
+    type Item = ListNode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.curr.is_null() {
+            None
+        } else {
+            let res = ListNode {
+                prev: self.prev,
+                curr: self.curr,
+            };
+            self.prev = self.curr;
+            self.curr = unsafe { *self.curr as *mut usize };
+            Some(res)
         }
     }
 }
