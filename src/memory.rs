@@ -1,77 +1,12 @@
 use core::usize;
 
 use crate::cpu::*;
-use crate::paging;
 use crate::println;
-use spin::Mutex;
 
 pub struct MemoryEntry {
     pub address: usize,
     pub size: usize,
 }
-
-pub struct MemoryAllocator {
-    free_memory_entry: MemoryEntry,
-    free_address: usize,
-}
-
-pub enum MemoryAllocatorError {
-    OutOfMemory,
-}
-
-impl core::fmt::Debug for MemoryAllocatorError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            MemoryAllocatorError::OutOfMemory => write!(f, "OutOfMemory"),
-        }
-    }
-}
-
-impl MemoryAllocator {
-    pub const fn new() -> Self {
-        MemoryAllocator {
-            free_memory_entry: MemoryEntry {
-                address: 0,
-                size: 0,
-            },
-            free_address: 0,
-        }
-    }
-
-    pub fn init(&mut self, memory_entry: &MemoryEntry) {
-        self.free_memory_entry = MemoryEntry {
-            address: memory_entry.address,
-            size: memory_entry.size,
-        };
-        extern "C" {
-            static mut _free_area: u8;
-        }
-        let free_start_address = core::ptr::addr_of!(_free_area) as *const u8 as usize;
-        self.free_address = free_start_address;
-    }
-
-    pub fn allocate(
-        &mut self,
-        num_of_pages: usize,
-        alignment: usize,
-    ) -> Result<usize, MemoryAllocatorError> {
-        let align_mask = alignment - 1;
-        if (self.free_address & align_mask) != 0 {
-            self.free_address &= !align_mask;
-            self.free_address += alignment;
-        }
-
-        let top_address = self.free_address;
-        self.free_address += paging::PAGE_SIZE * num_of_pages;
-        if self.free_address > self.free_memory_entry.address + self.free_memory_entry.size {
-            Err(MemoryAllocatorError::OutOfMemory)
-        } else {
-            Ok(top_address)
-        }
-    }
-}
-
-pub static MEMORY_ALLOCATOR: Mutex<MemoryAllocator> = Mutex::new(MemoryAllocator::new());
 
 #[allow(dead_code)]
 pub fn set_pmp(

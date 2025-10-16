@@ -4,14 +4,14 @@
 #[macro_use]
 
 mod cpu;
+mod allocator;
 mod aplic;
 mod console;
-mod linked_list;
 mod fdt;
 mod instruction;
+mod linked_list;
 mod loader;
 mod memory;
-mod allocator;
 mod paging;
 mod plic;
 mod sbi;
@@ -28,8 +28,11 @@ use crate::cpu::*;
 use core::{arch::asm, usize};
 use fdt::DeviceTreeInfo;
 use memory::*;
+use allocator::Heap;
+use core::alloc::Layout;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
+use spin::Mutex;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -44,6 +47,8 @@ const MAX_MMIO_ENTRIES: usize = 64;
 // fn intr_disable() {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
+
+static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
 
 #[no_mangle]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
@@ -71,6 +76,27 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     MEMORY_ALLOCATOR.lock().init(&host_dt.memory[0]);
     println!("[setup] allocater");
+
+    let mut allocator: Heap<33> = Heap::new();
+    let memory = &host_dt.memory[0];
+    unsafe {
+        allocator.init(memory.address, memory.size);
+    }
+    println!("buddy allcator init");
+    allocator.show_free_list();
+    let test_layout: Layout = Layout::new::<usize>();
+    println!("layout: {:?}", test_layout);
+    match allocator.alloc(test_layout) {
+        Ok(ptr) => {
+            println!("test allocate: {:#X}", ptr.as_ptr() as usize);
+            allocator.show_free_list();
+            allocator.dealloc(ptr, test_layout);
+            println!("test dealloc");
+            allocator.show_free_list();
+        },
+        Err(_) => {}
+    };
+
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
