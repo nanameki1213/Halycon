@@ -1,11 +1,15 @@
 #![allow(dead_code)]
 
+extern crate alloc;
+
 use core::usize;
 
 use crate::mmio::virtio;
 use crate::paging::{resolve_address_stage2, PAGE_SIZE};
 use crate::virtio_blk::{self, VirtioBlkReq};
-use crate::{println, MEMORY_ALLOCATOR};
+use crate::println;
+use alloc::boxed::Box;
+use crate::memory::allocate_pages;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -138,6 +142,12 @@ pub struct VirtQueue {
     pub last_avail_index: u16,
 }
 
+impl VirtQueue {
+    pub const fn new() -> Self {
+        VirtQueue { vring: VRing::new(), queue_index: 0, last_used_index: 0, last_avail_index: 0 }
+    }
+}
+
 // Virtio MMIO によって設定されたQueue情報
 #[repr(C)]
 pub struct VirtQueueMmio {
@@ -209,9 +219,7 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
         return Err(());
     }
     // 4. Allocate and zero the queue memory
-    let vq = unsafe {
-        &mut *(MEMORY_ALLOCATOR.lock().allocate(1, PAGE_SIZE).unwrap() as *mut VirtQueue)
-    };
+    let mut vq: Box<VirtQueue> = Box::new(VirtQueue::new());
     // 5. Notify the device about the queue size by writing the size to QueueNum
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
     // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
@@ -246,7 +254,7 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     // 7. Write 0x1 to QueueReady
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
 
-    Ok(vq)
+    Ok(vq.as_mut())
 }
 
 pub fn connect_to_avail_ring(queue: &mut VirtQueue, desc_idx: u16) {
