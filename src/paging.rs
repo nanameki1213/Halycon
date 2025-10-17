@@ -2,8 +2,8 @@ use core::borrow::BorrowMut;
 use core::usize;
 
 use crate::cpu::*;
+use crate::memory::allocate_pages;
 use crate::println;
-use crate::MEMORY_ALLOCATOR;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
@@ -159,7 +159,8 @@ fn _map_address_stage2(
         e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            next_table_address = MEMORY_ALLOCATOR.lock().allocate(1, 0x1000).unwrap();
+            // TODO: nullの可能性があるのでエラーハンドリング
+            next_table_address = allocate_pages(1, PAGE_SIZE) as usize;
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
         }
@@ -194,7 +195,8 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let table_address = MEMORY_ALLOCATOR.lock().allocate(4, 1 << 14).unwrap();
+    // TODO: nullの可能性があるのでエラーハンドリング
+    let table_address = allocate_pages(4, 1 << 14) as usize;
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
