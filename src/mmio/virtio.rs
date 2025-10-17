@@ -2,14 +2,12 @@
 
 extern crate alloc;
 
-use core::usize;
-
 use crate::mmio::virtio;
-use crate::paging::{resolve_address_stage2, PAGE_SIZE};
-use crate::virtio_blk::{self, VirtioBlkReq};
+use crate::paging::resolve_address_stage2;
 use crate::println;
+use crate::virtio_blk::{self, VirtioBlkReq};
 use alloc::boxed::Box;
-use crate::memory::allocate_pages;
+use core::usize;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -76,7 +74,7 @@ impl VRingDesc {
             addr: 0,
             len: 0,
             flags: 0,
-            next: 0
+            next: 0,
         }
     }
 }
@@ -90,7 +88,11 @@ pub struct VringAvail {
 
 impl VringAvail {
     pub const fn new() -> Self {
-        VringAvail { flags: 0, idx: 0, ring: [0; VIRTQ_ENTRY_NUM as usize] }
+        VringAvail {
+            flags: 0,
+            idx: 0,
+            ring: [0; VIRTQ_ENTRY_NUM as usize],
+        }
     }
 }
 
@@ -117,7 +119,11 @@ pub struct VRingUsed {
 
 impl VRingUsed {
     pub const fn new() -> Self {
-        VRingUsed { flags: 0, idx: 0, ring: [VRingUsedElem::new(); VIRTQ_ENTRY_NUM as usize] }
+        VRingUsed {
+            flags: 0,
+            idx: 0,
+            ring: [VRingUsedElem::new(); VIRTQ_ENTRY_NUM as usize],
+        }
     }
 }
 
@@ -130,7 +136,11 @@ pub struct VRing {
 
 impl VRing {
     pub const fn new() -> Self {
-        VRing { desc: [VRingDesc::new(); VIRTQ_ENTRY_NUM as usize], avail: VringAvail::new(), used: VRingUsed::new() }
+        VRing {
+            desc: [VRingDesc::new(); VIRTQ_ENTRY_NUM as usize],
+            avail: VringAvail::new(),
+            used: VRingUsed::new(),
+        }
     }
 }
 
@@ -144,7 +154,12 @@ pub struct VirtQueue {
 
 impl VirtQueue {
     pub const fn new() -> Self {
-        VirtQueue { vring: VRing::new(), queue_index: 0, last_used_index: 0, last_avail_index: 0 }
+        VirtQueue {
+            vring: VRing::new(),
+            queue_index: 0,
+            last_used_index: 0,
+            last_avail_index: 0,
+        }
     }
 }
 
