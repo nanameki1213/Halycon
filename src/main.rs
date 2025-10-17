@@ -1,12 +1,11 @@
 #![feature(riscv_ext_intrinsics)]
 #![no_std]
 #![no_main]
-#[macro_use]
 
-mod cpu;
 mod allocator;
 mod aplic;
 mod console;
+mod cpu;
 mod fdt;
 mod instruction;
 mod linked_list;
@@ -25,14 +24,14 @@ mod mmio {
 }
 
 use crate::cpu::*;
+use core::alloc::{GlobalAlloc, Layout};
+use core::ptr::NonNull;
 use core::{arch::asm, usize};
 use fdt::DeviceTreeInfo;
-use memory::*;
-use allocator::Heap;
-use core::alloc::Layout;
+use memory::set_pmp_all_physical_address;
+use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
-use spin::Mutex;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -48,7 +47,28 @@ const MAX_MMIO_ENTRIES: usize = 64;
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
+struct GlobalAllocator {}
+
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
+
+unsafe impl GlobalAlloc for GlobalAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        match MEMORY_ALLOCATOR
+            .lock()
+            .allocate(layout)
+        {
+            Ok(ptr) => ptr.as_ptr() as *mut u8,
+            Err(_) => core::ptr::null_mut(),
+        }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        MEMORY_ALLOCATOR.lock().deallocate(NonNull::new_unchecked(ptr), layout);
+    }
+}
 
 #[no_mangle]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
@@ -74,29 +94,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         Err(error) => panic!("{}", error),
     }
 
-    MEMORY_ALLOCATOR.lock().init(&host_dt.memory[0]);
-    println!("[setup] allocater");
-
-    let mut allocator: Heap<33> = Heap::new();
     let memory = &host_dt.memory[0];
     unsafe {
-        allocator.init(memory.address, memory.size);
+        MEMORY_ALLOCATOR.lock().init(memory.address, memory.size);
     }
-    println!("buddy allcator init");
-    allocator.show_free_list();
-    let test_layout: Layout = Layout::new::<usize>();
-    println!("layout: {:?}", test_layout);
-    match allocator.alloc(test_layout) {
-        Ok(ptr) => {
-            println!("test allocate: {:#X}", ptr.as_ptr() as usize);
-            allocator.show_free_list();
-            allocator.dealloc(ptr, test_layout);
-            println!("test dealloc");
-            allocator.show_free_list();
-        },
-        Err(_) => {}
-    };
-
+    println!("[setup] allocater");
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -197,13 +199,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let vm = vm::create_vm();
 
     println!("switch to guest");
-    unsafe {
-        hs_to_vs(
-            (*vm).get_entry_point() as usize,
-            stack_address,
-            (*vm).get_dtb_pointer(),
-        )
-    };
+    hs_to_vs(
+        vm.get_entry_point() as usize,
+        stack_address,
+        vm.get_dtb_pointer(),
+    )
     // don't return to here
 }
 

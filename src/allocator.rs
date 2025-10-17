@@ -62,7 +62,7 @@ impl<const ORDER: usize> Heap<ORDER> {
         self.add_to_heap(address, size);
     }
 
-    pub fn alloc(&mut self, layout: Layout) -> Result<NonNull<u8>, ()> {
+    pub fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, ()> {
         // アロケート単位は最低でもusize
         let size = max(
             layout.size().next_power_of_two(),
@@ -83,8 +83,9 @@ impl<const ORDER: usize> Heap<ORDER> {
                         return Err(());
                     }
                 }
-                let result =
-                    NonNull::new(self.free_list[class].pop().expect("メモリが足りません") as *mut u8);
+                let result = NonNull::new(
+                    self.free_list[class].pop().expect("メモリが足りません") as *mut u8
+                );
                 if let Some(result) = result {
                     return Ok(result);
                 } else {
@@ -95,7 +96,7 @@ impl<const ORDER: usize> Heap<ORDER> {
         Err(())
     }
 
-    pub fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout) {
+    pub fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) {
         let size = max(
             layout.size().next_power_of_two(),
             max(layout.align(), size_of::<usize>()),
@@ -150,19 +151,5 @@ impl<const ORDER: usize> Deref for LockedHeap<ORDER> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-unsafe impl<const ORDER: usize> GlobalAlloc for LockedHeap<ORDER> {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.0
-            .lock()
-            .alloc(layout)
-            .ok()
-            .map_or(core::ptr::null_mut(), |allocation| allocation.as_ptr())
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.0.lock().dealloc(NonNull::new_unchecked(ptr), layout);
     }
 }
