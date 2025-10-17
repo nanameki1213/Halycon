@@ -1,11 +1,24 @@
-use core::usize;
+use crate::paging;
 
 use crate::cpu::*;
 use crate::println;
+use crate::MEMORY_ALLOCATOR;
+use core::alloc::Layout;
 
 pub struct MemoryEntry {
     pub address: usize,
     pub size: usize,
+}
+
+pub fn allocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
+    // TODO: Layoutのエラーハンドリング設計検討
+    let layout =
+        unsafe { Layout::from_size_align_unchecked(num_of_pages * paging::PAGE_SIZE, align) };
+
+    match MEMORY_ALLOCATOR.lock().allocate(layout) {
+        Ok(ptr) => ptr.as_ptr() as *mut u8,
+        Err(_) => core::ptr::null_mut(),
+    }
 }
 
 #[allow(dead_code)]
