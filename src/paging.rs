@@ -161,6 +161,7 @@ fn _map_address_stage2(
         if !e.is_valid_pte() {
             let new_table_address = allocate_pages(1, PAGE_SIZE);
             if new_table_address.is_null() {
+                println!("Failed to allocate pages for stage2 page table.");
                 return Err(());
             }
             next_table_address = new_table_address as usize;
@@ -198,8 +199,12 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    // TODO: nullの可能性があるのでエラーハンドリング
-    let table_address = allocate_pages(4, 1 << 14) as usize;
+    let table_address_ptr = allocate_pages(4, 1 << 14);
+    if table_address_ptr.is_null() {
+        println!("Failed to allocate pages for stage 2 page table.");
+        return Err(());
+    }
+    let table_address = table_address_ptr as usize;
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
