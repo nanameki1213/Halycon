@@ -159,8 +159,11 @@ fn _map_address_stage2(
         e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            // TODO: nullの可能性があるのでエラーハンドリング
-            next_table_address = allocate_pages(1, PAGE_SIZE) as usize;
+            let new_table_address = allocate_pages(1, PAGE_SIZE);
+            if new_table_address.is_null() {
+                return Err(());
+            }
+            next_table_address = new_table_address as usize;
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
         }
