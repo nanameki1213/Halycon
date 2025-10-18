@@ -1,39 +1,24 @@
-use core::usize;
+use crate::paging;
 
 use crate::cpu::*;
-use crate::paging;
 use crate::println;
+use crate::MEMORY_ALLOCATOR;
+use core::alloc::Layout;
 
-pub static mut FREE_ADDRESS: usize = 0;
-pub static mut HOST_RAM_ADDRESS: usize = 0;
-pub static mut HOST_RAM_SIZE: usize = 0;
-
-pub unsafe extern "C" fn init_allocation() {
-    extern "C" {
-        static mut _free_area: u8;
-    }
-    FREE_ADDRESS = core::ptr::addr_of!(_free_area) as *const u8 as usize;
+pub struct MemoryEntry {
+    pub address: usize,
+    pub size: usize,
 }
 
-pub unsafe fn allocate_memory(num_of_pages: usize, alignment: usize) -> Result<usize, ()> {
-    if FREE_ADDRESS == 0 {
-        println!("memory allocater is not initialized.");
-        return Err(());
-    }
+pub fn allocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
+    // TODO: Layoutのエラーハンドリング設計検討
+    let layout =
+        unsafe { Layout::from_size_align_unchecked(num_of_pages * paging::PAGE_SIZE, align) };
 
-    let align_mask = alignment - 1;
-    // println!("FREE_ADDRESS: {:#X}", FREE_ADDRESS);
-    // println!("align_mask: {:#X}", align_mask);
-    if (FREE_ADDRESS & align_mask) != 0 {
-        // println!("align: {:#X}", FREE_ADDRESS & align_mask);
-        FREE_ADDRESS &= !align_mask;
-        FREE_ADDRESS += alignment;
-        // println!("after alignment address: {:#X}", FREE_ADDRESS);
+    match MEMORY_ALLOCATOR.lock().allocate(layout) {
+        Ok(ptr) => ptr.as_ptr() as *mut u8,
+        Err(_) => core::ptr::null_mut(),
     }
-
-    let top_address = FREE_ADDRESS;
-    FREE_ADDRESS += paging::PAGE_SIZE * num_of_pages;
-    Ok(top_address)
 }
 
 #[allow(dead_code)]

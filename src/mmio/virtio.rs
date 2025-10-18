@@ -1,11 +1,13 @@
 #![allow(dead_code)]
 
-use core::usize;
+extern crate alloc;
 
 use crate::mmio::virtio;
-use crate::paging::{resolve_address_stage2, PAGE_SIZE};
+use crate::paging::resolve_address_stage2;
+use crate::println;
 use crate::virtio_blk::{self, VirtioBlkReq};
-use crate::{allocate_memory, println};
+use alloc::boxed::Box;
+use core::usize;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -54,7 +56,7 @@ pub const VIRTIO_F_VERSION_1: u64 = 1 << 32;
 pub const VIRTIO_F_RING_RESET: u64 = 1 << 40;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VRingDesc {
     pub addr: u64,
     pub len: u32,
@@ -66,6 +68,15 @@ impl VRingDesc {
     pub const VIRTQ_DESC_F_NEXT: usize = 1 << 0;
     pub const VIRTQ_DESC_F_WRITE: usize = 1 << 1;
     pub const VIRTQ_DESC_F_INDIRECT: usize = 1 << 2;
+
+    pub const fn new() -> Self {
+        VRingDesc {
+            addr: 0,
+            len: 0,
+            flags: 0,
+            next: 0,
+        }
+    }
 }
 
 #[repr(C)]
@@ -75,11 +86,28 @@ pub struct VringAvail {
     pub ring: [u16; VIRTQ_ENTRY_NUM as usize],
 }
 
+impl VringAvail {
+    pub const fn new() -> Self {
+        VringAvail {
+            flags: 0,
+            idx: 0,
+            ring: [0; VIRTQ_ENTRY_NUM as usize],
+        }
+    }
+}
+
 #[derive(Debug)]
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct VRingUsedElem {
     pub id: u32,
     pub len: u32,
+}
+
+impl VRingUsedElem {
+    pub const fn new() -> Self {
+        VRingUsedElem { id: 0, len: 0 }
+    }
 }
 
 #[repr(C)]
@@ -89,11 +117,31 @@ pub struct VRingUsed {
     pub ring: [VRingUsedElem; VIRTQ_ENTRY_NUM as usize],
 }
 
+impl VRingUsed {
+    pub const fn new() -> Self {
+        VRingUsed {
+            flags: 0,
+            idx: 0,
+            ring: [VRingUsedElem::new(); VIRTQ_ENTRY_NUM as usize],
+        }
+    }
+}
+
 #[repr(C)]
 pub struct VRing {
     pub desc: [VRingDesc; VIRTQ_ENTRY_NUM as usize],
     pub avail: VringAvail,
     pub used: VRingUsed,
+}
+
+impl VRing {
+    pub const fn new() -> Self {
+        VRing {
+            desc: [VRingDesc::new(); VIRTQ_ENTRY_NUM as usize],
+            avail: VringAvail::new(),
+            used: VRingUsed::new(),
+        }
+    }
 }
 
 #[repr(C)]
@@ -102,6 +150,17 @@ pub struct VirtQueue {
     pub queue_index: u16,
     pub last_used_index: u16,
     pub last_avail_index: u16,
+}
+
+impl VirtQueue {
+    pub const fn new() -> Self {
+        VirtQueue {
+            vring: VRing::new(),
+            queue_index: 0,
+            last_used_index: 0,
+            last_avail_index: 0,
+        }
+    }
 }
 
 // Virtio MMIO によって設定されたQueue情報
@@ -175,7 +234,7 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
         return Err(());
     }
     // 4. Allocate and zero the queue memory
-    let vq = unsafe { &mut *(allocate_memory(1, PAGE_SIZE).unwrap() as *mut VirtQueue) };
+    let mut vq: Box<VirtQueue> = Box::new(VirtQueue::new());
     // 5. Notify the device about the queue size by writing the size to QueueNum
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
     // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
@@ -210,7 +269,8 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     // 7. Write 0x1 to QueueReady
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
 
-    Ok(vq)
+    let ptr = Box::into_raw(vq);
+    Ok(ptr)
 }
 
 pub fn connect_to_avail_ring(queue: &mut VirtQueue, desc_idx: u16) {

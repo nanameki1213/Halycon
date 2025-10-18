@@ -3,6 +3,7 @@
 use crate::print;
 use core::char;
 use core::usize;
+use spin::Mutex;
 
 // TODO: get plic_addr from device tree
 pub const NS16550_ADDR: usize = 0x10000000;
@@ -22,6 +23,14 @@ pub struct Uart {
 }
 
 impl Uart {
+    pub const fn new() -> Self {
+        Uart {
+            fifo: [0; DEFAULT_FIFO_SIZE],
+            head: 0,
+            tail: 0,
+        }
+    }
+
     pub fn fifo_in(&mut self, c: u8) {
         if (self.tail + 1) % DEFAULT_FIFO_SIZE != self.head {
             self.fifo[self.tail] = c;
@@ -46,19 +55,15 @@ impl Uart {
     }
 }
 
-static mut UART: Uart = Uart {
-    fifo: [0; DEFAULT_FIFO_SIZE],
-    head: 0,
-    tail: 0,
-};
+static UART: Mutex<Uart> = Mutex::new(Uart::new());
 
 pub fn emulate_read_ns16550(offset: usize) -> Result<u32, ()> {
-    let is_empty = unsafe { UART.is_fifo_empty() };
+    let is_empty = UART.lock().is_fifo_empty();
 
     match offset {
         NS16500_RBR => {
             // RBRを読みに来ているということはデータがあると思っている
-            let c = unsafe { UART.fifo_out() };
+            let c = UART.lock().fifo_out();
             Ok(c as u32)
         }
         NS16550_LSR => {
@@ -115,9 +120,7 @@ pub fn write_ns16550(offset: usize, value: u32) {
 }
 
 pub fn uart_fifo_push(c: u8) {
-    unsafe {
-        UART.fifo_in(c);
-    }
+    UART.lock().fifo_in(c);
 }
 
 pub fn ns16500_intr_receive_enable() {

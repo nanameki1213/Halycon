@@ -1,8 +1,8 @@
 use core::borrow::BorrowMut;
 use core::usize;
 
-use crate::allocate_memory;
 use crate::cpu::*;
+use crate::memory::allocate_pages;
 use crate::println;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
@@ -159,7 +159,12 @@ fn _map_address_stage2(
         e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            next_table_address = unsafe { allocate_memory(1, 0x1000).unwrap() };
+            let new_table_address = allocate_pages(1, PAGE_SIZE);
+            if new_table_address.is_null() {
+                println!("Failed to allocate pages for stage2 page table.");
+                return Err(());
+            }
+            next_table_address = new_table_address as usize;
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
         }
@@ -194,7 +199,12 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let table_address = unsafe { allocate_memory(4, 1 << 14).unwrap() };
+    let table_address_ptr = allocate_pages(4, 1 << 14);
+    if table_address_ptr.is_null() {
+        println!("Failed to allocate pages for stage 2 page table.");
+        return Err(());
+    }
+    let table_address = table_address_ptr as usize;
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 

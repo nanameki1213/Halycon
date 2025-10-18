@@ -1,9 +1,9 @@
 use core::arch::riscv64;
 use core::usize;
 
-use crate::allocate_memory;
 use crate::cpu::*;
 use crate::loader;
+use crate::memory::allocate_pages;
 use crate::paging;
 use crate::println;
 
@@ -26,41 +26,37 @@ impl VM {
         ram_size: usize,
         entry_point: usize,
         dtb_pointer: usize,
-    ) -> *mut Self {
-        // グローバルアロケータを作成する
-        let vm = unsafe { &mut *(allocate_memory(1, paging::PAGE_SIZE).unwrap() as *mut VM) };
-
-        vm.ram_virtual_base_address = ram_virtual_base_address;
-        vm.ram_physical_base_address = ram_physical_base_address;
-        vm.ram_size = ram_size;
-        vm.entry_point = entry_point;
-        vm.dtb_pointer = dtb_pointer;
-        unsafe {
-            vm.vmid = VMID;
-            VMID += 1;
+    ) -> Self {
+        VM {
+            vmid: 0,
+            ram_virtual_base_address: ram_virtual_base_address,
+            ram_physical_base_address: ram_physical_base_address,
+            ram_size: ram_size,
+            entry_point: entry_point,
+            dtb_pointer: dtb_pointer,
         }
-
-        vm
     }
 
-    pub fn get_entry_point(&mut self) -> usize {
+    pub fn get_entry_point(&self) -> usize {
         self.entry_point
     }
 
-    pub fn get_dtb_pointer(&mut self) -> usize {
+    pub fn get_dtb_pointer(&self) -> usize {
         self.dtb_pointer
     }
 }
 
-pub fn create_vm() -> *mut VM {
+pub fn create_vm() -> VM {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x10000000;
 
-    let ram_physical_base_address =
-        unsafe { allocate_memory(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE).unwrap() };
+    let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
+    if ram_physical_base_address.is_null() {
+        println!("Out of memory");
+    }
 
     let table_address = paging::map_address_stage2(
-        ram_physical_base_address,
+        ram_physical_base_address as usize,
         RAM_VIRTUAL_BASE,
         RAM_SIZE,
         paging::DEFAULT_TABLE_LEVEL,
@@ -87,7 +83,7 @@ pub fn create_vm() -> *mut VM {
     println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
     println!(
         "[info] vm physical address: {:#X}",
-        ram_physical_base_address
+        ram_physical_base_address as usize
     );
 
     let virtual_entry_point = 0x80200000;
@@ -98,14 +94,14 @@ pub fn create_vm() -> *mut VM {
     );
     println!("[info] loading u-boot...");
     let size = loader::load_bootloader(bootloader_entry_point);
-    let dtb_pointer = ram_physical_base_address + size;
+    let dtb_pointer = ram_physical_base_address as usize + size;
     println!("[info] dtb virtual address: {:#X}", RAM_VIRTUAL_BASE + size);
     println!("[info] dtb physical address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer);
 
     let vm = VM::new(
         RAM_VIRTUAL_BASE,
-        ram_physical_base_address,
+        ram_physical_base_address as usize,
         RAM_SIZE,
         virtual_entry_point,
         RAM_VIRTUAL_BASE + size,
