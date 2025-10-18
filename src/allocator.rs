@@ -84,7 +84,7 @@ impl<const ORDER: usize> Heap<ORDER> {
                     }
                 }
                 let result = NonNull::new(
-                    self.free_list[class].pop().expect("メモリが足りません") as *mut u8
+                    self.free_list[class].pop().expect("Out of memory") as *mut u8
                 );
                 if let Some(result) = result {
                     return Ok(result);
