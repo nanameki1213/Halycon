@@ -102,7 +102,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     unsafe {
         MEMORY_ALLOCATOR.lock().init(free_ptr, memory.size - (free_ptr - memory.address));
     }
-    println!("[setup] allocater");
+    println!("[setup] allocator");
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
