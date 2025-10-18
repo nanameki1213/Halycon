@@ -1,9 +1,11 @@
 extern crate alloc;
 
 use crate::mmio::virtio;
-use crate::virtio_blk;
+use crate::{paging, virtio_blk};
 use crate::virtio_blk::VirtioBlkReq;
 use alloc::boxed::Box;
+use crate::println;
+use crate::memory::allocate_pages;
 
 pub fn load_bootloader(physical_base_address: usize) -> usize {
     load_virtio_blk(physical_base_address)

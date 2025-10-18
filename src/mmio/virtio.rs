@@ -269,7 +269,8 @@ pub fn init_virtio_mmio(index: u32) -> Result<*mut VirtQueue, ()> {
     // 7. Write 0x1 to QueueReady
     set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
 
-    Ok(vq.as_mut())
+    let ptr = Box::into_raw(vq);
+    Ok(ptr)
 }
 
 pub fn connect_to_avail_ring(queue: &mut VirtQueue, desc_idx: u16) {
