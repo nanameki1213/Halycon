@@ -29,7 +29,7 @@ impl<const ORDER: usize> Heap<ORDER> {
     pub unsafe fn add_to_heap(&mut self, mut address: usize, mut size: usize) {
         // 最低でもusizeでアライン
         address = align_up(address, size_of::<usize>());
-        size &= !size_of::<usize>() + 1;
+        size &= !size_of::<usize>() - 1;
         let end = address + size;
 
         let mut current_address = address;
