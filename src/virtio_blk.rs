@@ -33,10 +33,6 @@ pub const VIRTIO_BLK_F_MQ: u64 = 1 << 12;
 pub const VIRTIO_BLK_F_DISCARD: u64 = 1 << 13;
 pub const VIRTIO_BLK_F_WRITE_ZEROES: u64 = 1 << 14;
 
-pub trait VirtioDevice {
-    fn device_id(&self) -> u32;
-}
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct VirtioBlkReq {
