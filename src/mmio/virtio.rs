@@ -247,7 +247,7 @@ impl VirtioMmio {
         self.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
         let device_features_high = self.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
 
-        (device_features_high as u64) << 32 & device_features_low as u64
+        ((device_features_high as u64) << 32) | (device_features_low as u64)
     }
 
     pub fn set_driver_features(&self, features: u64) {
