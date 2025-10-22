@@ -13,7 +13,6 @@ pub fn load_dtb(physical_base_address: usize, virtio_mmios: VirtioMmio) {
 }
 
 fn load_virtio_blk(physical_base_address: usize, virtio_mmio: VirtioMmio) -> usize {
-    println!("base address: {:#x}", virtio_mmio.base_address);
     let mut block_device = match virtio_blk::VirtioBlk::new(virtio_mmio) {
         Ok(virtio_blk) => virtio_blk,
         Err(_) => {
@@ -23,7 +22,6 @@ fn load_virtio_blk(physical_base_address: usize, virtio_mmio: VirtioMmio) -> usi
     };
 
     let capacity = block_device.get_capacity();
-    println!("capacity: {}", capacity);
 
     let mut load_address = physical_base_address;
     for i in 0..capacity {
