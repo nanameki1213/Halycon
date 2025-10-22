@@ -18,7 +18,7 @@ impl fmt::Write for Console {
         for c in s.as_bytes() {
             putc(*c);
         }
-        return Ok(());
+        Ok(())
     }
 }
 

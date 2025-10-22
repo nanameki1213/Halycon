@@ -16,7 +16,7 @@ pub fn allocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
         unsafe { Layout::from_size_align_unchecked(num_of_pages * paging::PAGE_SIZE, align) };
 
     match MEMORY_ALLOCATOR.lock().allocate(layout) {
-        Ok(ptr) => ptr.as_ptr() as *mut u8,
+        Ok(ptr) => ptr.as_ptr(),
         Err(_) => core::ptr::null_mut(),
     }
 }

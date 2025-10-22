@@ -1,5 +1,4 @@
 use core::borrow::BorrowMut;
-use core::usize;
 
 use crate::cpu::*;
 use crate::memory::allocate_pages;
@@ -41,8 +40,8 @@ impl TableEntry {
     }
 
     pub fn get_next_table_address(&mut self) -> usize {
-        return (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT)
-            as usize;
+        (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT)
+            as usize
     }
 
     pub fn set_output_address(&mut self, address: usize) {
@@ -183,7 +182,7 @@ fn _map_address_stage2(
             return Ok(());
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 pub fn map_address_stage2(
@@ -236,5 +235,5 @@ pub fn map_address_stage2(
         top_level_stage_2_num_of_entries,
     );
 
-    return Ok(table_address as usize);
+    Ok(table_address as usize)
 }

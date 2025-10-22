@@ -2,7 +2,7 @@ use crate::memory::MemoryEntry;
 use crate::println;
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
-use core::{ffi::CStr, fmt, str::Utf8Error, usize};
+use core::{ffi::CStr, fmt, str::Utf8Error};
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -68,20 +68,20 @@ pub struct FdtContext {
 
 impl FdtContext {
     pub fn get_struct_block_current_address(&self) -> *const u32 {
-        return (self.header.off_dt_struct as usize
+        (self.header.off_dt_struct as usize
             + self.fdt_address as usize
             + self.struct_current_offset * core::mem::size_of::<u32>())
-            as *const u32;
+            as *const u32
     }
 
     pub fn get_struct_block_address(&self, offset: usize) -> *const u32 {
-        return (self.header.off_dt_struct as usize
+        (self.header.off_dt_struct as usize
             + self.fdt_address as usize
-            + offset * core::mem::size_of::<u32>()) as *const u32;
+            + offset * core::mem::size_of::<u32>()) as *const u32
     }
 
     pub fn get_strings_block_address(&self) -> *const u32 {
-        return (self.header.off_dt_strings as usize + self.fdt_address as usize) as *const u32;
+        (self.header.off_dt_strings as usize + self.fdt_address as usize) as *const u32
     }
 
     pub fn contains_struct_block(&self) -> bool {
@@ -111,16 +111,16 @@ pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
     let c_str = unsafe { CStr::from_ptr(ptr as *const u8) };
     match c_str.to_str() {
         Ok(str) => {
-            return Ok(str);
+            Ok(str)
         }
-        Err(err) => return Err(err),
+        Err(err) => Err(err),
     }
 }
 
 // TODO: MMIO関係の定義はmmioディレクトリ配下に移動する
 pub struct MmioEntry {
-    address: usize,
-    size: usize,
+    pub address: usize,
+    pub size: usize,
 }
 
 pub struct DeviceTreeInfo<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> {
@@ -142,7 +142,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         let ptr = fdt_address as *const u8;
         let buf = unsafe { core::slice::from_raw_parts(ptr, core::mem::size_of::<FdtHeader>()) };
 
-        let header = FdtHeader {
+        FdtHeader {
             magic: BigEndian::read_u32(&buf[0..4]),
             totalsize: BigEndian::read_u32(&buf[4..8]),
             off_dt_struct: BigEndian::read_u32(&buf[8..12]),
@@ -153,9 +153,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             boot_cpuid_phys: BigEndian::read_u32(&buf[28..32]),
             size_dt_strings: BigEndian::read_u32(&buf[32..36]),
             size_dt_struct: BigEndian::read_u32(&buf[36..40]),
-        };
-
-        header
+        }
     }
 
     fn check_fdt_header(header: FdtHeader) -> Result<(), FdtError> {
@@ -241,6 +239,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         / core::mem::size_of::<u32>();
                 }
                 FDT_END => return Ok(false),
+                FDT_NOP => {},
                 _ => {}
             }
         }
