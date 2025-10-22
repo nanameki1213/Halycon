@@ -33,6 +33,10 @@ pub const VIRTIO_BLK_F_MQ: u64 = 1 << 12;
 pub const VIRTIO_BLK_F_DISCARD: u64 = 1 << 13;
 pub const VIRTIO_BLK_F_WRITE_ZEROES: u64 = 1 << 14;
 
+pub trait VirtioDevice {
+    fn device_id(&self) -> u32;
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct VirtioBlkReq {
@@ -50,25 +54,20 @@ pub struct VirtioBlk {
 
 impl VirtioBlk {
     // TODO: ここでbase_addressを受け取るとMMIO前提となってしまう。PCI等の対応
-    pub fn new(base_address: usize) -> Result<Self, ()> {
-        let mmio_device = VirtioMmio::new(base_address);
-        mmio_device.init(0)?;
-
+    pub fn new(mmio_device: VirtioMmio) -> Result<Self, ()> {
         let vq = mmio_device.setup_virt_queue(VIRTIO_DEFAULT_INDEX)?;
-        
-        Ok(VirtioBlk { mmio: mmio_device, queue: vq })
+
+        Ok(VirtioBlk {
+            mmio: mmio_device,
+            queue: vq,
+        })
     }
 
     pub fn get_capacity(&self) -> usize {
         unsafe { core::ptr::read_volatile((self.mmio.base_address + 0x100) as *mut u64) as usize }
     }
 
-    pub fn read_write_disk(
-        &mut self,
-        buf_address: *mut usize,
-        sector: u64,
-        is_write: bool,
-    ) {
+    pub fn read_write_disk(&mut self, buf_address: *mut usize, sector: u64, is_write: bool) {
         // make a request
         let req_type = if is_write {
             VIRTIO_BLK_T_OUT
@@ -78,12 +77,13 @@ impl VirtioBlk {
         let mut virtio_blk_req = VirtioBlkReq {
             req_type: req_type as u32,
             reserved: 0,
-            sector: sector,
+            sector,
             data: [0; 512],
             status: 0xff,
         };
         if is_write {
-            let bytes = unsafe { &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE) };
+            let bytes =
+                unsafe { &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE) };
             virtio_blk_req.data[..SECTOR_SIZE].copy_from_slice(&bytes);
         }
 
@@ -103,8 +103,8 @@ impl VirtioBlk {
         desc[1].next = 2;
 
         // status field in VirtioBlkReq
-        desc[2].addr =
-            core::ptr::addr_of!(virtio_blk_req) as *const VirtioBlkReq as u64 + (desc[0].len + desc[1].len) as u64;
+        desc[2].addr = core::ptr::addr_of!(virtio_blk_req) as *const VirtioBlkReq as u64
+            + (desc[0].len + desc[1].len) as u64;
         desc[2].len = size_of::<u8>() as u32;
         desc[2].flags = VRingDesc::VIRTQ_DESC_F_WRITE as u16;
         desc[2].next = 0;
@@ -114,7 +114,9 @@ impl VirtioBlk {
 
         self.mmio.notify_to_device(VIRTIO_DEFAULT_INDEX);
 
-        while self.queue.last_used_index != unsafe { core::ptr::read_volatile(&self.queue.vring.used.idx) } {}
+        while self.queue.last_used_index
+            != unsafe { core::ptr::read_volatile(&self.queue.vring.used.idx) }
+        {}
 
         if virtio_blk_req.status != VIRTIO_BLK_S_OK as u8 {
             println!(
@@ -129,9 +131,9 @@ impl VirtioBlk {
         }
 
         if !is_write {
-            let bytes = unsafe { &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE) };
+            let bytes =
+                unsafe { &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE) };
             bytes.copy_from_slice(&virtio_blk_req.data[..SECTOR_SIZE]);
         }
     }
 }
-

@@ -1,7 +1,7 @@
 use spin::Mutex;
 
 use crate::{linked_list, println};
-use core::alloc::{GlobalAlloc, Layout};
+use core::alloc::Layout;
 use core::cmp::{max, min};
 use core::ops::Deref;
 use core::ptr::NonNull;
@@ -49,15 +49,6 @@ impl<const ORDER: usize> Heap<ORDER> {
         }
     }
 
-    pub fn show_free_list(&self) {
-        for i in 0..self.free_list.len() {
-            println!("order: {}", i);
-            for j in self.free_list[i].iter() {
-                println!("  {:#x}", j as usize)
-            }
-        }
-    }
-
     pub unsafe fn init(&mut self, address: usize, size: usize) {
         self.add_to_heap(address, size);
     }
@@ -83,9 +74,8 @@ impl<const ORDER: usize> Heap<ORDER> {
                         return Err(());
                     }
                 }
-                let result = NonNull::new(
-                    self.free_list[class].pop().expect("Out of memory") as *mut u8
-                );
+                let result =
+                    NonNull::new(self.free_list[class].pop().expect("Out of memory") as *mut u8);
                 if let Some(result) = result {
                     return Ok(result);
                 } else {
@@ -131,25 +121,5 @@ impl<const ORDER: usize> Heap<ORDER> {
                 }
             }
         }
-    }
-}
-
-pub struct LockedHeap<const ORDER: usize>(Mutex<Heap<ORDER>>);
-
-impl<const ORDER: usize> LockedHeap<ORDER> {
-    pub const fn new() -> Self {
-        LockedHeap(Mutex::new(Heap::<ORDER>::new()))
-    }
-
-    pub const fn empty() -> Self {
-        LockedHeap(Mutex::new(Heap::<ORDER>::new()))
-    }
-}
-
-impl<const ORDER: usize> Deref for LockedHeap<ORDER> {
-    type Target = Mutex<Heap<ORDER>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }

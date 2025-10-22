@@ -4,6 +4,7 @@ use core::usize;
 use crate::cpu::*;
 use crate::loader;
 use crate::memory::allocate_pages;
+use crate::mmio::virtio::VirtioMmio;
 use crate::paging;
 use crate::println;
 
@@ -29,11 +30,11 @@ impl VM {
     ) -> Self {
         VM {
             vmid: 0,
-            ram_virtual_base_address: ram_virtual_base_address,
-            ram_physical_base_address: ram_physical_base_address,
-            ram_size: ram_size,
-            entry_point: entry_point,
-            dtb_pointer: dtb_pointer,
+            ram_virtual_base_address,
+            ram_physical_base_address,
+            ram_size,
+            entry_point,
+            dtb_pointer,
         }
     }
 
@@ -46,7 +47,7 @@ impl VM {
     }
 }
 
-pub fn create_vm() -> VM {
+pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio) -> VM {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x10000000;
 
@@ -93,11 +94,11 @@ pub fn create_vm() -> VM {
         bootloader_entry_point
     );
     println!("[info] loading u-boot...");
-    let size = loader::load_bootloader(bootloader_entry_point);
+    let size = loader::load_bootloader(bootloader_entry_point, bootloader);
     let dtb_pointer = ram_physical_base_address as usize + size;
     println!("[info] dtb virtual address: {:#X}", RAM_VIRTUAL_BASE + size);
     println!("[info] dtb physical address: {:#X}", dtb_pointer);
-    loader::load_dtb(dtb_pointer);
+    loader::load_dtb(dtb_pointer, device_tree);
 
     let vm = VM::new(
         RAM_VIRTUAL_BASE,

@@ -119,8 +119,8 @@ pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
 
 // TODO: MMIO関係の定義はmmioディレクトリ配下に移動する
 pub struct MmioEntry {
-    address: usize,
-    size: usize,
+    pub address: usize,
+    pub size: usize,
 }
 
 pub struct DeviceTreeInfo<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> {

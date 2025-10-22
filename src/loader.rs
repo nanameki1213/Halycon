@@ -1,20 +1,20 @@
-use crate::mmio::virtio::VIRTIO_MMIO_DEFAULT_ADDRESS;
-use crate:: virtio_blk;
+use crate::mmio::virtio::VirtioMmio;
 use crate::println;
+use crate::virtio_blk;
 
-pub fn load_bootloader(physical_base_address: usize) -> usize {
+pub fn load_bootloader(physical_base_address: usize, virtio_mmios: VirtioMmio) -> usize {
     // TODO: 0x10001000がマジックバリュー
-    load_virtio_blk(physical_base_address, 0x10001000)
+    load_virtio_blk(physical_base_address, virtio_mmios)
 }
 
-pub fn load_dtb(physical_base_address: usize) {
+pub fn load_dtb(physical_base_address: usize, virtio_mmios: VirtioMmio) {
     // TODO: 0x10002000がマジックバリュー
-    load_virtio_blk(physical_base_address, 0x10002000);
+    load_virtio_blk(physical_base_address, virtio_mmios);
 }
 
-fn load_virtio_blk(physical_base_address: usize, mmio_base_address: usize) -> usize {
-
-    let mut block_device = match virtio_blk::VirtioBlk::new(mmio_base_address) {
+fn load_virtio_blk(physical_base_address: usize, virtio_mmio: VirtioMmio) -> usize {
+    println!("base address: {:#x}", virtio_mmio.base_address as usize);
+    let mut block_device = match virtio_blk::VirtioBlk::new(virtio_mmio) {
         Ok(virtio_blk) => virtio_blk,
         Err(_) => {
             println!("can't set up block device.");
@@ -23,15 +23,12 @@ fn load_virtio_blk(physical_base_address: usize, mmio_base_address: usize) -> us
     };
 
     let capacity = block_device.get_capacity();
+    println!("capacity: {}", capacity);
 
-    // TODO: VirtioBlkReqはnewメソッドを実装する
-   let mut load_address = physical_base_address;
+    let mut load_address = physical_base_address;
     for i in 0..capacity {
-        block_device.read_write_disk(
-            load_address as *mut usize,
-            i as u64,
-            false,
-        );
+        
+        block_device.read_write_disk(load_address as *mut usize, i as u64, false);
         load_address += virtio_blk::SECTOR_SIZE;
     }
 

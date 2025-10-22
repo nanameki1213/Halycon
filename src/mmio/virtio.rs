@@ -5,7 +5,7 @@ extern crate alloc;
 use crate::mmio::virtio;
 use crate::paging::resolve_address_stage2;
 use crate::println;
-use crate::virtio_blk::{self, VirtioBlkReq};
+use crate::virtio_blk::{self};
 use alloc::boxed::Box;
 use core::usize;
 
@@ -201,6 +201,7 @@ impl VirtQueueMmio {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct VirtioMmio {
     pub base_address: usize,
 }
@@ -224,7 +225,14 @@ impl VirtioMmio {
         }
     }
 
-    pub fn init(&self, feature: u64) -> Result<(), ()> {
+    pub fn init_default_features(&self) {
+        let features = self.get_device_features();
+        println!("features: {:#x}", features as usize);
+        self.set_driver_features(features);
+        self.set_driver_ok();
+    }
+
+    pub fn get_device_features(&self) -> u64 {
         // 1. Reset the device.
         self.set_virtio_mmio(VIRTIO_MMIO_STATUS, 0x0);
         // 2. Set the ACKNOWLEDGE status bit
@@ -233,25 +241,48 @@ impl VirtioMmio {
         let mut status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
         status |= VIRTIO_MMIO_STATUS_DRIVER as u32;
         self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
+
+        self.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
+        let device_features_low = self.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
+
+        self.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
+        let device_features_high = self.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
+
+        (device_features_high as u64) << 32 & device_features_low as u64
+    }
+
+    pub fn set_driver_features(&self, features: u64) {
         // 4. Read device feature bits, and write the subset of feature bits understood
         //    by the OS and driver to the device.
-        // TODO: setting feature bits
+        let mask = (1 << u32::BITS) - 1;
+        let driver_features_low = features & mask;
+        let driver_features_high = (features & (mask << u32::BITS)) >> u32::BITS;
+
+        self.set_virtio_mmio(VIRTIO_MMIO_DRIVER_FEATURES_SEL, 0);
+        self.set_virtio_mmio(VIRTIO_MMIO_DRIVER_FEATURES, driver_features_low as u32);
+
+        self.set_virtio_mmio(VIRTIO_MMIO_DRIVER_FEATURES_SEL, 1);
+        self.set_virtio_mmio(VIRTIO_MMIO_DRIVER_FEATURES, driver_features_high as u32);
 
         // 5. Set the FEATURES_OK status bit.
-        status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
+        let mut status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
         status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
         self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
+
         // 6. Re-read device status to ensure the FEATURES_OK bit is still set
-        // TODO: setting feature bits
+        //    : otherwise, the device does not support our subset of features and the device is unusable.
+        // status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
+        // if (status as usize & VIRTIO_MMIO_STATUS_FEATURES_OK) == 0 {
+        //     println!("the device does not support subset of features adn the device is unusable.");
+        //     panic!();
+        // }
+    }
 
-        // 7. Perform device-specific setup
-
+    pub fn set_driver_ok(&self) {
         // 8. Set the DRIVER_OK status bit. At this point the device is "live".
-        status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
+        let mut status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
         status |= VIRTIO_MMIO_STATUS_DRIVER_OK as u32;
         self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
-
-        Ok(())
     }
 
     pub fn setup_virt_queue(&self, index: u32) -> Result<Box<VirtQueue>, ()> {
@@ -276,7 +307,6 @@ impl VirtioMmio {
         }
         // 4. Allocate and zero the queue memory
         let vq: Box<VirtQueue> = Box::new(VirtQueue::new());
-        println!("virt queue address: {:#x}", vq.as_ref() as *const VirtQueue as usize);
         // 5. Notify the device about the queue size by writing the size to QueueNum
         self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
         // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
@@ -364,7 +394,7 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
     Ok(value)
 }
 
-pub fn emulate_write_virtio(offset: usize, value: u32) {
+pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) {
     println!("write: {:#X}, {:#X}", offset, value);
 
     match offset {
@@ -392,7 +422,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
             // println!("virtio: {:?}", virtio_blk_req);
 
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
-                let mut block_device = match virtio_blk::VirtioBlk::new(EMULATE_VIRTIO_MMIO_ADDRESS) {
+                let mut block_device = match virtio_blk::VirtioBlk::new(virtio_mmio) {
                     Ok(virtio_blk) => virtio_blk,
                     Err(_) => {
                         println!("can't set up block device.");
@@ -412,8 +442,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
 
             core::ptr::write_volatile(status_address, virtio_blk::VIRTIO_BLK_S_OK as u8);
         },
-        VIRTIO_MMIO_QUEUE_READY => unsafe {
-        },
+        VIRTIO_MMIO_QUEUE_READY => {},
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
             VIRTQUEUE.queue_num = value;
         },

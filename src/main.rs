@@ -2,6 +2,8 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 mod allocator;
 mod aplic;
 mod console;
@@ -24,11 +26,14 @@ mod mmio {
 }
 
 use crate::cpu::*;
+use alloc::vec::Vec;
 use core::alloc::{GlobalAlloc, Layout};
+use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use core::{arch::asm, usize};
 use fdt::DeviceTreeInfo;
 use memory::set_pmp_all_physical_address;
+use mmio::virtio::VirtioMmio;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
@@ -50,23 +55,24 @@ const MAX_MMIO_ENTRIES: usize = 64;
 struct GlobalAllocator {}
 
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
+static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
+    Mutex::new(MaybeUninit::<VirtioMmio>::uninit());
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
 
 unsafe impl GlobalAlloc for GlobalAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        match MEMORY_ALLOCATOR
-            .lock()
-            .allocate(layout)
-        {
+        match MEMORY_ALLOCATOR.lock().allocate(layout) {
             Ok(ptr) => ptr.as_ptr() as *mut u8,
             Err(_) => core::ptr::null_mut(),
         }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        MEMORY_ALLOCATOR.lock().deallocate(NonNull::new_unchecked(ptr), layout);
+        MEMORY_ALLOCATOR
+            .lock()
+            .deallocate(NonNull::new_unchecked(ptr), layout);
     }
 }
 
@@ -94,15 +100,27 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         Err(error) => panic!("{}", error),
     }
 
-    let memory = &host_dt.memory[0];
+        let memory = &host_dt.memory[0];
+
     extern "C" {
         static mut _free_area: u8;
     }
     let free_ptr = core::ptr::addr_of!(_free_area) as *const u8 as usize;
     unsafe {
-        MEMORY_ALLOCATOR.lock().init(free_ptr, memory.size - (free_ptr - memory.address));
+        MEMORY_ALLOCATOR
+            .lock()
+            .init(free_ptr, memory.size - (free_ptr - memory.address));
     }
     println!("[setup] allocator");
+
+    let mut virtio_mmios: Vec<VirtioMmio> = Vec::new();
+    for mmio in host_dt.mmio.iter() {
+        let virtio_mmio = VirtioMmio::new(mmio.address);
+        virtio_mmio.init_default_features();
+        virtio_mmios.push(VirtioMmio::new(mmio.address));
+    }
+
+    PASS_THROUGH_VIRTIO_MMIO.lock().write(virtio_mmios[5]);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -200,7 +218,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
-    let vm = vm::create_vm();
+    let vm = vm::create_vm(virtio_mmios[7], virtio_mmios[6]);
 
     println!("switch to guest");
     hs_to_vs(

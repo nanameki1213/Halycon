@@ -8,6 +8,7 @@ use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
+use crate::PASS_THROUGH_VIRTIO_MMIO;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
@@ -387,9 +388,11 @@ fn write_access(virtual_address: usize, value: u64) {
     } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
         .contains(&(virtual_address))
     {
+        let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
         virtio::emulate_write_virtio(
-            virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,
+            virtual_address - virtio_mmio.base_address,
             value as u32,
+            virtio_mmio,
         );
     } else {
         println!("write access data abort");
