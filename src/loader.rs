@@ -23,7 +23,6 @@ fn load_virtio_blk(physical_base_address: usize, mmio_base_address: usize) -> us
     };
 
     let capacity = block_device.get_capacity();
-    block_device.init_virtio_blk();
 
     // TODO: VirtioBlkReqはnewメソッドを実装する
    let mut load_address = physical_base_address;

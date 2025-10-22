@@ -44,51 +44,23 @@ pub struct VirtioBlkReq {
 }
 
 pub struct VirtioBlk {
-    mmio: VirtioMmio,
-    queue: Box<VirtQueue>,
+    pub mmio: VirtioMmio,
+    pub queue: Box<VirtQueue>,
 }
 
 impl VirtioBlk {
     // TODO: ここでbase_addressを受け取るとMMIO前提となってしまう。PCI等の対応
     pub fn new(base_address: usize) -> Result<Self, ()> {
-        // MMIOの場合
         let mmio_device = VirtioMmio::new(base_address);
-        let vq = mmio_device.init_virt_queue(0)?;
+        mmio_device.init(0)?;
+
+        let vq = mmio_device.setup_virt_queue(VIRTIO_DEFAULT_INDEX)?;
         
         Ok(VirtioBlk { mmio: mmio_device, queue: vq })
     }
 
-    pub fn init_virtio_blk(&self) {
-        let mmio = &self.mmio;
-        // 1. Reset the device.
-        mmio.set_virtio_mmio(VIRTIO_MMIO_STATUS, 0x0);
-        // 2. Set the ACKNOWLEDGE status bit
-        mmio.set_virtio_mmio(VIRTIO_MMIO_STATUS, VIRTIO_MMIO_STATUS_ACKNOWLEDGE as u32);
-        // 3. Set the DRIVER status bit
-        let mut status = mmio.get_virtio_mmio(VIRTIO_MMIO_STATUS);
-        status |= VIRTIO_MMIO_STATUS_DRIVER as u32;
-        mmio.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
-        // 4. Read device feature bits, and write the subset of feature bits understood
-        //    by the OS and driver to the device.
-        // TODO: setting feature bits
-
-        // 5. Set the FEATURES_OK status bit.
-        status = mmio.get_virtio_mmio(VIRTIO_MMIO_STATUS);
-        status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
-        mmio.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
-        // 6. Re-read device status to ensure the FEATURES_OK bit is still set
-        // TODO: setting feature bits
-
-        // 7. Perform device-specific setup
-
-        // 8. Set the DRIVER_OK status bit. At this point the device is "live".
-        status = mmio.get_virtio_mmio(VIRTIO_MMIO_STATUS);
-        status |= VIRTIO_MMIO_STATUS_DRIVER_OK as u32;
-        mmio.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
-    }
-
     pub fn get_capacity(&self) -> usize {
-        unsafe { core::ptr::read_volatile((VIRTIO_DEFAULT_INDEX + 0x100) as *mut u64) as usize }
+        unsafe { core::ptr::read_volatile((self.mmio.base_address + 0x100) as *mut u64) as usize }
     }
 
     pub fn read_write_disk(
@@ -99,9 +71,9 @@ impl VirtioBlk {
     ) {
         // make a request
         let req_type = if is_write {
-            VIRTIO_BLK_T_IN
-        } else {
             VIRTIO_BLK_T_OUT
+        } else {
+            VIRTIO_BLK_T_IN
         };
         let mut virtio_blk_req = VirtioBlkReq {
             req_type: req_type as u32,
@@ -117,12 +89,12 @@ impl VirtioBlk {
 
         // setting Virtqueue
         let desc = &mut self.queue.vring.desc;
-        desc[0].addr = core::ptr::addr_of!(virtio_blk_req) as *const VirtioBlkReq as u64;
+        desc[0].addr = core::ptr::addr_of!(virtio_blk_req) as u64;
         desc[0].len = size_of::<u32>() as u32 * 2 + size_of::<u64>() as u32;
         desc[0].flags = VRingDesc::VIRTQ_DESC_F_NEXT as u16;
         desc[0].next = 1;
 
-        desc[1].addr = core::ptr::addr_of!(virtio_blk_req) as *const VirtioBlkReq as u64 + desc[0].len as u64;
+        desc[1].addr = core::ptr::addr_of!(virtio_blk_req) as u64 + desc[0].len as u64;
         desc[1].len = SECTOR_SIZE as u32;
         desc[1].flags = VRingDesc::VIRTQ_DESC_F_NEXT as u16;
         if !is_write {
@@ -162,5 +134,4 @@ impl VirtioBlk {
         }
     }
 }
-
 

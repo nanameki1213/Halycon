@@ -79,6 +79,7 @@ impl VRingDesc {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct VringAvail {
     pub flags: u16,
     pub idx: u16,
@@ -201,7 +202,7 @@ impl VirtQueueMmio {
 }
 
 pub struct VirtioMmio {
-    base_address: usize,
+    pub base_address: usize,
 }
 
 impl VirtioMmio {
@@ -223,7 +224,37 @@ impl VirtioMmio {
         }
     }
 
-    pub fn init_virt_queue(&self, index: u32) -> Result<Box<VirtQueue>, ()> {
+    pub fn init(&self, feature: u64) -> Result<(), ()> {
+        // 1. Reset the device.
+        self.set_virtio_mmio(VIRTIO_MMIO_STATUS, 0x0);
+        // 2. Set the ACKNOWLEDGE status bit
+        self.set_virtio_mmio(VIRTIO_MMIO_STATUS, VIRTIO_MMIO_STATUS_ACKNOWLEDGE as u32);
+        // 3. Set the DRIVER status bit
+        let mut status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
+        status |= VIRTIO_MMIO_STATUS_DRIVER as u32;
+        self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
+        // 4. Read device feature bits, and write the subset of feature bits understood
+        //    by the OS and driver to the device.
+        // TODO: setting feature bits
+
+        // 5. Set the FEATURES_OK status bit.
+        status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
+        status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
+        self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
+        // 6. Re-read device status to ensure the FEATURES_OK bit is still set
+        // TODO: setting feature bits
+
+        // 7. Perform device-specific setup
+
+        // 8. Set the DRIVER_OK status bit. At this point the device is "live".
+        status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
+        status |= VIRTIO_MMIO_STATUS_DRIVER_OK as u32;
+        self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
+
+        Ok(())
+    }
+
+    pub fn setup_virt_queue(&self, index: u32) -> Result<Box<VirtQueue>, ()> {
         let version = self.get_virtio_mmio(VIRTIO_MMIO_VERSION);
         if version != VIRTIO_VERSION as u32 {
             println!("virtio version is not compatible");
@@ -231,11 +262,12 @@ impl VirtioMmio {
         }
         // 1. Select the queue writing its index to QueueSel.
         self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
-        // 2. Check if the queue is not already in use (ここではu-bootが先に制御しているので無視)
-        // if get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY) != 0 {
-        //     println!("queue is already in use: {:#X}", get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY));
-        //     return Err(());
-        // }
+        // 2. Check if the queue is not already in use
+        if self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY) != 0 {
+            // u-boot is already using the queue 0, so we overriding.
+            // println!("queue is already in use: {:#X}", self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY));
+            // return Err(());
+        }
         // 3. Read maxium queue size (number of elements) from QueueNumMax
         let max_size = self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX);
         if max_size == 0 {
@@ -244,6 +276,7 @@ impl VirtioMmio {
         }
         // 4. Allocate and zero the queue memory
         let vq: Box<VirtQueue> = Box::new(VirtQueue::new());
+        println!("virt queue address: {:#x}", vq.as_ref() as *const VirtQueue as usize);
         // 5. Notify the device about the queue size by writing the size to QueueNum
         self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
         // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
@@ -366,7 +399,6 @@ pub fn emulate_write_virtio(offset: usize, value: u32) {
                         panic!();
                     }
                 };
-                block_device.init_virtio_blk();
                 block_device.read_write_disk(
                     data_address as *mut usize,
                     virtio_blk_req.sector,
