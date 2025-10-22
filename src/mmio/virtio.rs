@@ -3,6 +3,7 @@
 extern crate alloc;
 
 use crate::mmio::virtio;
+use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use crate::paging::resolve_address_stage2;
 use crate::println;
 use crate::virtio_blk::{self};
@@ -421,13 +422,8 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
             // println!("virtio: {:?}", virtio_blk_req);
 
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
-                let mut block_device = match virtio_blk::VirtioBlk::new(virtio_mmio) {
-                    Ok(virtio_blk) => virtio_blk,
-                    Err(_) => {
-                        println!("can't set up block device.");
-                        panic!();
-                    }
-                };
+                let mut locked_block_device = PASS_THROUGH_VIRTIO_BLK_DEVICE.lock();
+                let block_device = locked_block_device.assume_init_mut();
                 block_device.read_write_disk(
                     data_address as *mut usize,
                     virtio_blk_req.sector,
@@ -441,7 +437,16 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
 
             core::ptr::write_volatile(status_address, virtio_blk::VIRTIO_BLK_S_OK as u8);
         },
-        VIRTIO_MMIO_QUEUE_READY => {},
+        VIRTIO_MMIO_QUEUE_READY => {
+            let block_device = match virtio_blk::VirtioBlk::new(virtio_mmio) {
+                Ok(virtio_blk) => virtio_blk,
+                Err(_) => {
+                    println!("can't set up block device.");
+                    panic!();
+                }
+            };
+            PASS_THROUGH_VIRTIO_BLK_DEVICE.lock().write(block_device);
+        },
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
             VIRTQUEUE.queue_num = value;
         },

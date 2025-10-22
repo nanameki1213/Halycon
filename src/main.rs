@@ -57,6 +57,8 @@ struct GlobalAllocator {}
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
 static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
     Mutex::new(MaybeUninit::<VirtioMmio>::uninit());
+static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>> =
+    Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
