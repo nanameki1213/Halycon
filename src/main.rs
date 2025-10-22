@@ -117,7 +117,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     for mmio in host_dt.mmio.iter() {
         let virtio_mmio = VirtioMmio::new(mmio.address);
         virtio_mmio.init_default_features();
-        virtio_mmios.push(VirtioMmio::new(mmio.address));
+        virtio_mmios.push(virtio_mmio);
     }
 
     const BOOTLOADER_MMIO_INDEX: usize = 7;
