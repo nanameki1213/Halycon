@@ -1,9 +1,6 @@
-use spin::Mutex;
-
-use crate::{linked_list, println};
+use crate::linked_list;
 use core::alloc::Layout;
 use core::cmp::{max, min};
-use core::ops::Deref;
 use core::ptr::NonNull;
 use core::usize;
 

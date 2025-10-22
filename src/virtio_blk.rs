@@ -84,7 +84,7 @@ impl VirtioBlk {
         if is_write {
             let bytes =
                 unsafe { &mut *slice_from_raw_parts_mut(buf_address as *mut u8, SECTOR_SIZE) };
-            virtio_blk_req.data[..SECTOR_SIZE].copy_from_slice(&bytes);
+            virtio_blk_req.data[..SECTOR_SIZE].copy_from_slice(bytes);
         }
 
         // setting Virtqueue

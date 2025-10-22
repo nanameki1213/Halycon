@@ -1,6 +1,4 @@
 use core::arch::riscv64;
-use core::usize;
-
 use crate::cpu::*;
 use crate::loader;
 use crate::memory::allocate_pages;
@@ -100,13 +98,11 @@ pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio) -> VM {
     println!("[info] dtb physical address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer, device_tree);
 
-    let vm = VM::new(
+    VM::new(
         RAM_VIRTUAL_BASE,
         ram_physical_base_address as usize,
         RAM_SIZE,
         virtual_entry_point,
         RAM_VIRTUAL_BASE + size,
-    );
-
-    vm
+    )
 }

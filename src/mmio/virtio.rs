@@ -457,7 +457,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
         },
         VIRTIO_MMIO_DRIVER_FEATURES => unsafe {
             let shift = VIRTQUEUE.driver_features_sel * 32;
-            VIRTQUEUE.driver_features = ((value as u64) << shift) as u64;
+            VIRTQUEUE.driver_features = (value as u64) << shift;
         },
         VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
             VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u8;

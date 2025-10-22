@@ -1,5 +1,4 @@
-use core::{arch::global_asm, usize};
-
+use core::arch::global_asm;
 use crate::cpu::*;
 use crate::instruction;
 use crate::instruction::Instruction;

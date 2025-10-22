@@ -30,7 +30,7 @@ use alloc::vec::Vec;
 use core::alloc::{GlobalAlloc, Layout};
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
-use core::{arch::asm, usize};
+use core::{arch::asm};
 use fdt::DeviceTreeInfo;
 use memory::set_pmp_all_physical_address;
 use mmio::virtio::VirtioMmio;
@@ -64,7 +64,7 @@ static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
 unsafe impl GlobalAlloc for GlobalAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         match MEMORY_ALLOCATOR.lock().allocate(layout) {
-            Ok(ptr) => ptr.as_ptr() as *mut u8,
+            Ok(ptr) => ptr.as_ptr(),
             Err(_) => core::ptr::null_mut(),
         }
     }
@@ -238,8 +238,8 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) 
             mv sp, {stack_pointer}
             mv a1, {dtb_pointer}
             sret", 
-        tmp1 = in(reg) 0x100 as u64, // set sstatus.SPP
-        tmp2 = in(reg) 0x80 as u64, // set hstatus.SPV
+        tmp1 = in(reg) 0x100, // set sstatus.SPP
+        tmp2 = in(reg) 0x80, // set hstatus.SPV
         stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         dtb_pointer = in(reg) dtb_pointer,

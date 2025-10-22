@@ -2,7 +2,6 @@
 
 use crate::print;
 use core::char;
-use core::usize;
 use spin::Mutex;
 
 // TODO: get plic_addr from device tree
