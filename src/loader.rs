@@ -3,12 +3,10 @@ use crate::println;
 use crate::virtio_blk;
 
 pub fn load_bootloader(physical_base_address: usize, virtio_mmios: VirtioMmio) -> usize {
-    // TODO: 0x10001000がマジックバリュー
     load_virtio_blk(physical_base_address, virtio_mmios)
 }
 
 pub fn load_dtb(physical_base_address: usize, virtio_mmios: VirtioMmio) {
-    // TODO: 0x10002000がマジックバリュー
     load_virtio_blk(physical_base_address, virtio_mmios);
 }
 
