@@ -120,7 +120,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         virtio_mmios.push(VirtioMmio::new(mmio.address));
     }
 
-    PASS_THROUGH_VIRTIO_MMIO.lock().write(virtio_mmios[5]);
+    const BOOTLOADER_MMIO_INDEX: usize = 7;
+    const DEVICE_TREE_MMIO_INDEX: usize = 6;
+    const PASS_THROUGH_MMIO_INDEX: usize = 5;
+
+    PASS_THROUGH_VIRTIO_MMIO.lock().write(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -218,7 +222,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
-    let vm = vm::create_vm(virtio_mmios[7], virtio_mmios[6]);
+    let vm = vm::create_vm(
+        virtio_mmios[BOOTLOADER_MMIO_INDEX],
+        virtio_mmios[DEVICE_TREE_MMIO_INDEX]
+    );
 
     println!("switch to guest");
     hs_to_vs(
