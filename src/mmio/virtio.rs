@@ -335,7 +335,7 @@ impl VirtioMmio {
         );
         self.set_virtio_mmio(
             VIRTIO_MMIO_DEVICE_HIGH,
-            ((avail_address >> 32) & VIRTIO_MMIO_MASK) as u32,
+            ((used_address >> 32) & VIRTIO_MMIO_MASK) as u32,
         );
         // 7. Write 0x1 to QueueReady
         self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_READY, 0x1);
