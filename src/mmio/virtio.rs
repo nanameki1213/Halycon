@@ -272,7 +272,7 @@ impl VirtioMmio {
         //    : otherwise, the device does not support our subset of features and the device is unusable.
         // status = self.get_virtio_mmio(VIRTIO_MMIO_STATUS);
         // if (status as usize & VIRTIO_MMIO_STATUS_FEATURES_OK) == 0 {
-        //     println!("the device does not support subset of features adn the device is unusable.");
+        //     println!("the device does not support subset of features and the device is unusable.");
         //     panic!();
         // }
     }
