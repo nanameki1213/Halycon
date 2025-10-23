@@ -179,9 +179,11 @@ pub struct VirtQueueMmio {
     pub driver_address: u64,
     pub device_address: u64,
     pub status: u8,
-    pub device_features: u64,
+    pub device_features_low: u32,
+    pub device_features_high: u32,
     pub device_features_sel: u32,
-    pub driver_features: u64,
+    pub driver_features_low: u32,
+    pub driver_features_high: u32,
     pub driver_features_sel: u32,
 }
 
@@ -194,9 +196,11 @@ impl VirtQueueMmio {
             driver_address: 0,
             device_address: 0,
             status: 0,
-            device_features: 0,
+            device_features_low: 0,
+            device_features_high: 0,
             device_features_sel: 0,
-            driver_features: 0,
+            driver_features_low: 0,
+            driver_features_high: 0,
             driver_features_sel: 0,
         }
     }
@@ -363,17 +367,10 @@ pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32
 
     match offset {
         VIRTIO_MMIO_VERSION => unsafe {
-            VIRTQUEUE.device_features = virtio_blk::VIRTIO_BLK_F_SEG_MAX
-                | virtio_blk::VIRTIO_BLK_F_GEOMETRY
-                | virtio_blk::VIRTIO_BLK_F_BLK_SIZE
-                | virtio_blk::VIRTIO_BLK_F_FLUSH
-                | virtio_blk::VIRTIO_BLK_F_TOPOLOGY
-                | virtio_blk::VIRTIO_BLK_F_DISCARD
-                | virtio_blk::VIRTIO_BLK_F_WRITE_ZEROES
-                | VIRTIO_F_INDIRECT_DESC
-                | VIRTIO_F_EVENT_IDX
-                | VIRTIO_F_VERSION_1
-                | VIRTIO_F_RING_RESET;
+            virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
+            VIRTQUEUE.device_features_low = virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
+            virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
+            VIRTQUEUE.device_features_high = virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
         },
         VIRTIO_MMIO_QUEUE_READY => {
             value = VIRTIO_DEFAULT_INDEX;
@@ -382,8 +379,11 @@ pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32
             value = VIRTQUEUE.status as u32;
         },
         VIRTIO_MMIO_DEVICE_FEATURES => unsafe {
-            let shift = VIRTQUEUE.device_features_sel * 32;
-            value = (VIRTQUEUE.device_features >> shift) as u32;
+            if VIRTQUEUE.device_features_sel == 0 {
+                value = VIRTQUEUE.device_features_low;
+            } else {
+                value = VIRTQUEUE.device_features_high;
+            }
         },
         _ => {}
     }
@@ -458,8 +458,11 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
             VIRTQUEUE.driver_features_sel = value;
         },
         VIRTIO_MMIO_DRIVER_FEATURES => unsafe {
-            let shift = VIRTQUEUE.driver_features_sel * 32;
-            VIRTQUEUE.driver_features = (value as u64) << shift;
+            if VIRTQUEUE.driver_features_sel == 0 {
+                VIRTQUEUE.driver_features_low = value;
+            } else {
+                VIRTQUEUE.driver_features_high = value;
+            }
         },
         VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
             VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u8;
