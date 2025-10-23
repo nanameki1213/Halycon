@@ -178,7 +178,7 @@ pub struct VirtQueueMmio {
     pub desc_address: u64,
     pub driver_address: u64,
     pub device_address: u64,
-    pub status: u8,
+    pub status: u32,
     pub device_features_low: u32,
     pub device_features_high: u32,
     pub device_features_sel: u32,
@@ -360,23 +360,23 @@ impl VirtioMmio {
 
 static mut VIRTQUEUE: VirtQueueMmio = VirtQueueMmio::new();
 
-static mut EMULATE_VIRTIO_MMIO_ADDRESS: usize = 0x10003000;
-
 pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32, ()> {
     let mut value = virtio_mmio.get_virtio_mmio(offset);
 
     match offset {
         VIRTIO_MMIO_VERSION => unsafe {
             virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
-            VIRTQUEUE.device_features_low = virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
+            VIRTQUEUE.device_features_low =
+                virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
             virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
-            VIRTQUEUE.device_features_high = virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
+            VIRTQUEUE.device_features_high =
+                virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
         },
         VIRTIO_MMIO_QUEUE_READY => {
             value = VIRTIO_DEFAULT_INDEX;
         }
         VIRTIO_MMIO_STATUS => unsafe {
-            value = VIRTQUEUE.status as u32;
+            value = VIRTQUEUE.status;
         },
         VIRTIO_MMIO_DEVICE_FEATURES => unsafe {
             if VIRTQUEUE.device_features_sel == 0 {
@@ -465,10 +465,10 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
             }
         },
         VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
-            VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u8;
+            VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
         },
         VIRTIO_MMIO_STATUS => unsafe {
-            VIRTQUEUE.status = value as u8;
+            VIRTQUEUE.status = value;
         },
         VIRTIO_MMIO_DESC_LOW => unsafe {
             VIRTQUEUE.desc_address = value as u64;

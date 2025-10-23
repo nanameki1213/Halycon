@@ -33,11 +33,11 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
 use memory::set_pmp_all_physical_address;
+use mmio::ns16550::Uart;
 use mmio::virtio::VirtioMmio;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
-use mmio::ns16550::Uart;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -227,7 +227,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
-
 
     let vm = vm::create_vm(
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
