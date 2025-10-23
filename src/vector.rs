@@ -410,8 +410,9 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
     } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
         .contains(&(virtual_address))
     {
+        let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
         registers[dst_register_idx] =
-            virtio::emulate_read_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS)
+            virtio::emulate_read_virtio(virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS, virtio_mmio)
                 .unwrap() as u64;
     } else {
         println!("read access data abort");

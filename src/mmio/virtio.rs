@@ -358,10 +358,8 @@ static mut VIRTQUEUE: VirtQueueMmio = VirtQueueMmio::new();
 
 static mut EMULATE_VIRTIO_MMIO_ADDRESS: usize = 0x10003000;
 
-pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
-    let address = unsafe { (virtio::EMULATE_VIRTIO_MMIO_ADDRESS + offset) as *mut u32 };
-
-    let mut value = unsafe { core::ptr::read_volatile(address) };
+pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32, ()> {
+    let mut value = virtio_mmio.get_virtio_mmio(offset);
 
     match offset {
         VIRTIO_MMIO_VERSION => unsafe {
