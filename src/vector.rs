@@ -1,4 +1,3 @@
-use core::arch::global_asm;
 use crate::cpu::*;
 use crate::instruction;
 use crate::instruction::Instruction;
@@ -8,6 +7,7 @@ use crate::plic;
 use crate::println;
 use crate::sbi;
 use crate::PASS_THROUGH_VIRTIO_MMIO;
+use core::arch::global_asm;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;

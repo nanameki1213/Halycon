@@ -3,10 +3,10 @@
 extern crate alloc;
 
 use crate::mmio::virtio;
-use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use crate::paging::resolve_address_stage2;
 use crate::println;
 use crate::virtio_blk::{self};
+use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use alloc::boxed::Box;
 use core::usize;
 
@@ -446,7 +446,7 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
                 }
             };
             PASS_THROUGH_VIRTIO_BLK_DEVICE.lock().write(block_device);
-        },
+        }
         VIRTIO_MMIO_QUEUE_NUM => unsafe {
             VIRTQUEUE.queue_num = value;
         },

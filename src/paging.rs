@@ -40,8 +40,7 @@ impl TableEntry {
     }
 
     pub fn get_next_table_address(&mut self) -> usize {
-        (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT)
-            as usize
+        (((self.0 & Self::PPN_MASK as u64) >> Self::PPN_OFFSET as u64) << PAGE_SHIFT) as usize
     }
 
     pub fn set_output_address(&mut self, address: usize) {

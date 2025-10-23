@@ -70,8 +70,7 @@ impl FdtContext {
     pub fn get_struct_block_current_address(&self) -> *const u32 {
         (self.header.off_dt_struct as usize
             + self.fdt_address as usize
-            + self.struct_current_offset * core::mem::size_of::<u32>())
-            as *const u32
+            + self.struct_current_offset * core::mem::size_of::<u32>()) as *const u32
     }
 
     pub fn get_struct_block_address(&self, offset: usize) -> *const u32 {
@@ -110,9 +109,7 @@ struct FdtNodeProps<const MAX_NODE_PROPS: usize> {
 pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
     let c_str = unsafe { CStr::from_ptr(ptr as *const u8) };
     match c_str.to_str() {
-        Ok(str) => {
-            Ok(str)
-        }
+        Ok(str) => Ok(str),
         Err(err) => Err(err),
     }
 }
@@ -239,7 +236,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         / core::mem::size_of::<u32>();
                 }
                 FDT_END => return Ok(false),
-                FDT_NOP => {},
+                FDT_NOP => {}
                 _ => {}
             }
         }

@@ -28,9 +28,9 @@ mod mmio {
 use crate::cpu::*;
 use alloc::vec::Vec;
 use core::alloc::{GlobalAlloc, Layout};
+use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
-use core::{arch::asm};
 use fdt::DeviceTreeInfo;
 use memory::set_pmp_all_physical_address;
 use mmio::virtio::VirtioMmio;
@@ -102,7 +102,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         Err(error) => panic!("{}", error),
     }
 
-        let memory = &host_dt.memory[0];
+    let memory = &host_dt.memory[0];
 
     extern "C" {
         static mut _free_area: u8;
@@ -126,7 +126,9 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     const DEVICE_TREE_MMIO_INDEX: usize = 6;
     const PASS_THROUGH_MMIO_INDEX: usize = 5;
 
-    PASS_THROUGH_VIRTIO_MMIO.lock().write(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
+    PASS_THROUGH_VIRTIO_MMIO
+        .lock()
+        .write(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -226,7 +228,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     let vm = vm::create_vm(
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
-        virtio_mmios[DEVICE_TREE_MMIO_INDEX]
+        virtio_mmios[DEVICE_TREE_MMIO_INDEX],
     );
 
     println!("switch to guest");
