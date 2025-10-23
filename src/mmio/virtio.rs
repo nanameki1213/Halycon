@@ -390,12 +390,12 @@ pub fn emulate_read_virtio(offset: usize) -> Result<u32, ()> {
         _ => {}
     }
 
-    // println!("read: {:#X}, {:#X}", offset, value);
+    println!("read: {:#X}, {:#X}", offset, value);
     Ok(value)
 }
 
 pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) {
-    // println!("write: {:#X}, {:#X}", offset, value);
+    println!("write: {:#X}, {:#X}", offset, value);
 
     match offset {
         VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {

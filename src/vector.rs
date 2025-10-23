@@ -323,8 +323,8 @@ pub fn exception_handler(mode: u8) {
             if plic::get_plic_claim(hart) != plic::UART_IRQ {
                 panic!();
             }
-            // let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
-            // ns16550::uart_fifo_push(c as u8);
+            let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
+            ns16550::uart_fifo_push(c as u8);
             plic::set_plic_claim(hart, plic::UART_IRQ);
             // next instruction
             let mut sepc = get_sepc();
@@ -383,7 +383,7 @@ pub fn exception_handler(mode: u8) {
 
 fn write_access(virtual_address: usize, value: u64) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-        ns16550::write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u32);
+        ns16550::emulate_write_ns16550(virtual_address - ns16550::NS16550_ADDR, value as u32);
     } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
         .contains(&(virtual_address))
     {
@@ -406,7 +406,7 @@ fn write_access(virtual_address: usize, value: u64) {
 fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         registers[dst_register_idx] =
-            ns16550::read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap() as u64;
+            ns16550::emulate_read_ns16550(virtual_address - ns16550::NS16550_ADDR).unwrap() as u64;
     } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
         .contains(&(virtual_address))
     {

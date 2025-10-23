@@ -37,6 +37,7 @@ use mmio::virtio::VirtioMmio;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
+use mmio::ns16550::Uart;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -59,6 +60,7 @@ static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
     Mutex::new(MaybeUninit::<VirtioMmio>::uninit());
 static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>> =
     Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
+static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
@@ -225,6 +227,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
+
 
     let vm = vm::create_vm(
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
