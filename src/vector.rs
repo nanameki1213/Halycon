@@ -1,6 +1,8 @@
 use crate::cpu::*;
 use crate::instruction;
 use crate::instruction::Instruction;
+use crate::mmio::virtio::VIRTIO_DEFAULT_INDEX;
+use crate::mmio::virtio::VIRTIO_MMIO_DEFAULT_ADDRESS;
 use crate::mmio::{ns16550, virtio};
 use crate::paging;
 use crate::plic;
@@ -389,7 +391,7 @@ fn write_access(virtual_address: usize, value: u64) {
     {
         let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
         virtio::emulate_write_virtio(
-            virtual_address - virtio_mmio.base_address,
+            virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS,
             value as u32,
             virtio_mmio,
         );
@@ -412,7 +414,7 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
     {
         let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
         registers[dst_register_idx] = virtio::emulate_read_virtio(
-            virtual_address - virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,
+            virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS,
             virtio_mmio,
         )
         .unwrap() as u64;
