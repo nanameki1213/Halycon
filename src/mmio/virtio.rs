@@ -9,6 +9,7 @@ use crate::virtio_blk::{self};
 use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use alloc::boxed::Box;
 use core::usize;
+use spin::Mutex;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -170,42 +171,6 @@ impl VirtQueue {
     }
 }
 
-// Virtio MMIO によって設定されたQueue情報
-#[repr(C)]
-pub struct VirtQueueMmio {
-    pub queue_num: u32,
-    pub queue_sel: u32,
-    pub desc_address: u64,
-    pub driver_address: u64,
-    pub device_address: u64,
-    pub status: u32,
-    pub device_features_low: u32,
-    pub device_features_high: u32,
-    pub device_features_sel: u32,
-    pub driver_features_low: u32,
-    pub driver_features_high: u32,
-    pub driver_features_sel: u32,
-}
-
-impl VirtQueueMmio {
-    pub const fn new() -> Self {
-        VirtQueueMmio {
-            queue_num: 0,
-            queue_sel: 0,
-            desc_address: 0,
-            driver_address: 0,
-            device_address: 0,
-            status: 0,
-            device_features_low: 0,
-            device_features_high: 0,
-            device_features_sel: 0,
-            driver_features_low: 0,
-            driver_features_high: 0,
-            driver_features_sel: 0,
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 pub struct VirtioMmio {
     pub base_address: usize,
@@ -358,33 +323,69 @@ impl VirtioMmio {
     }
 }
 
-static mut VIRTQUEUE: VirtQueueMmio = VirtQueueMmio::new();
+// Virtio MMIO によって設定されたQueue情報
+#[repr(C)]
+pub struct VirtioMmioRegister {
+    pub queue_num: u32,
+    pub queue_sel: u32,
+    pub desc_address: u64,
+    pub driver_address: u64,
+    pub device_address: u64,
+    pub status: u32,
+    pub device_features_low: u32,
+    pub device_features_high: u32,
+    pub device_features_sel: u32,
+    pub driver_features_low: u32,
+    pub driver_features_high: u32,
+    pub driver_features_sel: u32,
+}
+
+impl VirtioMmioRegister {
+    pub const fn new() -> Self {
+        VirtioMmioRegister {
+            queue_num: 0,
+            queue_sel: 0,
+            desc_address: 0,
+            driver_address: 0,
+            device_address: 0,
+            status: 0,
+            device_features_low: 0,
+            device_features_high: 0,
+            device_features_sel: 0,
+            driver_features_low: 0,
+            driver_features_high: 0,
+            driver_features_sel: 0,
+        }
+    }
+}
+
+static VIRTIO_MMIO_REGISTER: Mutex<VirtioMmioRegister> = Mutex::new(VirtioMmioRegister::new());
 
 pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32, ()> {
     let mut value = virtio_mmio.get_virtio_mmio(offset);
 
     match offset {
-        VIRTIO_MMIO_VERSION => unsafe {
+        VIRTIO_MMIO_VERSION => {
             virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
-            VIRTQUEUE.device_features_low =
+            VIRTIO_MMIO_REGISTER.lock().device_features_low =
                 virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
             virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
-            VIRTQUEUE.device_features_high =
+            VIRTIO_MMIO_REGISTER.lock().device_features_high =
                 virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
-        },
+        }
         VIRTIO_MMIO_QUEUE_READY => {
             value = VIRTIO_DEFAULT_INDEX;
         }
-        VIRTIO_MMIO_STATUS => unsafe {
-            value = VIRTQUEUE.status;
-        },
-        VIRTIO_MMIO_DEVICE_FEATURES => unsafe {
-            if VIRTQUEUE.device_features_sel == 0 {
-                value = VIRTQUEUE.device_features_low;
+        VIRTIO_MMIO_STATUS => {
+            value = VIRTIO_MMIO_REGISTER.lock().status;
+        }
+        VIRTIO_MMIO_DEVICE_FEATURES => {
+            if VIRTIO_MMIO_REGISTER.lock().device_features_sel == 0 {
+                value = VIRTIO_MMIO_REGISTER.lock().device_features_low;
             } else {
-                value = VIRTQUEUE.device_features_high;
+                value = VIRTIO_MMIO_REGISTER.lock().device_features_high;
             }
-        },
+        }
         _ => {}
     }
 
@@ -397,12 +398,13 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
 
     match offset {
         VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
-            if value != VIRTQUEUE.queue_sel {
+            if value != VIRTIO_MMIO_REGISTER.lock().queue_sel {
                 println!("invalid queue num");
                 return;
             }
 
-            let desc_address = resolve_address_stage2(VIRTQUEUE.desc_address as usize).unwrap();
+            let desc_address =
+                resolve_address_stage2(VIRTIO_MMIO_REGISTER.lock().desc_address as usize).unwrap();
             let desc_ring = &mut *core::ptr::slice_from_raw_parts_mut(
                 desc_address as *mut VRingDesc,
                 VIRTQ_ENTRY_NUM as usize,
@@ -429,7 +431,9 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
                 );
             }
 
-            let device_address = resolve_address_stage2(VIRTQUEUE.device_address as usize).unwrap();
+            let device_address =
+                resolve_address_stage2(VIRTIO_MMIO_REGISTER.lock().device_address as usize)
+                    .unwrap();
             let used_ring = &mut *(device_address as *mut VRingUsed);
             used_ring.idx += 1;
 
@@ -445,40 +449,40 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
             };
             PASS_THROUGH_VIRTIO_BLK_DEVICE.lock().write(block_device);
         }
-        VIRTIO_MMIO_QUEUE_NUM => unsafe {
-            VIRTQUEUE.queue_num = value;
-        },
-        VIRTIO_MMIO_QUEUE_SEL => unsafe {
-            VIRTQUEUE.queue_sel = value;
-        },
-        VIRTIO_MMIO_DEVICE_FEATURES_SEL => unsafe {
-            VIRTQUEUE.device_features_sel = value;
-        },
-        VIRTIO_MMIO_DRIVER_FEATURES_SEL => unsafe {
-            VIRTQUEUE.driver_features_sel = value;
-        },
-        VIRTIO_MMIO_DRIVER_FEATURES => unsafe {
-            if VIRTQUEUE.driver_features_sel == 0 {
-                VIRTQUEUE.driver_features_low = value;
+        VIRTIO_MMIO_QUEUE_NUM => {
+            VIRTIO_MMIO_REGISTER.lock().queue_num = value;
+        }
+        VIRTIO_MMIO_QUEUE_SEL => {
+            VIRTIO_MMIO_REGISTER.lock().queue_sel = value;
+        }
+        VIRTIO_MMIO_DEVICE_FEATURES_SEL => {
+            VIRTIO_MMIO_REGISTER.lock().device_features_sel = value;
+        }
+        VIRTIO_MMIO_DRIVER_FEATURES_SEL => {
+            VIRTIO_MMIO_REGISTER.lock().driver_features_sel = value;
+        }
+        VIRTIO_MMIO_DRIVER_FEATURES => {
+            if VIRTIO_MMIO_REGISTER.lock().driver_features_sel == 0 {
+                VIRTIO_MMIO_REGISTER.lock().driver_features_low = value;
             } else {
-                VIRTQUEUE.driver_features_high = value;
+                VIRTIO_MMIO_REGISTER.lock().driver_features_high = value;
             }
-        },
-        VIRTIO_MMIO_STATUS_FEATURES_OK => unsafe {
-            VIRTQUEUE.status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
-        },
-        VIRTIO_MMIO_STATUS => unsafe {
-            VIRTQUEUE.status = value;
-        },
-        VIRTIO_MMIO_DESC_LOW => unsafe {
-            VIRTQUEUE.desc_address = value as u64;
-        },
-        VIRTIO_MMIO_DRIVER_LOW => unsafe {
-            VIRTQUEUE.driver_address = value as u64;
-        },
-        VIRTIO_MMIO_DEVICE_LOW => unsafe {
-            VIRTQUEUE.device_address = value as u64;
-        },
+        }
+        VIRTIO_MMIO_STATUS_FEATURES_OK => {
+            VIRTIO_MMIO_REGISTER.lock().status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
+        }
+        VIRTIO_MMIO_STATUS => {
+            VIRTIO_MMIO_REGISTER.lock().status = value;
+        }
+        VIRTIO_MMIO_DESC_LOW => {
+            VIRTIO_MMIO_REGISTER.lock().desc_address = value as u64;
+        }
+        VIRTIO_MMIO_DRIVER_LOW => {
+            VIRTIO_MMIO_REGISTER.lock().driver_address = value as u64;
+        }
+        VIRTIO_MMIO_DEVICE_LOW => {
+            VIRTIO_MMIO_REGISTER.lock().device_address = value as u64;
+        }
         _ => {}
     }
 }
