@@ -389,12 +389,12 @@ pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32
         _ => {}
     }
 
-    println!("read: {:#X}, {:#X}", offset, value);
+    // println!("read: {:#X}, {:#X}", offset, value);
     Ok(value)
 }
 
 pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) {
-    println!("write: {:#X}, {:#X}", offset, value);
+    // println!("write: {:#X}, {:#X}", offset, value);
 
     match offset {
         VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
@@ -415,9 +415,9 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
                 resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
             let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
 
-            println!("desc[0]: {:?}", desc_ring[0]);
-            println!("desc[1]: {:?}", desc_ring[1]);
-            println!("desc[2]: {:?}", desc_ring[2]);
+            // println!("desc[0]: {:?}", desc_ring[0]);
+            // println!("desc[1]: {:?}", desc_ring[1]);
+            // println!("desc[2]: {:?}", desc_ring[2]);
 
             // println!("virtio: {:?}", virtio_blk_req);
 
