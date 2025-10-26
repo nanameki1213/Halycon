@@ -22,7 +22,6 @@ Cargo.lock
 
 bin/
 !bin/disk/boot.script
-!bin/disk/boot.scr
 !bin/virt.dtb
 !bin/u-boot.bin
 
