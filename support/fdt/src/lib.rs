@@ -1,5 +1,5 @@
-use crate::memory::MemoryEntry;
-use crate::println;
+#![no_std]
+
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
 use core::{ffi::CStr, fmt, str::Utf8Error};
@@ -114,7 +114,11 @@ pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
     }
 }
 
-// TODO: MMIO関係の定義はmmioディレクトリ配下に移動する
+pub struct MemoryEntry {
+    pub address: usize,
+    pub size: usize,
+}
+
 pub struct MmioEntry {
     pub address: usize,
     pub size: usize,
@@ -249,11 +253,6 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                 return Err(FdtError::UnexpectedEOF);
             }
             let token = Self::read_be32(fdt.get_struct_block_address(*offset));
-            // println!(
-            //     "offset: {:#X}, token: {}",
-            //     fdt.header.off_dt_struct as usize + *offset * 4,
-            //     token
-            // );
             *offset += 1;
             match token {
                 FDT_BEGIN_NODE => Self::skip_fdt_node(fdt, offset)?,
@@ -272,7 +271,6 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             props: ArrayVec::new(),
         };
         while Self::fdt_prop_iteration(fdt, offset)? {
-            // println!("({:#X})prop", fdt.header.off_dt_struct as usize + *offset * 4);
             let current_address = fdt.get_struct_block_address(*offset);
             let prop_data = Self::get_prop_data(current_address);
             let prop = Self::get_prop(fdt, offset, &prop_data)?;
@@ -309,21 +307,15 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         const MAX_NODE_PROPS: usize = 32;
 
         while Self::fdt_node_iteration(&mut fdt_context)? {
-            // println!(
-            //     "BEGIN: {:#x}",
-            //     fdt_context.header.off_dt_struct as usize + fdt_context.struct_current_offset * 4
-            // );
             let mut prop_offset = fdt_context.struct_current_offset;
             let props =
                 Self::scan_node_properties::<MAX_NODE_PROPS>(&fdt_context, &mut prop_offset)?;
-            // println!("props: {:?}", props.props);
             if let Some(prop_value) = Self::search_prop(&props, "device_type") {
                 if prop_value == "memory\0".as_bytes() {
                     if let Some(reg_value) = Self::search_prop(&props, "reg") {
                         let bytes: &[u8] = reg_value;
                         let address = BigEndian::read_u64(&bytes[0..8]);
                         let size = BigEndian::read_u64(&bytes[8..16]);
-                        println!("memory: {:#X}, {:#X}", address, size);
 
                         self.memory.try_push(MemoryEntry {
                             address: address as usize,
@@ -337,7 +329,6 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         let bytes: &[u8] = reg_value;
                         let address = BigEndian::read_u64(&bytes[0..8]);
                         let size = BigEndian::read_u64(&bytes[8..16]);
-                        println!("virtio,mmio: {:#X}, {:#X}", address, size);
 
                         self.mmio.try_push(MmioEntry {
                             address: address as usize,

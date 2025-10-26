@@ -1,13 +1,17 @@
-use crate::cpu::*;
-use crate::instruction;
-use crate::instruction::Instruction;
-use crate::mmio::virtio::VIRTIO_DEFAULT_INDEX;
-use crate::mmio::virtio::VIRTIO_MMIO_DEFAULT_ADDRESS;
-use crate::mmio::{ns16550, virtio};
+use crate::riscv::{
+    instruction,
+    instruction::Instruction,
+    sbi,
+    cpu::*,
+};
+use crate::mmio::{
+    virtio,
+    virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,
+    ns16550,
+};
 use crate::paging;
 use crate::plic;
 use crate::println;
-use crate::sbi;
 use crate::PASS_THROUGH_VIRTIO_MMIO;
 use core::arch::global_asm;
 
@@ -20,16 +24,16 @@ pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
-#[no_mangle]
-#[link_section = ".data"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".data")]
 pub static M_EXCEPTION: u8 = 0;
 
-#[no_mangle]
-#[link_section = ".data"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".data")]
 pub static S_EXCEPTION: u8 = 1;
 
-#[no_mangle]
-#[link_section = ".data"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".data")]
 pub static VS_EXCEPTION: u8 = 2;
 
 global_asm!(
@@ -297,7 +301,7 @@ virtual_supervisor_exception_handler:
 );
 
 pub fn setup_vector() {
-    extern "C" {
+    unsafe extern "C" {
         static machine_vector_table: *const u8;
         static supervisor_vector_table: *const u8;
         static virtual_supervisor_vector_table: *const u8;
@@ -317,7 +321,7 @@ fn is_instruction_abort(scause: usize) -> bool {
         || scause == E_ENVIRONMENT_CALL_FROM_VS_MODE
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub fn exception_handler(mode: u8) {
     if mode == M_EXCEPTION {
         if get_mcause() as usize == I_MACHINE_EXTERNAL {
@@ -404,7 +408,6 @@ fn write_access(virtual_address: usize, value: u64) {
     }
 }
 
-#[no_mangle]
 fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         registers[dst_register_idx] =

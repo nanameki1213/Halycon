@@ -1,4 +1,7 @@
-use crate::linked_list;
+#![no_std]
+
+mod linked_list;
+
 use core::alloc::Layout;
 use core::cmp::{max, min};
 use core::ptr::NonNull;

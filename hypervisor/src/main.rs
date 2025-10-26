@@ -4,18 +4,13 @@
 
 extern crate alloc;
 
-mod allocator;
+mod riscv;
 mod aplic;
 mod console;
-mod cpu;
-mod fdt;
-mod instruction;
-mod linked_list;
 mod loader;
 mod memory;
 mod paging;
 mod plic;
-mod sbi;
 mod string_utils;
 mod vector;
 mod virtio_blk;
@@ -25,7 +20,7 @@ mod mmio {
     pub mod virtio;
 }
 
-use crate::cpu::*;
+use riscv::cpu::*;
 use alloc::vec::Vec;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
@@ -80,7 +75,7 @@ unsafe impl GlobalAlloc for GlobalAllocator {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     if argc < 1 {
         panic!("dtb pointer not configured.");
@@ -106,7 +101,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     let memory = &host_dt.memory[0];
 
-    extern "C" {
+    unsafe extern "C" {
         static mut _free_area: u8;
     }
     let free_ptr = core::ptr::addr_of!(_free_area) as *const u8 as usize;
@@ -214,7 +209,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     set_pmp_all_physical_address(true, true, true);
     println!("[setup] pmpaddr0: {:#X}", get_pmpaddr0());
 
-    extern "C" {
+    unsafe extern "C" {
         static _intr_stack_end: u8;
     }
     unsafe {

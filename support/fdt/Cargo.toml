@@ -1,0 +1,8 @@
+[package]
+name = "fdt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+byteorder = { version = "1", default-features = false }
+arrayvec = { version = "0.7.6", default-features = false }

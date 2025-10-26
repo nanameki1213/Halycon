@@ -1,6 +1,6 @@
 use crate::paging;
 
-use crate::cpu::*;
+use crate::riscv::cpu::*;
 use crate::println;
 use crate::MEMORY_ALLOCATOR;
 use core::alloc::Layout;

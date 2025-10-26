@@ -1,12 +1,9 @@
-[package]
-name = "hypervisor"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+  "hypervisor",
+]
 
-[profile.dev]
-opt-level = 0
-
-[dependencies]
-byteorder = { version = "1", default-features = false }
-arrayvec = { version = "0.7.6", default-features = false }
-spin = "0.10.0"
+[workspace.dependencies]
+# support crates
+allocator = { path = "support/allocator" }
+fdt = { path = "support/fdt" }
