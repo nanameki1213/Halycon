@@ -55,6 +55,10 @@ impl Instruction {
         ((self.0 & Self::COMPRESSION_MASK) >> Self::COMPRESSION_OFFSET) as usize
     }
 
+    pub fn is_valid_instruction(&mut self) -> bool {
+        self.0 != 0
+    }
+
     pub fn is_csrrs_instruction(&mut self) -> bool {
         self.get_opcode() == Self::OPCODE_CSR && self.get_funct3() == Self::FUNCT3_CSRRS
     }

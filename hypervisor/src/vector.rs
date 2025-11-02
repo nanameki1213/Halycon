@@ -24,18 +24,6 @@ pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
-#[unsafe(no_mangle)]
-#[unsafe(link_section = ".data")]
-pub static M_EXCEPTION: u8 = 0;
-
-#[unsafe(no_mangle)]
-#[unsafe(link_section = ".data")]
-pub static S_EXCEPTION: u8 = 1;
-
-#[unsafe(no_mangle)]
-#[unsafe(link_section = ".data")]
-pub static VS_EXCEPTION: u8 = 2;
-
 global_asm!(
     "
 .section .text
@@ -57,7 +45,6 @@ virtual_supervisor_vector_table:
     j virtual_supervisor_exception_handler 
 
 .text
-.extern M_EXCEPTION
 .global machine_exception_handler 
 .balign 256
 machine_exception_handler:
@@ -97,15 +84,14 @@ machine_exception_handler:
     csrr a0, mstatus
     li t0, 0x8000000000
     and t1, a0, t0
-    lb a0, M_EXCEPTION
     beq t1, x0, NOT_STACK_M
     csrw mscratch, sp
     la sp, _intr_stack_end
-    call exception_handler
+    call machine_handler 
     csrr sp, mscratch
     jal x0, END_INTR_M
 NOT_STACK_M:
-    call exception_handler
+    call machine_handler
 END_INTR_M:
     ld x0, 0*8(sp)
     ld x1, 1*8(sp)
@@ -143,7 +129,6 @@ END_INTR_M:
     mret
 
 .text
-.extern S_EXCEPTION
 .global supervisor_exception_handler 
 .balign 256
 supervisor_exception_handler:
@@ -180,7 +165,6 @@ supervisor_exception_handler:
     sd x29, 29*8(sp)
     sd x30, 30*8(sp)
     sd x31, 31*8(sp)
-    lb a0, S_EXCEPTION
     csrw sscratch, sp
     la sp, _intr_stack_end
     call exception_handler
@@ -221,7 +205,6 @@ supervisor_exception_handler:
     sret
 
 .text
-.extern VS_EXCEPTION
 .global virtual_supervisor_exception_handler 
 .balign 256
 virtual_supervisor_exception_handler:
@@ -258,7 +241,6 @@ virtual_supervisor_exception_handler:
     sd x29, 29*8(sp)
     sd x30, 30*8(sp)
     sd x31, 31*8(sp)
-    lb a0, VS_EXCEPTION
     csrw sscratch, sp
     la sp, _intr_stack_end
     call exception_handler
@@ -322,40 +304,41 @@ fn is_instruction_abort(scause: usize) -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub fn exception_handler(mode: u8) {
-    if mode == M_EXCEPTION {
-        if get_mcause() as usize == I_MACHINE_EXTERNAL {
+pub fn machine_handler() {
+    let mcause = get_mcause();
+    match mcause as usize {
+        I_MACHINE_EXTERNAL => {
             let hart = get_mhartid() as usize;
-            if plic::get_plic_claim(hart) != plic::UART_IRQ {
-                panic!();
+            let claim = plic::get_plic_claim(hart);
+            match claim {
+                plic::UART_IRQ => {
+                    let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
+                    ns16550::uart_fifo_push(c as u8);
+                    plic::set_plic_claim(hart, plic::UART_IRQ);
+                },
+                _ => {
+                    println!("claim: {}", claim);
+                    panic!();
+                },
             }
-            let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
-            ns16550::uart_fifo_push(c as u8);
-            plic::set_plic_claim(hart, plic::UART_IRQ);
-            // next instruction
-            let mut sepc = get_sepc();
-            sepc += 4;
-            set_sepc(sepc);
-            return;
+        },
+        _ => {
+            println!("Exception from M-Mode has occured!");
+            println!("[info] mcause: {:#X}", mcause);
+            println!("[info] mtval: {:#X}", get_mtval());
+
+            if mcause == 20 {
+                println!("[info] mtinst: {:#X}", get_mtinst());
+            }
+            panic!();
         }
-        println!("Exception from M-Mode has occured!");
-        let mcause = get_mcause();
-        println!("[info] mcause: {:#X}", mcause);
-        println!("[info] mtval: {:#X}", get_mtval());
-
-        if mcause == 20 {
-            println!("[info] mtinst: {:#X}", get_mtinst());
-        }
-
-        panic!();
-    } else if mode == VS_EXCEPTION {
-        println!("Exception from VS-Mode has occured!");
-        println!("[info] vscause: {:#X}", get_vscause());
-        println!("[info] vstval: {:#X}", get_vstval());
-
-        panic!();
     }
+    // Since a trap into M-Mode is an asynchronous exception,
+    // the mepc is not incremented.
+}
 
+#[unsafe(no_mangle)]
+pub fn exception_handler() {
     let scause = get_scause() as usize;
     let sp = get_sscratch() as usize;
 
@@ -378,8 +361,12 @@ pub fn exception_handler(mode: u8) {
 
     // next instruction
     let mut sepc = get_sepc();
-    let instruction_size = if instruction.is_compression_instruction() {
-        2
+    let instruction_size = if instruction.is_valid_instruction() {
+        if instruction.is_compression_instruction() {
+            2
+        } else {
+            4
+        }
     } else {
         4
     };
