@@ -172,8 +172,9 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[setup] mideleg: {:#X}", mideleg);
 
     let mut hedeleg = get_hedeleg();
-    hedeleg |= (1 << 12) as u64;
-    hedeleg |= (1 << 7) as u64;
+    // hedeleg |= (1 << 12) as u64;
+    // hedeleg |= (1 << 7) as u64;
+    hedeleg |= (1 << 2) as u64; // Illegal instruction
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
 
