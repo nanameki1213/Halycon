@@ -12,11 +12,8 @@ Halycon はRISC-V 64上で動作するハイパーバイザです。
 ## ビルド方法
 ### ゲスト用のu-bootのビルド
 ```
-git clone https://source.denx.de/u-boot/u-boot.git
-
 cd u-boot
-make qemu-riscv64_smode_defconfig
-make
+./build.sh
 ```
 u-boot/u-boot.binを、Halycon/bin/配下にコピーする
 
@@ -24,10 +21,7 @@ u-boot/u-boot.binを、Halycon/bin/配下にコピーする
 ```
 rustup target add riscv64gc-unknown-none-elf
 
-git clone https://github.com/nanameki1213/Halycon.git
-
 # run hypervisor
-cd Halycon
 cargo run --release
 ```
 
@@ -46,7 +40,7 @@ cargo run --release
     - [x] シリアルデバイスの仮想化
     - [x] SBIコールの仮想化
     - [x] タイマデバイスの仮想化
-    - [ ] ブロックデバイスの仮想化
+    - [x] ブロックデバイスの仮想化
         - [x] virtio-blkデバイスの実装(パススルー)
     - [ ] 割り込みコントローラの仮想化
 - [ ] Linuxの起動
