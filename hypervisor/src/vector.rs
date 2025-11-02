@@ -16,6 +16,7 @@ use crate::PASS_THROUGH_VIRTIO_MMIO;
 use core::arch::global_asm;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
+pub const E_INSTRUCTION_GUEST_PAGE_FAULT: usize = 20;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
 pub const E_VIRTUAL_INSTRUCTION: usize = 22;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
@@ -327,7 +328,7 @@ pub fn machine_handler() {
             println!("[info] mcause: {:#X}", mcause);
             println!("[info] mtval: {:#X}", get_mtval());
 
-            if mcause == 20 {
+            if mcause as usize == E_INSTRUCTION_GUEST_PAGE_FAULT {
                 println!("[info] mtinst: {:#X}", get_mtinst());
             }
             panic!();
