@@ -10,6 +10,15 @@ Halycon はRISC-V 64上で動作するハイパーバイザです。
 * QEMU(>= 9.0.2)
 
 ## ビルド方法
+### U-Bootのブートスクリプトのコンパイル
+```
+mkdir -p ./bin/disk
+mkdir ./bin/L1disk
+
+cd script
+../u-boot/u-boot/tools/mkimage -c none -A riscv -T script -d boot.script ../bin/disk/boot.scr
+../u-boot/u-boot/tools/mkimage -c none -A riscv -T script -d boot_L1hypervisor.script ../bin/L1disk/boot.scr
+```
 ### ゲスト用のu-bootのビルド
 ```
 cd u-boot
