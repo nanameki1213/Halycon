@@ -128,14 +128,14 @@ pub fn ns16500_intr_receive_enable() {
     unsafe { core::ptr::write_volatile(ier_address, ier | NS16550_IER_RX_INTR as u8) }
 }
 
-pub fn ns16550_get_by_offset(offset: usize) -> u32 {
-    let address = (NS16550_ADDR + offset) as *mut u32;
+pub fn ns16550_get_by_offset(offset: usize) -> u8 {
+    let address = (NS16550_ADDR + offset) as *mut u8;
 
     unsafe { core::ptr::read_volatile(address) }
 }
 
-pub fn ns16550_set_by_offset(offset: usize, value: u32) {
-    let address = (NS16550_ADDR + offset) as *mut u32;
+pub fn ns16550_set_by_offset(offset: usize, value: u8) {
+    let address = (NS16550_ADDR + offset) as *mut u8;
 
     unsafe { core::ptr::write_volatile(address, value) }
 }
