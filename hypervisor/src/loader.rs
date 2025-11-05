@@ -21,11 +21,12 @@ fn load_virtio_blk(physical_base_address: usize, virtio_mmio: VirtioMmio) -> usi
 
     let capacity = block_device.get_capacity();
 
-    let mut load_address = physical_base_address;
-    for i in 0..capacity {
-        block_device.read_write_disk(load_address as *mut usize, i as u64, false);
-        load_address += virtio_blk::SECTOR_SIZE;
-    }
+    let load_address = physical_base_address;
+    block_device.read_write_disk(load_address as *mut usize, 0, capacity, false);
+    // for i in 0..capacity {
+    //     block_device.read_write_disk(load_address as *mut usize, i as u64, false);
+    //     load_address += virtio_blk::SECTOR_SIZE;
+    // }
 
     capacity as usize * virtio_blk::SECTOR_SIZE
 }

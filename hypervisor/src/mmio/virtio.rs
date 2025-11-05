@@ -5,7 +5,7 @@ extern crate alloc;
 use crate::mmio::virtio;
 use crate::paging::resolve_address_stage2;
 use crate::println;
-use crate::virtio_blk::{self};
+use crate::virtio_blk::{self, SECTOR_SIZE};
 use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use alloc::boxed::Box;
 use core::usize;
@@ -415,18 +415,21 @@ pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) 
                 resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
             let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
 
-            // println!("desc[0]: {:?}", desc_ring[0]);
-            // println!("desc[1]: {:?}", desc_ring[1]);
-            // println!("desc[2]: {:?}", desc_ring[2]);
+            // println!("\n");
+            // for i in 0..3 {
+            //     println!("desc[{}]: addr: {:#x}, len: {}", i, desc_ring[i].addr as usize, desc_ring[i].len);
+            // }
 
-            // println!("virtio: {:?}", virtio_blk_req);
+            // println!("virtio: {}", virtio_blk_req.sector);
 
             if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
                 let mut locked_block_device = PASS_THROUGH_VIRTIO_BLK_DEVICE.lock();
+                let count = desc_ring[1].len as usize / SECTOR_SIZE;
                 let block_device = locked_block_device.assume_init_mut();
                 block_device.read_write_disk(
                     data_address as *mut usize,
                     virtio_blk_req.sector,
+                    count,
                     false,
                 );
             }
