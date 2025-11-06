@@ -11,7 +11,6 @@ mod loader;
 mod memory;
 mod paging;
 mod plic;
-mod string_utils;
 mod vector;
 mod virtio_blk;
 mod vm;

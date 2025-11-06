@@ -1,22 +1,22 @@
-use crate::println;
+#![no_std]
 use core::str;
 
 // allocが使えない環境下での文字列操作関数
-pub unsafe fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
+pub fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
     let mut len = 0;
-    while *ptr.add(len) != 0 {
-        len += 1;
-    }
-
-    let slice = core::slice::from_raw_parts(ptr, len);
-    match slice_to_usize(slice) {
-        Ok(value) => Ok(value),
-        Err(_) => Err(()),
+    unsafe {
+        while *ptr.add(len) != 0 {
+            len += 1;
+        }
+        let slice = core::slice::from_raw_parts(ptr, len);
+        match slice_to_usize(slice) {
+            Ok(value) => Ok(value),
+            Err(_) => Err(()),
+        }
     }
 }
 
 pub unsafe fn slice_to_usize(slice: &[u8]) -> Result<usize, ()> {
-    println!("{:?}", slice);
     let s = match str::from_utf8(slice) {
         Ok(s) => s,
         Err(_) => return Err(()),
