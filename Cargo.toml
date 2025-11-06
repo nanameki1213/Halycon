@@ -1,7 +1,7 @@
 [workspace]
 default-members = ["hypervisor"]
 members = [
-  "hypervisor", "l1_hypervisor", "support/architecture", "support/string_utils",
+  "hypervisor", "l1_hypervisor", "support/string_utils",
 ]
 
 [workspace.dependencies]
