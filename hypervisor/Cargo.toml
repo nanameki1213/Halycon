@@ -9,3 +9,4 @@ spin = "0.10.0"
 allocator.workspace = true
 fdt.workspace = true
 string_utils.workspace = true
+arch = { version = "0.1.0", path = "../arch" }

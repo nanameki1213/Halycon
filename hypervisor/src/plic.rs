@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::riscv::cpu;
+use arch::riscv::cpu;
 
 // TODO: get plic_addr from device tree
 pub const PLIC_ADDR: usize = 0xc000000;

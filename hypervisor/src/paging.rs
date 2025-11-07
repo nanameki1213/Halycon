@@ -1,6 +1,6 @@
 use core::borrow::BorrowMut;
 
-use crate::riscv::cpu::*;
+use arch::riscv::cpu::*;
 use crate::memory::allocate_pages;
 use crate::println;
 

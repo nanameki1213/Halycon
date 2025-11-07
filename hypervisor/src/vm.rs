@@ -1,4 +1,4 @@
-use crate::riscv::cpu::*;
+use arch::riscv::cpu::*;
 use crate::loader;
 use crate::memory::allocate_pages;
 use crate::mmio::virtio::VirtioMmio;

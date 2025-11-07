@@ -1,6 +1,6 @@
 [workspace]
 default-members = ["hypervisor"]
-members = [
+members = ["arch",
   "hypervisor", "l1_hypervisor", "support/string_utils",
 ]
 

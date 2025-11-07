@@ -1,9 +1,9 @@
-use crate::riscv::{
+use arch::riscv::{
     instruction,
     instruction::Instruction,
-    sbi,
     cpu::*,
 };
+use crate::sbi;
 use crate::mmio::{
     virtio,
     virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,

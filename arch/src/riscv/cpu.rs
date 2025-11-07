@@ -108,7 +108,7 @@ pub fn get_xlen_from_misa() -> usize {
         1 => 32,
         2 => 64,
         3 => 128,
-        _ => unreachable!(),
+        _ => 0,
     }
 }
 

@@ -4,9 +4,9 @@
 
 extern crate alloc;
 
-mod riscv;
 mod aplic;
 mod console;
+mod sbi;
 mod loader;
 mod memory;
 mod paging;
@@ -19,7 +19,7 @@ mod mmio {
     pub mod virtio;
 }
 
-use riscv::cpu::*;
+use arch::riscv::cpu::*;
 use alloc::vec::Vec;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
