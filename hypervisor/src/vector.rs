@@ -456,6 +456,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                 if csr == CSR_TIME_ADDRESS {
                     let register_number = instruction.get_rd();
                     registers[register_number] = get_time();
+                } else {
+                    println!("This csr number isn't supported: {:#x}", csr);
+                    panic!();
                 }
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
