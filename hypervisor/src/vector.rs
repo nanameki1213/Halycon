@@ -472,10 +472,15 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
         }
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
             // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
-            let a6 = registers[REGISTER_A6];
-            let a7 = registers[REGISTER_A7];
-            let mut sbi_ret = sbi::Sbiret { error: 0, value: 0 };
-            sbi::virtual_sbi(&mut sbi_ret, a7, a6);
+            let a0 = registers[REGISTER_A0] as usize;
+            let a1 = registers[REGISTER_A1] as usize;
+            let a2 = registers[REGISTER_A2] as usize;
+            let a3 = registers[REGISTER_A3] as usize;
+            let a4 = registers[REGISTER_A4] as usize;
+            let a5 = registers[REGISTER_A5] as usize;
+            let a6 = registers[REGISTER_A6] as usize;
+            let a7 = registers[REGISTER_A7] as usize;
+            let sbi_ret = sbi::virtual_sbi(a7, a6, a0, a1, a2, a3, a4, a5);
             registers[REGISTER_A0] = sbi_ret.error; // a0
             registers[REGISTER_A1] = sbi_ret.value; // a1;
         }

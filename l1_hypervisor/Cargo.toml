@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 arch = { version = "0.1.0", path = "../arch" }
+spin = "0.10.0"
