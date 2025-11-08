@@ -1,10 +1,10 @@
 #![no_std]
 #![no_main]
 
-mod sbi;
 mod console;
 
 use core::arch::asm;
+use arch::riscv::sbi;
 use fdt::{DeviceTreeInfo, MemoryEntry};
 use string_utils::hex_ptr_to_usize;
 use log;
