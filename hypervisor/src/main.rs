@@ -6,11 +6,11 @@ extern crate alloc;
 
 mod aplic;
 mod console;
-mod sbi;
 mod loader;
 mod memory;
 mod paging;
 mod plic;
+mod sbi;
 mod vector;
 mod virtio_blk;
 mod vm;
@@ -19,20 +19,20 @@ mod mmio {
     pub mod virtio;
 }
 
-use arch::riscv::cpu::*;
 use alloc::vec::Vec;
+use arch::riscv::cpu::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
+use log;
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
 use mmio::virtio::VirtioMmio;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
-use log;
 
 pub struct UartLogger;
 

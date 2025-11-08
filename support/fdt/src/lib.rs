@@ -305,7 +305,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                         *offset += 1;
                     }
                     // log::debug!("skip: prop {:#x}", fdt.get_struct_block_address(*offset) as usize);
-                },
+                }
                 FDT_BEGIN_NODE => {
                     *offset += 1;
                     // log::debug!("nest");

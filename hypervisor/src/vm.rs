@@ -1,9 +1,9 @@
-use arch::riscv::cpu::*;
 use crate::loader;
 use crate::memory::allocate_pages;
 use crate::mmio::virtio::VirtioMmio;
 use crate::paging;
 use crate::println;
+use arch::riscv::cpu::*;
 use core::arch::riscv64;
 
 // TODO: static mut はunsafeなので代替を考える

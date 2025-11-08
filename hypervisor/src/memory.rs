@@ -1,8 +1,8 @@
 use crate::paging;
 
-use arch::riscv::cpu::*;
-use crate::println;
 use crate::MEMORY_ALLOCATOR;
+use crate::println;
+use arch::riscv::cpu::*;
 use core::alloc::Layout;
 
 pub struct MemoryEntry {

@@ -24,20 +24,20 @@ pub fn sbi_ecall(
 
     unsafe {
         asm!(
-            "ecall",
+           "ecall",
 
-            inout("a0") a0,
-            inout("a1") a1,
+           inout("a0") a0,
+           inout("a1") a1,
 
-            in("a2") arg2,
-            in("a3") arg3,
-            in("a4") arg4,
-            in("a5") arg5,
-            in("a6") fid,
-            in("a7") ext,
+           in("a2") arg2,
+           in("a3") arg3,
+           in("a4") arg4,
+           in("a5") arg5,
+           in("a6") fid,
+           in("a7") ext,
 
-            options(nostack, preserves_flags, nomem)
-         );
+           options(nostack, preserves_flags, nomem)
+        );
     }
 
     Sbiret {

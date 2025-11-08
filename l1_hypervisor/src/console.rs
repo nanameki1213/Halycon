@@ -1,5 +1,5 @@
-use core::fmt;
 use crate::sbi::sbi_console_putchar;
+use core::fmt;
 use spin::Mutex;
 
 pub struct Console();

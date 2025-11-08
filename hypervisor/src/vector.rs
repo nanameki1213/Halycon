@@ -1,18 +1,10 @@
-use arch::riscv::{
-    instruction,
-    instruction::Instruction,
-    cpu::*,
-};
-use crate::sbi;
-use crate::mmio::{
-    virtio,
-    virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,
-    ns16550,
-};
+use crate::PASS_THROUGH_VIRTIO_MMIO;
+use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
 use crate::paging;
 use crate::plic;
 use crate::println;
-use crate::PASS_THROUGH_VIRTIO_MMIO;
+use crate::sbi;
+use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
@@ -316,13 +308,13 @@ pub fn machine_handler() {
                     let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
                     ns16550::uart_fifo_push(c as u8);
                     plic::set_plic_claim(hart, plic::UART_IRQ);
-                },
+                }
                 _ => {
                     println!("claim: {}", claim);
                     panic!();
-                },
+                }
             }
-        },
+        }
         _ => {
             println!("Exception from M-Mode has occured!");
             println!("[info] mcause: {:#X}", mcause);
@@ -404,11 +396,9 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
         .contains(&(virtual_address))
     {
         let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
-        registers[dst_register_idx] = virtio::emulate_read_virtio(
-            virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS,
-            virtio_mmio,
-        )
-        .unwrap() as u64;
+        registers[dst_register_idx] =
+            virtio::emulate_read_virtio(virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS, virtio_mmio)
+                .unwrap() as u64;
     } else {
         println!("read access data abort");
         println!("[info] virtual address: {:#X}", virtual_address);

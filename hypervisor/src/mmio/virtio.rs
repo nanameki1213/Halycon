@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
+use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use crate::mmio::virtio;
 use crate::paging::resolve_address_stage2;
 use crate::println;
 use crate::virtio_blk::{self, SECTOR_SIZE};
-use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use alloc::boxed::Box;
 use core::usize;
 use spin::Mutex;

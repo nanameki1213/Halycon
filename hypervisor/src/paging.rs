@@ -1,8 +1,8 @@
 use core::borrow::BorrowMut;
 
-use arch::riscv::cpu::*;
 use crate::memory::allocate_pages;
 use crate::println;
+use arch::riscv::cpu::*;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
