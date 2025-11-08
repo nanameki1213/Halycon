@@ -32,6 +32,25 @@ use mmio::virtio::VirtioMmio;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
+use log;
+
+pub struct UartLogger;
+
+impl log::Log for UartLogger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.level() <= log::Level::Debug
+    }
+
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            println!("{} - {}", record.level(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+static LOGGER: UartLogger = UartLogger;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -76,6 +95,9 @@ unsafe impl GlobalAlloc for GlobalAllocator {
 
 #[unsafe(no_mangle)]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
+    log::set_logger(&LOGGER).unwrap();
+    log::set_max_level(log::LevelFilter::Debug);
+
     if argc < 1 {
         panic!("dtb pointer not configured.");
     }

@@ -10,3 +10,4 @@ allocator.workspace = true
 fdt.workspace = true
 string_utils.workspace = true
 arch = { version = "0.1.0", path = "../arch" }
+log = { version = "0.4.28", features = ["max_level_debug"]}

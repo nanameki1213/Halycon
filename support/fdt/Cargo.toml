@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 byteorder = { version = "1", default-features = false }
 arrayvec = { version = "0.7.6", default-features = false }
+log = { version = "0.4.28", features = ["max_level_debug"]}
