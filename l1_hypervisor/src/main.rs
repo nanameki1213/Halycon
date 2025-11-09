@@ -96,9 +96,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
     }
     println!("[setup] allocator");
 
-
-    paging::map_address_stage2(0x80000000, virtual_address, map_size, table_level, is_readable, is_writable, is_executable)
-
     halt_loop();
 }
 
