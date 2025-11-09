@@ -1,12 +1,6 @@
 #!/bin/sh
 
 QEMU=~/qemu/build/qemu-system-riscv64
-
-cargo build --package l1_hypervisor
-mv ./target/riscv64gc-unknown-none-elf/debug/l1_hypervisor ./bin/L1disk/hypervisor
-
-mv $1 ./bin/disk
-
 $QEMU \
   -M virt \
   -smp 1 \
