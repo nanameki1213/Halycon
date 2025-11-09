@@ -2,11 +2,15 @@
 #![no_main]
 
 mod console;
+mod memory;
+mod paging;
 
 use arch::riscv::sbi;
+use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use fdt::{DeviceTreeInfo, MemoryEntry};
 use log;
+use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 
 pub struct SbiConsoleLogger;
@@ -26,6 +30,28 @@ impl log::Log for SbiConsoleLogger {
 }
 
 static LOGGER: SbiConsoleLogger = SbiConsoleLogger;
+
+struct GlobalAllocator {}
+
+static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
+
+unsafe impl GlobalAlloc for GlobalAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        match MEMORY_ALLOCATOR.lock().allocate(layout) {
+            Ok(ptr) => ptr.as_ptr(),
+            Err(_) => core::ptr::null_mut(),
+        }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        MEMORY_ALLOCATOR
+            .lock()
+            .deallocate(core::ptr::NonNull::new_unchecked(ptr), layout);
+    }
+}
 
 const MAX_MEMORY_ENTRIES: usize = 32;
 const MAX_MMIO_ENTRIES: usize = 64;
@@ -58,6 +84,20 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
 
     let memory: &MemoryEntry = &host_dt.memory[0];
     println!("memory: {:#x}, {:#x}", memory.address, memory.size);
+
+    unsafe extern "C" {
+        static mut _free_area: u8;
+    }
+    let free_ptr = core::ptr::addr_of!(_free_area) as *const u8 as usize;
+    unsafe {
+        MEMORY_ALLOCATOR
+            .lock()
+            .init(free_ptr, memory.size - (free_ptr - memory.address));
+    }
+    println!("[setup] allocator");
+
+
+    paging::map_address_stage2(0x80000000, virtual_address, map_size, table_level, is_readable, is_writable, is_executable)
 
     halt_loop();
 }
