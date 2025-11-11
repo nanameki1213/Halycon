@@ -1,11 +1,19 @@
 [workspace]
+resolver = "3"
 default-members = ["hypervisor"]
-members = ["arch",
-  "hypervisor", "l1_hypervisor", "support/string_utils", "xtask",
+members = [
+  "hypervisor",
+  "l1_hypervisor",
+  "arch",
+  "support/allocator",
+  "support/fdt",
+  "support/string_utils",
+  "xtask",
 ]
 
 [workspace.dependencies]
 # support crates
+arch = { path = "arch" }
 allocator = { path = "support/allocator" }
 fdt = { path = "support/fdt" }
 string_utils = { path = "support/string_utils" }

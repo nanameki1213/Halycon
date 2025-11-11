@@ -33,6 +33,10 @@ fn build() -> Result<(), DynError> {
     let mut hypervisor_output_directory = project_root().join("bin/disk");
     let mut l1_hypervisor_output_directory = project_root().join("bin/L1disk");
 
+    // Path
+    let hypervisor_path = project_root().join("hypervisor");
+    let l1_hypervisor_path = project_root().join("l1_hypervisor");
+
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
 
@@ -76,19 +80,12 @@ fn build() -> Result<(), DynError> {
     hypervisor_binary_path.push("hypervisor");
     l1_hypervisor_binary_path.push("l1_hypervisor");
 
-    l1_hypervisor_cargo_args.push("--target".to_string());
-    l1_hypervisor_cargo_args.push(target.to_string());
-    l1_hypervisor_cargo_args.push("--package".to_string());
-    l1_hypervisor_cargo_args.push("l1_hypervisor".to_string());
-    hypervisor_cargo_args.push("--target".to_string());
-    hypervisor_cargo_args.push(target.to_string());
-
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     if is_nested {
         hypervisor_cargo_args.push("--features".to_string());
         hypervisor_cargo_args.push("nested_support".to_string());
         let _ = Command::new(&cargo)
-            .current_dir(project_root())
+            .current_dir(l1_hypervisor_path)
             .args(&l1_hypervisor_cargo_args)
             .status()?;
 
@@ -102,7 +99,7 @@ fn build() -> Result<(), DynError> {
     }   
     
     let _ = Command::new(&cargo)
-        .current_dir(project_root())
+        .current_dir(hypervisor_path)
         .args(hypervisor_cargo_args)
         .status()?;
 
@@ -119,10 +116,10 @@ fn build() -> Result<(), DynError> {
 
 fn run() -> Result<(), DynError> {
     // default settings
-    let mut qemu = "qemu-system-riscv64".to_string();
+    let qemu = "qemu-system-riscv64".to_string();
     let mut is_debug = false;
-    let mut smp = "1".to_string();
-    let mut memory = "2G".to_string();
+    let smp = "1".to_string();
+    let memory = "2G".to_string();
 
     // Path
     let hypervisor_directory = "bin/disk".to_string();
@@ -169,7 +166,11 @@ fn run() -> Result<(), DynError> {
         "-drive",
         format!("file=fat:rw:{l1_hypervisor_directory},format=raw,if=none,id=drive3").as_str(),
         "-global",
-        "virtio-mmio.force-legacy=false"
+        "virtio-mmio.force-legacy=false",
+        "-D",
+        "logfile.log",
+        "-d",
+        "in_asm,int",
     ]);
     if is_debug {
         qemu_command.args([
@@ -204,7 +205,10 @@ Command List:
   build
   run
 
+  -f, --feature [nested]
+                           select options with comma split
 Examples:
-  cargo xtask build  Build Halycon with default option."
+  cargo xtask build             Build Halycon with default option.
+  cargo xtask build -f nested   Build Halycon with nested support hypervisor and l1_hypervisor."
     )
 }
