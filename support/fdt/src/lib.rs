@@ -3,7 +3,6 @@
 use arrayvec::ArrayVec;
 use byteorder::{BigEndian, ByteOrder};
 use core::{ffi::CStr, fmt, str::Utf8Error};
-use log;
 
 pub const FDT_MAGIC: u32 = 0xd00dfeed;
 pub const FDT_VERSION: u32 = 17;
@@ -108,7 +107,7 @@ struct FdtNodeProps<const MAX_NODE_PROPS: usize> {
 }
 
 pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
-    let c_str = unsafe { CStr::from_ptr(ptr as *const u8) };
+    let c_str = unsafe { CStr::from_ptr(ptr) };
     match c_str.to_str() {
         Ok(str) => Ok(str),
         Err(err) => Err(err),
@@ -128,6 +127,14 @@ pub struct MmioEntry {
 pub struct DeviceTreeInfo<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> {
     pub memory: ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>,
     pub mmio: ArrayVec<MmioEntry, MAX_MMIO_ENTRIES>,
+}
+
+impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> Default
+    for DeviceTreeInfo<MAX_MEMORY_ENTRIES, MAX_MMIO_ENTRIES>
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
@@ -206,7 +213,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         };
         *offset += prop_data.len as usize / u32_size;
         // if prop_data.len can't divide by 4, add offset to 1
-        if prop_data.len as usize % size_of::<u32>() != 0 {
+        if !(prop_data.len as usize).is_multiple_of(size_of::<u32>()) {
             *offset += 1;
         }
 
@@ -301,7 +308,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                     *offset += 1; // skip nameoff
                     *offset += prop_data.len as usize / size_of::<u32>();
                     // if prop_data.len can't divide by 4, add offset to 1
-                    if prop_data.len as usize % size_of::<u32>() != 0 {
+                    if !(prop_data.len as usize).is_multiple_of(size_of::<u32>()) {
                         *offset += 1;
                     }
                     // log::debug!("skip: prop {:#x}", fdt.get_struct_block_address(*offset) as usize);

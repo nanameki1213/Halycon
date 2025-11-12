@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::mmio::ns16550::putc;
 use crate::println;
 
@@ -21,12 +23,12 @@ pub struct Sbiret {
 pub fn virtual_sbi(
     ext: usize,
     fid: usize,
-    arg0: usize,
-    arg1: usize,
-    arg2: usize,
-    arg3: usize,
-    arg4: usize,
-    arg5: usize,
+    _arg0: usize,
+    _arg1: usize,
+    _arg2: usize,
+    _arg3: usize,
+    _arg4: usize,
+    _arg5: usize,
 ) -> Sbiret {
     match ext {
         SBI_EXT_BASE => match fid {
@@ -40,7 +42,7 @@ pub fn virtual_sbi(
         },
         SBI_EXT_0_1_CONSOLE_PUTCHAR => {
             if fid == 0 {
-                putc(arg0 as u8);
+                putc(_arg0 as u8);
                 Sbiret { error: 0, value: 0 }
             } else {
                 println!("fid: {}", fid);
@@ -49,7 +51,7 @@ pub fn virtual_sbi(
         }
         SBI_EXT_DBCN => {
             if fid == SBI_EXT_DBCN_CONSOLE_WRITE_BYTE {
-                putc(arg0 as u8);
+                putc(_arg0 as u8);
                 Sbiret { error: 0, value: 0 }
             } else {
                 println!("SBI_EXT_DBCN_CONSOLE_WRITE_BYTE: fid: {}", fid);

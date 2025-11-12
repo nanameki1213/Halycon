@@ -6,9 +6,7 @@ use crate::println;
 use arch::riscv::cpu::*;
 use core::arch::riscv64;
 
-// TODO: static mut はunsafeなので代替を考える
-static mut VMID: usize = 0;
-
+#[allow(dead_code)]
 pub struct VM {
     vmid: usize,
     ram_virtual_base_address: usize,

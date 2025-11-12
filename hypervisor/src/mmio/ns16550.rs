@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{VIRTUAL_UART_DEVICE, print, println};
+use crate::{VIRTUAL_UART_DEVICE, print};
 use core::char;
 
 // TODO: get plic_addr from device tree

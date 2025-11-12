@@ -58,7 +58,7 @@ fn build() -> Result<(), DynError> {
             return Ok(());
         }
     }
- 
+
     let mut hypervisor_binary_path = project_root();
     let mut l1_hypervisor_binary_path = project_root();
 
@@ -91,13 +91,10 @@ fn build() -> Result<(), DynError> {
 
         fs::create_dir_all(&l1_hypervisor_output_directory)?;
         l1_hypervisor_output_directory.push("hypervisor");
-        
-        fs::rename(
-            l1_hypervisor_binary_path,
-            l1_hypervisor_output_directory
-        )?;
-    }   
-    
+
+        fs::rename(l1_hypervisor_binary_path, l1_hypervisor_output_directory)?;
+    }
+
     let _ = Command::new(&cargo)
         .current_dir(hypervisor_path)
         .args(hypervisor_cargo_args)
@@ -106,10 +103,7 @@ fn build() -> Result<(), DynError> {
     fs::create_dir_all(&hypervisor_output_directory)?;
     hypervisor_output_directory.push("hypervisor");
 
-    fs::rename(
-        hypervisor_binary_path,
-        hypervisor_output_directory
-    )?;
+    fs::rename(hypervisor_binary_path, hypervisor_output_directory)?;
 
     Ok(())
 }
@@ -152,7 +146,8 @@ fn run() -> Result<(), DynError> {
         "-device",
         "virtio-blk-device,drive=drive0",
         "-drive",
-        format!("file=fat:rw:{hypervisor_directory},format=raw,if=none,media=disk,id=drive0").as_str(),
+        format!("file=fat:rw:{hypervisor_directory},format=raw,if=none,media=disk,id=drive0")
+            .as_str(),
         "-device",
         "virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0",
         "-drive",
@@ -173,10 +168,7 @@ fn run() -> Result<(), DynError> {
         "in_asm,int",
     ]);
     if is_debug {
-        qemu_command.args([
-            "-s",
-            "-S",
-        ]);
+        qemu_command.args(["-s", "-S"]);
     }
 
     qemu_command

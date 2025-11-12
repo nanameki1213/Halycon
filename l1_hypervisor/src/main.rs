@@ -47,9 +47,11 @@ unsafe impl GlobalAlloc for GlobalAllocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        MEMORY_ALLOCATOR
-            .lock()
-            .deallocate(core::ptr::NonNull::new_unchecked(ptr), layout);
+        unsafe {
+            MEMORY_ALLOCATOR
+                .lock()
+                .deallocate(core::ptr::NonNull::new_unchecked(ptr), layout);
+        }
     }
 }
 
@@ -89,11 +91,9 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         static mut _free_area: u8;
     }
     let free_ptr = core::ptr::addr_of!(_free_area) as *const u8 as usize;
-    unsafe {
-        MEMORY_ALLOCATOR
-            .lock()
-            .init(free_ptr, memory.size - (free_ptr - memory.address));
-    }
+    MEMORY_ALLOCATOR
+        .lock()
+        .init(free_ptr, memory.size - (free_ptr - memory.address));
     println!("[setup] allocator");
 
     halt_loop();

@@ -5,11 +5,6 @@ use crate::println;
 use arch::riscv::cpu::*;
 use core::alloc::Layout;
 
-pub struct MemoryEntry {
-    pub address: usize,
-    pub size: usize,
-}
-
 pub fn allocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
     // TODO: Layoutのエラーハンドリング設計検討
     let layout =

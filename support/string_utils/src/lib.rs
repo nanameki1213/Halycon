@@ -16,7 +16,7 @@ pub fn hex_ptr_to_usize(ptr: *const u8) -> Result<usize, ()> {
     }
 }
 
-pub unsafe fn slice_to_usize(slice: &[u8]) -> Result<usize, ()> {
+pub fn slice_to_usize(slice: &[u8]) -> Result<usize, ()> {
     let s = match str::from_utf8(slice) {
         Ok(s) => s,
         Err(_) => return Err(()),

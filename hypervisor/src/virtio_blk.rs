@@ -6,7 +6,6 @@ use crate::mmio::virtio::*;
 use crate::println;
 use alloc::boxed::Box;
 use core::mem::size_of;
-use core::ptr::slice_from_raw_parts_mut;
 use core::usize;
 
 pub const SECTOR_SIZE: usize = 512;
@@ -76,7 +75,7 @@ impl VirtioBlk {
         } else {
             VIRTIO_BLK_T_IN
         };
-        let mut virtio_blk_req = VirtioBlkReq {
+        let virtio_blk_req = VirtioBlkReq {
             req_type: req_type as u32,
             reserved: 0,
             sector,
