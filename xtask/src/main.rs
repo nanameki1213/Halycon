@@ -197,7 +197,7 @@ Command List:
   build
   run
 
-  -f, --feature [nested]
+  -f, --features [nested]
                            select options with comma split
 Examples:
   cargo xtask build             Build Halycon with default option.
