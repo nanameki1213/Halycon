@@ -4,14 +4,13 @@
 
 extern crate alloc;
 
-mod riscv;
 mod aplic;
 mod console;
 mod loader;
 mod memory;
 mod paging;
 mod plic;
-mod string_utils;
+mod sbi;
 mod vector;
 mod virtio_blk;
 mod vm;
@@ -20,19 +19,38 @@ mod mmio {
     pub mod virtio;
 }
 
-use riscv::cpu::*;
 use alloc::vec::Vec;
+use arch::riscv::cpu::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
+use log;
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
 use mmio::virtio::VirtioMmio;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
+
+pub struct UartLogger;
+
+impl log::Log for UartLogger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.level() <= log::Level::Debug
+    }
+
+    fn log(&self, record: &log::Record) {
+        if self.enabled(record.metadata()) {
+            println!("{} - {}", record.level(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+static LOGGER: UartLogger = UartLogger;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -69,14 +87,19 @@ unsafe impl GlobalAlloc for GlobalAllocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        MEMORY_ALLOCATOR
-            .lock()
-            .deallocate(NonNull::new_unchecked(ptr), layout);
+        unsafe {
+            MEMORY_ALLOCATOR
+                .lock()
+                .deallocate(NonNull::new_unchecked(ptr), layout);
+        }
     }
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
+    log::set_logger(&LOGGER).unwrap();
+    log::set_max_level(log::LevelFilter::Debug);
+
     if argc < 1 {
         panic!("dtb pointer not configured.");
     }
@@ -105,11 +128,9 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         static mut _free_area: u8;
     }
     let free_ptr = core::ptr::addr_of!(_free_area) as *const u8 as usize;
-    unsafe {
-        MEMORY_ALLOCATOR
-            .lock()
-            .init(free_ptr, memory.size - (free_ptr - memory.address));
-    }
+    MEMORY_ALLOCATOR
+        .lock()
+        .init(free_ptr, memory.size - (free_ptr - memory.address));
     println!("[setup] allocator");
 
     let mut virtio_mmios: Vec<VirtioMmio> = Vec::new();

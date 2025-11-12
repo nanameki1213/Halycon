@@ -1,18 +1,10 @@
-use crate::riscv::{
-    instruction,
-    instruction::Instruction,
-    sbi,
-    cpu::*,
-};
-use crate::mmio::{
-    virtio,
-    virtio::VIRTIO_MMIO_DEFAULT_ADDRESS,
-    ns16550,
-};
+use crate::PASS_THROUGH_VIRTIO_MMIO;
+use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
 use crate::paging;
 use crate::plic;
 use crate::println;
-use crate::PASS_THROUGH_VIRTIO_MMIO;
+use crate::sbi;
+use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
@@ -316,13 +308,13 @@ pub fn machine_handler() {
                     let c = ns16550::ns16550_get_by_offset(ns16550::NS16500_RBR);
                     ns16550::uart_fifo_push(c as u8);
                     plic::set_plic_claim(hart, plic::UART_IRQ);
-                },
+                }
                 _ => {
                     println!("claim: {}", claim);
                     panic!();
-                },
+                }
             }
-        },
+        }
         _ => {
             println!("Exception from M-Mode has occured!");
             println!("[info] mcause: {:#X}", mcause);
@@ -404,11 +396,9 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
         .contains(&(virtual_address))
     {
         let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
-        registers[dst_register_idx] = virtio::emulate_read_virtio(
-            virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS,
-            virtio_mmio,
-        )
-        .unwrap() as u64;
+        registers[dst_register_idx] =
+            virtio::emulate_read_virtio(virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS, virtio_mmio)
+                .unwrap() as u64;
     } else {
         println!("read access data abort");
         println!("[info] virtual address: {:#X}", virtual_address);
@@ -456,6 +446,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                 if csr == CSR_TIME_ADDRESS {
                     let register_number = instruction.get_rd();
                     registers[register_number] = get_time();
+                } else {
+                    println!("This csr number isn't supported: {:#x}", csr);
+                    panic!();
                 }
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
@@ -469,10 +462,15 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
         }
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
             // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
-            let a6 = registers[REGISTER_A6];
-            let a7 = registers[REGISTER_A7];
-            let mut sbi_ret = sbi::Sbiret { error: 0, value: 0 };
-            sbi::virtual_sbi(&mut sbi_ret, a7, a6);
+            let a0 = registers[REGISTER_A0] as usize;
+            let a1 = registers[REGISTER_A1] as usize;
+            let a2 = registers[REGISTER_A2] as usize;
+            let a3 = registers[REGISTER_A3] as usize;
+            let a4 = registers[REGISTER_A4] as usize;
+            let a5 = registers[REGISTER_A5] as usize;
+            let a6 = registers[REGISTER_A6] as usize;
+            let a7 = registers[REGISTER_A7] as usize;
+            let sbi_ret = sbi::virtual_sbi(a7, a6, a0, a1, a2, a3, a4, a5);
             registers[REGISTER_A0] = sbi_ret.error; // a0
             registers[REGISTER_A1] = sbi_ret.value; // a1;
         }

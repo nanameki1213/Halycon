@@ -7,6 +7,7 @@ pub struct LinkedList {
 
 unsafe impl Send for LinkedList {}
 
+#[allow(dead_code)]
 impl LinkedList {
     pub const fn new() -> Self {
         LinkedList {
@@ -18,8 +19,10 @@ impl LinkedList {
         self.head.is_null()
     }
 
-    pub unsafe fn push(&mut self, value: *mut usize) {
-        *value = self.head as usize;
+    pub fn push(&mut self, value: *mut usize) {
+        unsafe {
+            *value = self.head as usize;
+        }
         self.head = value;
     }
 

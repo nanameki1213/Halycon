@@ -6,7 +6,6 @@ use crate::mmio::virtio::*;
 use crate::println;
 use alloc::boxed::Box;
 use core::mem::size_of;
-use core::ptr::slice_from_raw_parts_mut;
 use core::usize;
 
 pub const SECTOR_SIZE: usize = 512;
@@ -63,14 +62,20 @@ impl VirtioBlk {
         unsafe { core::ptr::read_volatile((self.mmio.base_address + 0x100) as *mut u64) as usize }
     }
 
-    pub fn read_write_disk(&mut self, buf_address: *mut usize, sector: u64, count: usize, is_write: bool) {
+    pub fn read_write_disk(
+        &mut self,
+        buf_address: *mut usize,
+        sector: u64,
+        count: usize,
+        is_write: bool,
+    ) {
         // make a request
         let req_type = if is_write {
             VIRTIO_BLK_T_OUT
         } else {
             VIRTIO_BLK_T_IN
         };
-        let mut virtio_blk_req = VirtioBlkReq {
+        let virtio_blk_req = VirtioBlkReq {
             req_type: req_type as u32,
             reserved: 0,
             sector,
@@ -95,7 +100,7 @@ impl VirtioBlk {
 
         // status field in VirtioBlkReq
         desc[2].addr = core::ptr::addr_of!(virtio_blk_req) as *const VirtioBlkReq as u64
-            + (desc[0].len as usize + size_of::<*mut u32>() ) as u64;
+            + (desc[0].len as usize + size_of::<*mut u32>()) as u64;
         desc[2].len = size_of::<u8>() as u32;
         desc[2].flags = VRingDesc::VIRTQ_DESC_F_WRITE as u16;
         desc[2].next = 0;

@@ -107,7 +107,7 @@ struct FdtNodeProps<const MAX_NODE_PROPS: usize> {
 }
 
 pub fn get_cstr(ptr: *const u8) -> Result<&'static str, Utf8Error> {
-    let c_str = unsafe { CStr::from_ptr(ptr as *const u8) };
+    let c_str = unsafe { CStr::from_ptr(ptr) };
     match c_str.to_str() {
         Ok(str) => Ok(str),
         Err(err) => Err(err),
@@ -127,6 +127,14 @@ pub struct MmioEntry {
 pub struct DeviceTreeInfo<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> {
     pub memory: ArrayVec<MemoryEntry, MAX_MEMORY_ENTRIES>,
     pub mmio: ArrayVec<MmioEntry, MAX_MMIO_ENTRIES>,
+}
+
+impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize> Default
+    for DeviceTreeInfo<MAX_MEMORY_ENTRIES, MAX_MMIO_ENTRIES>
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
@@ -204,6 +212,10 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
             )
         };
         *offset += prop_data.len as usize / u32_size;
+        // if prop_data.len can't divide by 4, add offset to 1
+        if !(prop_data.len as usize).is_multiple_of(size_of::<u32>()) {
+            *offset += 1;
+        }
 
         Ok(FdtProp {
             name: prop_name,
@@ -253,6 +265,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
                 return Err(FdtError::UnexpectedEOF);
             }
             let token = Self::read_be32(fdt.get_struct_block_address(*offset));
+            // log::debug!("offset: {:#x}, token: {}", fdt.get_struct_block_address(*offset) as usize, token);
             *offset += 1;
             match token {
                 FDT_BEGIN_NODE => Self::skip_fdt_node(fdt, offset)?,
@@ -270,10 +283,12 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         let mut props: FdtNodeProps<MAX_NODE_PROPS> = FdtNodeProps {
             props: ArrayVec::new(),
         };
+        // log::debug!("scan node properties");
         while Self::fdt_prop_iteration(fdt, offset)? {
             let current_address = fdt.get_struct_block_address(*offset);
             let prop_data = Self::get_prop_data(current_address);
             let prop = Self::get_prop(fdt, offset, &prop_data)?;
+            // log::debug!("{:#x}: {}", current_address as usize, prop.name);
 
             props.props.try_push(prop)?;
         }
@@ -282,13 +297,31 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
     }
 
     fn skip_fdt_node(fdt: &FdtContext, offset: &mut usize) -> Result<(), FdtError> {
-        let mut token = Self::read_be32(fdt.get_struct_block_current_address());
+        let mut token = Self::read_be32(fdt.get_struct_block_address(*offset));
         while token != FDT_END_NODE {
+            // log::debug!("skip: {:#x}:{:#x}", fdt.get_struct_block_address(*offset) as usize, token as usize);
+            match token {
+                FDT_PROP => {
+                    *offset += 1;
+                    let current_address = fdt.get_struct_block_address(*offset);
+                    let prop_data = Self::get_prop_data(current_address);
+                    *offset += 1; // skip nameoff
+                    *offset += prop_data.len as usize / size_of::<u32>();
+                    // if prop_data.len can't divide by 4, add offset to 1
+                    if !(prop_data.len as usize).is_multiple_of(size_of::<u32>()) {
+                        *offset += 1;
+                    }
+                    // log::debug!("skip: prop {:#x}", fdt.get_struct_block_address(*offset) as usize);
+                }
+                FDT_BEGIN_NODE => {
+                    *offset += 1;
+                    // log::debug!("nest");
+                    Self::skip_fdt_node(fdt, offset)?;
+                }
+                _ => {}
+            }
             *offset += 1;
             token = Self::read_be32(fdt.get_struct_block_address(*offset));
-            if token == FDT_BEGIN_NODE {
-                Self::skip_fdt_node(fdt, offset)?;
-            }
         }
         *offset += 1;
 
@@ -296,6 +329,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
     }
 
     pub fn parse(&mut self, fdt_address: *const u32) -> Result<(), FdtError> {
+        // log::debug!("parse fdt binary");
         let header = self.parse_header(fdt_address);
         let mut fdt_context = FdtContext {
             fdt_address,
@@ -307,6 +341,7 @@ impl<const MAX_MEMORY_ENTRIES: usize, const MAX_MMIO_ENTRIES: usize>
         const MAX_NODE_PROPS: usize = 32;
 
         while Self::fdt_node_iteration(&mut fdt_context)? {
+            // log::debug!("iteration");
             let mut prop_offset = fdt_context.struct_current_offset;
             let props =
                 Self::scan_node_properties::<MAX_NODE_PROPS>(&fdt_context, &mut prop_offset)?;

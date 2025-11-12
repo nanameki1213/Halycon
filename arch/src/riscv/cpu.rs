@@ -59,6 +59,10 @@ pub const CSR_TIME_ADDRESS: usize = 0xc01;
 pub const REGISTER_ZERO: usize = 0;
 pub const REGISTER_A0: usize = 10;
 pub const REGISTER_A1: usize = 11;
+pub const REGISTER_A2: usize = 12;
+pub const REGISTER_A3: usize = 13;
+pub const REGISTER_A4: usize = 14;
+pub const REGISTER_A5: usize = 15;
 pub const REGISTER_A6: usize = 16;
 pub const REGISTER_A7: usize = 17;
 pub const REGISTER_T0: usize = 5;
@@ -108,7 +112,7 @@ pub fn get_xlen_from_misa() -> usize {
         1 => 32,
         2 => 64,
         3 => 128,
-        _ => unreachable!(),
+        _ => 0,
     }
 }
 

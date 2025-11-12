@@ -1,16 +1,12 @@
 [package]
-name = "hypervisor"
+name = "l1_hypervisor"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-spin = "0.10.0"
-
 allocator.workspace = true
-fdt.workspace = true
-string_utils.workspace = true
 arch = { version = "0.1.0", path = "../arch" }
+fdt.workspace = true
 log = { version = "0.4.28", features = ["max_level_debug"]}
-
-[features]
-nested_support = []
+spin = "0.10.0"
+string_utils.workspace = true

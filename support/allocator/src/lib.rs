@@ -5,7 +5,6 @@ mod linked_list;
 use core::alloc::Layout;
 use core::cmp::{max, min};
 use core::ptr::NonNull;
-use core::usize;
 
 fn align_up(address: usize, align: usize) -> usize {
     (address + align - 1) & !(align - 1)
@@ -19,6 +18,12 @@ pub struct Heap<const ORDER: usize> {
     free_list: [linked_list::LinkedList; ORDER],
 }
 
+impl<const ORDER: usize> Default for Heap<ORDER> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const ORDER: usize> Heap<ORDER> {
     pub const fn new() -> Self {
         Heap {
@@ -26,7 +31,7 @@ impl<const ORDER: usize> Heap<ORDER> {
         }
     }
 
-    pub unsafe fn add_to_heap(&mut self, mut address: usize, mut size: usize) {
+    pub fn add_to_heap(&mut self, mut address: usize, mut size: usize) {
         // 最低でもusizeでアライン
         address = align_up(address, size_of::<usize>());
         size &= !size_of::<usize>() - 1;
@@ -49,10 +54,11 @@ impl<const ORDER: usize> Heap<ORDER> {
         }
     }
 
-    pub unsafe fn init(&mut self, address: usize, size: usize) {
+    pub fn init(&mut self, address: usize, size: usize) {
         self.add_to_heap(address, size);
     }
 
+    // TODO: error handling
     pub fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, ()> {
         // アロケート単位は最低でもusize
         let size = max(
@@ -65,11 +71,8 @@ impl<const ORDER: usize> Heap<ORDER> {
                 // メモリブロックを上位から下位に向かって分割し、補充
                 for j in (class + 1..i + 1).rev() {
                     if let Some(block) = self.free_list[j].pop() {
-                        unsafe {
-                            self.free_list[j - 1]
-                                .push((block as usize + (1 << (j - 1))) as *mut usize);
-                            self.free_list[j - 1].push(block);
-                        }
+                        self.free_list[j - 1].push((block as usize + (1 << (j - 1))) as *mut usize);
+                        self.free_list[j - 1].push(block);
                     } else {
                         return Err(());
                     }
@@ -93,32 +96,30 @@ impl<const ORDER: usize> Heap<ORDER> {
         );
         let class = size.trailing_zeros() as usize;
 
-        unsafe {
-            self.free_list[class].push(ptr.as_ptr() as *mut usize);
+        self.free_list[class].push(ptr.as_ptr() as *mut usize);
 
-            let mut current_ptr = ptr.as_ptr() as usize;
-            let mut current_class = class;
+        let mut current_ptr = ptr.as_ptr() as usize;
+        let mut current_class = class;
 
-            while current_class < self.free_list.len() - 1 {
-                // アドレスの1ビットだけ反転させて、バディとなるブロックを探す
-                let buddy = current_ptr ^ (1 << current_class);
-                let mut flag = false;
-                for block in self.free_list[current_class].iter_mut() {
-                    if block.value() as usize == buddy {
-                        block.pop();
-                        flag = true;
-                        break;
-                    }
-                }
-
-                if flag {
-                    self.free_list[current_class].pop();
-                    current_ptr = min(current_ptr, buddy);
-                    current_class += 1;
-                    self.free_list[current_class].push(current_ptr as *mut usize);
-                } else {
+        while current_class < self.free_list.len() - 1 {
+            // アドレスの1ビットだけ反転させて、バディとなるブロックを探す
+            let buddy = current_ptr ^ (1 << current_class);
+            let mut flag = false;
+            for block in self.free_list[current_class].iter_mut() {
+                if block.value() as usize == buddy {
+                    block.pop();
+                    flag = true;
                     break;
                 }
+            }
+
+            if flag {
+                self.free_list[current_class].pop();
+                current_ptr = min(current_ptr, buddy);
+                current_class += 1;
+                self.free_list[current_class].push(current_ptr as *mut usize);
+            } else {
+                break;
             }
         }
     }

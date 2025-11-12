@@ -1,9 +1,2 @@
-[build]
-target = "riscv64gc-unknown-none-elf"
-rustflags = ["-C", "link-arg=-Thypervisor.ld"]
-
-[unstable]
-build-std = ["core", "alloc", "compiler_builtins"]
-
-[target.riscv64gc-unknown-none-elf]
-runner="./run.sh"
+[alias]
+xtask = "run --package xtask --"
