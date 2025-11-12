@@ -51,9 +51,29 @@ pub const HSTATUS_VSBE_OFFSET: usize = 5;
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
 // CSRs address
-pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
-pub const CSR_MIE_ADDRESS: usize = 0x304;
-pub const CSR_TIME_ADDRESS: usize = 0xc01;
+pub mod csr_address {
+    // Machine
+    pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
+    pub const CSR_MIE_ADDRESS: usize = 0x304;
+    pub const CSR_TIME_ADDRESS: usize = 0xc01;
+    // Hypervisor Trap Setup
+    pub const CSR_HSTATUS_ADDRESS: usize = 0x600;
+    pub const CSR_HEDELEG_ADDRESS: usize = 0x602;
+    pub const CSR_HIDELEG_ADDRESS: usize = 0x603;
+    pub const CSR_HIE_ADDRESS: usize = 0x604;
+    pub const CSR_HCOUNTEREN_ADDRESS: usize = 0x606;
+    pub const CSR_HGEIE_ADDRESS: usize = 0x607;
+    // Hypervisor Trap Handling
+    pub const CSR_HTVAL_ADDRESS: usize = 0x643;
+    pub const CSR_HIP_ADDRESS: usize = 0x644;
+    pub const CSR_HVIP_ADDRESS: usize = 0x645;
+    pub const CSR_HTINST_ADDRESS: usize = 0x64a;
+    pub const CSR_HGEIP_ADDRESS: usize = 0xe12;
+    // Hypervisor Configuration
+    pub const CSR_HENVCFG_ADDRESS: usize = 0x60a;
+    // Hypervisor Protection and Translation
+    pub const CSR_HGATP_ADDRESS: usize = 0x680;
+}
 
 // Registers
 pub const REGISTER_ZERO: usize = 0;

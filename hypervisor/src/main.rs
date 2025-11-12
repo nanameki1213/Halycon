@@ -12,6 +12,7 @@ mod paging;
 mod plic;
 mod sbi;
 mod vector;
+mod emulate_csr;
 mod virtio_blk;
 mod vm;
 mod mmio {

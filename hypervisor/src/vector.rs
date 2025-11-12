@@ -4,6 +4,7 @@ use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
+use crate::emulate_csr::emulate_csr;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
 
@@ -443,6 +444,7 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
             let mut instruction = instruction::Instruction::new(get_stval() as u32);
             if instruction.is_csrrs_instruction() {
                 let csr = instruction.get_funct12();
+                emulate_csr(csr, instruction, registers);
                 if csr == CSR_TIME_ADDRESS {
                     let register_number = instruction.get_rd();
                     registers[register_number] = get_time();

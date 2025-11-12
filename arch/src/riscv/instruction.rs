@@ -31,7 +31,7 @@ impl Instruction {
         ((self.0 & Self::OPCODE_MASK) >> Self::OPCODE_OFFSET) as usize
     }
 
-    pub fn get_rd(&mut self) -> usize {
+    pub fn get_rd(&self) -> usize {
         ((self.0 & Self::RD_MASK) >> Self::RD_OFFSET) as usize
     }
 

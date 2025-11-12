@@ -5,6 +5,7 @@ mod console;
 mod memory;
 mod paging;
 
+use arch::riscv::cpu::{get_hedeleg, set_hedeleg};
 use arch::riscv::sbi;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
@@ -95,6 +96,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         .lock()
         .init(free_ptr, memory.size - (free_ptr - memory.address));
     println!("[setup] allocator");
+
+    let mut hedeleg = get_hedeleg();
+    hedeleg |= (1 << 2) as u64; // Illegal instruction
+    set_hedeleg(hedeleg);
+    println!("[setup] hedeleg");
 
     halt_loop();
 }
