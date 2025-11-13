@@ -5,7 +5,7 @@ mod console;
 mod memory;
 mod paging;
 
-use arch::riscv::cpu::{get_hedeleg, set_hedeleg};
+use arch::riscv::cpu::*;
 use arch::riscv::sbi;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
@@ -13,6 +13,8 @@ use fdt::{DeviceTreeInfo, MemoryEntry};
 use log;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
+
+use crate::memory::allocate_pages;
 
 pub struct SbiConsoleLogger;
 
@@ -101,6 +103,51 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
     hedeleg |= (1 << 2) as u64; // Illegal instruction
     set_hedeleg(hedeleg);
     println!("[setup] hedeleg");
+
+    let mut hie = get_hie();
+    hie |= XIE_SEIE as u64;
+    set_hie(hie);
+    println!("[setup] hie");
+
+    let sstatus = get_sstatus();
+    println!("[info] sstatus: {:#x}", sstatus as usize);
+
+    const RAM_VIRTUAL_BASE: usize = 0x80000000;
+    const RAM_SIZE: usize = 0x10000000;
+
+    let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
+    let table_address = paging::map_address_stage2(
+        ram_physical_base_address as usize,
+        RAM_VIRTUAL_BASE,
+        RAM_SIZE,
+        paging::DEFAULT_TABLE_LEVEL,
+        true,
+        true,
+        true,
+    )
+    .expect("Failed to mapping");
+    println!("[info] table_address");
+    let mut hgatp = match paging::DEFAULT_TABLE_LEVEL {
+        3 => 0b1000 << 60,
+        4 => 0b1001 << 60,
+        5 => 0b1010 << 60,
+        _ => unreachable!(),
+    };
+    hgatp |= (table_address >> 12) & SATP_PPN_MASK;
+    set_hgatp(hgatp as u64);
+
+    println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
+    println!(
+        "[info] vm physical address: {:#X}",
+        ram_physical_base_address as usize
+    );
+
+    let virtual_entry_point = 0x80200000;
+    let bootloader_entry_point = paging::resolve_address_stage2(virtual_entry_point).unwrap();
+    println!(
+        "[info] vm entry point physical address: {:#X}",
+        bootloader_entry_point
+    );
 
     halt_loop();
 }
