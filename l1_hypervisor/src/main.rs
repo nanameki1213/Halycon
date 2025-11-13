@@ -10,29 +10,10 @@ use arch::riscv::sbi;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use fdt::{DeviceTreeInfo, MemoryEntry};
-use log;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 
 use crate::memory::allocate_pages;
-
-pub struct SbiConsoleLogger;
-
-impl log::Log for SbiConsoleLogger {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::Level::Debug
-    }
-
-    fn log(&self, record: &log::Record) {
-        if self.enabled(record.metadata()) {
-            println!("{} - {}", record.level(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: SbiConsoleLogger = SbiConsoleLogger;
 
 struct GlobalAllocator {}
 
@@ -63,9 +44,6 @@ const MAX_MMIO_ENTRIES: usize = 64;
 
 #[unsafe(no_mangle)]
 extern "C" fn main(argc: usize, argv: *const *const u8) {
-    log::set_logger(&LOGGER).unwrap();
-    log::set_max_level(log::LevelFilter::Debug);
-
     if argc < 1 {
         panic!("fdt pointer isn't configured");
     }
