@@ -73,6 +73,11 @@ pub mod csr_address {
     pub const CSR_HENVCFG_ADDRESS: usize = 0x60a;
     // Hypervisor Protection and Translation
     pub const CSR_HGATP_ADDRESS: usize = 0x680;
+
+    pub fn is_hypervisor_csr(csr_number: usize) -> bool {
+        csr_number & 0x600 == 0x600 ||
+        csr_number == CSR_HGEIP_ADDRESS
+    }
 }
 
 // Registers

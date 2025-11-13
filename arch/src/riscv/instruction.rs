@@ -18,7 +18,7 @@ impl Instruction {
     const COMPRESSION_OFFSET: u32 = 0;
     const COMPRESSION_MASK: u32 = ((1 << 2) - 1) << Self::COMPRESSION_OFFSET;
 
-    const OPCODE_CSR: usize = 0b1110011;
+    const OPCODE_SYSTEM: usize = 0b1110011;
     const FUNCT3_CSRRS: usize = 0b010;
     const FUNCT3_CSRRW: usize = 0b001;
     const COMPRESSED_INSTRUCTION: usize = 0b01;
@@ -27,7 +27,7 @@ impl Instruction {
         Self(instruction)
     }
 
-    pub fn get_opcode(&mut self) -> usize {
+    pub fn get_opcode(&self) -> usize {
         ((self.0 & Self::OPCODE_MASK) >> Self::OPCODE_OFFSET) as usize
     }
 
@@ -35,7 +35,7 @@ impl Instruction {
         ((self.0 & Self::RD_MASK) >> Self::RD_OFFSET) as usize
     }
 
-    pub fn get_funct3(&mut self) -> usize {
+    pub fn get_funct3(&self) -> usize {
         ((self.0 & Self::FUNCT3_MASK) >> Self::FUNCT3_OFFSET) as usize
     }
 
@@ -47,7 +47,7 @@ impl Instruction {
         ((self.0 & Self::RS2_MASK) >> Self::RS2_OFFSET) as usize
     }
 
-    pub fn get_funct12(&mut self) -> usize {
+    pub fn get_funct12(&self) -> usize {
         ((self.0 & Self::FUNCT12_MASK) >> Self::FUNCT12_OFFSET) as usize
     }
 
@@ -59,8 +59,12 @@ impl Instruction {
         self.0 != 0
     }
 
+    pub fn is_csrrw_instruction(&self) -> bool {
+        self.get_opcode() == Self::OPCODE_SYSTEM && self.get_funct3() == Self::FUNCT3_CSRRW
+    }
+
     pub fn is_csrrs_instruction(&mut self) -> bool {
-        self.get_opcode() == Self::OPCODE_CSR && self.get_funct3() == Self::FUNCT3_CSRRS
+        self.get_opcode() == Self::OPCODE_SYSTEM && self.get_funct3() == Self::FUNCT3_CSRRS
     }
 
     pub fn is_compression_instruction(&mut self) -> bool {

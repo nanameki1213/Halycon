@@ -4,7 +4,9 @@ use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
-use crate::emulate_csr::emulate_csr;
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::{emulate_csr, VIRTUAL_CSR};
+use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
 
@@ -442,16 +444,41 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
         }
         E_VIRTUAL_INSTRUCTION => {
             let mut instruction = instruction::Instruction::new(get_stval() as u32);
-            if instruction.is_csrrs_instruction() {
-                let csr = instruction.get_funct12();
-                emulate_csr(csr, instruction, registers);
-                if csr == CSR_TIME_ADDRESS {
-                    let register_number = instruction.get_rd();
-                    registers[register_number] = get_time();
-                } else {
-                    println!("This csr number isn't supported: {:#x}", csr);
-                    panic!();
+
+            if instruction.is_csrrw_instruction() {
+                let csr_address = instruction.get_funct12();
+                #[cfg(feature = "nested_support")]
+                if csr_address::is_hypervisor_csr(csr_address) {
+                    let rd = instruction.get_rd();
+                    let rs1 = instruction.get_rs1();
+                    let write_value = registers[rs1];
+                    emulate_csr(csr_address, rd, write_value, registers);
+                    
+                    return;
                 }
+
+                println!("CSRRW: {:#x}", csr_address);
+            } else if instruction.is_csrrs_instruction() {
+                let csr_address = instruction.get_funct12();
+                #[cfg(feature = "nested_support")]
+                if csr_address::is_hypervisor_csr(csr_address) {
+                    let rd = instruction.get_rd();
+                    let rs1 = instruction.get_rs1();
+                    let reg_value = registers[rs1];
+                    let csr_value = VIRTUAL_CSR.lock().get_csr(csr_address);
+                    let write_value = csr_value | reg_value;
+                    emulate_csr(csr_address, rd, write_value, registers);
+                    
+                    return;
+                }
+                if csr_address == CSR_TIME_ADDRESS { // Read Only
+                    let rd = instruction.get_rd();
+                    registers[rd] = get_time();
+
+                    return;
+                } 
+
+                println!("CSRRS: {:#x}", csr_address)
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
                 println!("[info] virtual address: {:#x}", get_sepc());
