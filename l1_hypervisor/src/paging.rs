@@ -205,6 +205,7 @@ pub fn map_address_stage2(
         return Err(());
     }
     let table_address = table_address_ptr as usize;
+    println!("table_address_ptr: {:#x}", table_address_ptr as usize);
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
