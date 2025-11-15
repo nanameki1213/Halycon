@@ -1,11 +1,11 @@
 use crate::PASS_THROUGH_VIRTIO_MMIO;
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::{VIRTUAL_CSR, emulate_csr};
 use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
 use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
-#[cfg(feature = "nested_support")]
-use crate::emulate_csr::{emulate_csr, VIRTUAL_CSR};
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
@@ -453,7 +453,7 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                     let rs1 = instruction.get_rs1();
                     let write_value = registers[rs1];
                     emulate_csr(csr_address, rd, write_value, registers);
-                    
+
                     return;
                 }
 
@@ -468,15 +468,16 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                     let csr_value = VIRTUAL_CSR.lock().get_csr(csr_address);
                     let write_value = csr_value | reg_value;
                     emulate_csr(csr_address, rd, write_value, registers);
-                    
+
                     return;
                 }
-                if csr_address == CSR_TIME_ADDRESS { // Read Only
+                if csr_address == CSR_TIME_ADDRESS {
+                    // Read Only
                     let rd = instruction.get_rd();
                     registers[rd] = get_time();
 
                     return;
-                } 
+                }
 
                 println!("CSRRS: {:#x}", csr_address)
             } else {

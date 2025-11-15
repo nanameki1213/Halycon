@@ -6,14 +6,14 @@ extern crate alloc;
 
 mod aplic;
 mod console;
+#[cfg(feature = "nested_support")]
+mod emulate_csr;
 mod loader;
 mod memory;
 mod paging;
 mod plic;
 mod sbi;
 mod vector;
-#[cfg(feature = "nested_support")]
-mod emulate_csr;
 mod virtio_blk;
 mod vm;
 mod mmio {

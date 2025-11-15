@@ -91,9 +91,13 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
     println!("[info] sstatus: {:#x}", sstatus as usize);
 
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
-    const RAM_SIZE: usize = 0x10000000;
+    const RAM_SIZE: usize = 0x8000000;
 
     let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
+    if ram_physical_base_address.is_null() {
+        println!("out of memory.");
+        panic!();
+    }
     let table_address = paging::map_address_stage2(
         ram_physical_base_address as usize,
         RAM_VIRTUAL_BASE,

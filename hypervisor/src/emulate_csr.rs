@@ -1,6 +1,6 @@
+use crate::println;
 use arch::riscv::cpu::{csr_address::*, get_time};
 use spin::Mutex;
-use crate::println;
 
 pub struct VirtualCsr {
     pub hstatus: u64,
@@ -45,48 +45,20 @@ impl VirtualCsr {
 
     pub fn get_csr(&mut self, csr_address: usize) -> u64 {
         match csr_address {
-            CSR_TIME_ADDRESS => {
-                get_time()
-            }
-            CSR_HSTATUS_ADDRESS => {
-                self.hstatus
-            },
-            CSR_HEDELEG_ADDRESS => {
-                self.hedeleg
-            },
-            CSR_HIDELEG_ADDRESS => {
-                self.hideleg
-            },
-            CSR_HIE_ADDRESS => {
-                self.hie
-            },
-            CSR_HCOUNTEREN_ADDRESS => {
-                self.hcounteren
-            },
-            CSR_HGEIE_ADDRESS => {
-                self.hgeie
-            },
-            CSR_HTVAL_ADDRESS => {
-                self.htval
-            },
-            CSR_HIP_ADDRESS => {
-                self.hip
-            }, 
-            CSR_HVIP_ADDRESS => {
-                self.hvip
-            },
-            CSR_HTINST_ADDRESS => {
-                self.htinst
-            },
-            CSR_HGEIP_ADDRESS => {
-                self.hgeip
-            },
-            CSR_HENVCFG_ADDRESS => {
-                self.henvcfg
-            },
-            CSR_HGATP_ADDRESS => {
-                self.hgatp
-            },
+            CSR_TIME_ADDRESS => get_time(),
+            CSR_HSTATUS_ADDRESS => self.hstatus,
+            CSR_HEDELEG_ADDRESS => self.hedeleg,
+            CSR_HIDELEG_ADDRESS => self.hideleg,
+            CSR_HIE_ADDRESS => self.hie,
+            CSR_HCOUNTEREN_ADDRESS => self.hcounteren,
+            CSR_HGEIE_ADDRESS => self.hgeie,
+            CSR_HTVAL_ADDRESS => self.htval,
+            CSR_HIP_ADDRESS => self.hip,
+            CSR_HVIP_ADDRESS => self.hvip,
+            CSR_HTINST_ADDRESS => self.htinst,
+            CSR_HGEIP_ADDRESS => self.hgeip,
+            CSR_HENVCFG_ADDRESS => self.henvcfg,
+            CSR_HGATP_ADDRESS => self.hgatp,
             _ => {
                 println!("This csr number isn't supported: {:#x}", csr_address);
                 panic!();
@@ -101,50 +73,49 @@ impl VirtualCsr {
             }
             CSR_HSTATUS_ADDRESS => {
                 self.hstatus = value;
-            },
+            }
             CSR_HEDELEG_ADDRESS => {
                 self.hedeleg = value;
-            },
+            }
             CSR_HIDELEG_ADDRESS => {
                 self.hideleg = value;
-            },
+            }
             CSR_HIE_ADDRESS => {
                 self.hie = value;
-            },
+            }
             CSR_HCOUNTEREN_ADDRESS => {
                 self.hcounteren = value;
-            },
+            }
             CSR_HGEIE_ADDRESS => {
                 self.hgeie = value;
-            },
+            }
             CSR_HTVAL_ADDRESS => {
                 self.htval = value;
-            },
+            }
             CSR_HIP_ADDRESS => {
                 self.hip = value;
-            }, 
+            }
             CSR_HVIP_ADDRESS => {
                 self.hvip = value;
-            },
+            }
             CSR_HTINST_ADDRESS => {
                 self.htinst = value;
-            },
+            }
             CSR_HGEIP_ADDRESS => {
                 self.hgeip = value;
-            },
+            }
             CSR_HENVCFG_ADDRESS => {
                 self.henvcfg = value;
-            },
+            }
             CSR_HGATP_ADDRESS => {
                 self.hgatp = value;
-            },
+            }
             _ => {
                 println!("This csr number isn't supported: {:#x}", csr_address);
                 panic!();
             }
         }
     }
-
 }
 
 pub static VIRTUAL_CSR: Mutex<VirtualCsr> = Mutex::new(VirtualCsr::new());
