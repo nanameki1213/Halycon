@@ -1,5 +1,7 @@
 use crate::println;
-use arch::riscv::cpu::{csr_address::*, get_time};
+use crate::paging::resolve_address_stage2_from_hgatp;
+use arch::riscv::cpu::csr_address::*;
+use arch::riscv::cpu::*;
 use spin::Mutex;
 
 pub struct VirtualCsr {
@@ -109,6 +111,18 @@ impl VirtualCsr {
             }
             CSR_HGATP_ADDRESS => {
                 self.hgatp = value;
+
+                let original_mstatus = get_mstatus();
+                let mut mstatus = original_mstatus;
+                mstatus |= MSTATUS_MPRV as u64;
+                mstatus |= MSTATUS_MPV as u64;
+                mstatus |= MSTATUS_MPP_0 as u64;
+                mstatus &= !(MSTATUS_MPP_1 as u64);
+                set_mstatus(mstatus);
+                let address = resolve_address_stage2_from_hgatp(value, 0x80000000).expect("l1 page table error");
+                println!("Guest Physical Address: {:#x}", address);
+                set_mstatus(original_mstatus);
+                panic!();
             }
             _ => {
                 println!("This csr number isn't supported: {:#x}", csr_address);
