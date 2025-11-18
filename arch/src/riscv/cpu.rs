@@ -13,6 +13,8 @@ pub const MSTATUS_MPP_1: usize = 1 << 12;
 pub const MSTATUS_MPRV: usize = 1 << 17;
 pub const MSTATUS_MPV: usize = 1 << 39;
 
+pub const HSTATUS_SPVP: usize = 1 << 8;
+
 pub const MIE_MEIE: usize = 1 << 11; // 外部割込み許可
 pub const MIE_VSEIE: usize = 1 << 10;
 pub const MIE_MTIE: usize = 1 << 7; // タイマ割込み許可

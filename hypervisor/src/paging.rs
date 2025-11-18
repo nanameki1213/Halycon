@@ -5,6 +5,7 @@ use crate::println;
 #[cfg(feature="nested_support")]
 use crate::emulate_csr::VIRTUAL_CSR;
 use arch::riscv::cpu::*;
+use arch::riscv::instruction::*;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
@@ -126,6 +127,7 @@ pub fn resolve_address_stage2(virtual_address: usize) -> Result<usize, ()> {
     Ok(physical_address)
 }
 
+#[cfg(feature = "nested_support")]
 fn _resolve_guest_virtual_address_stage2(
     virtual_address: usize,
     table_address: usize,
@@ -136,12 +138,9 @@ fn _resolve_guest_virtual_address_stage2(
     let table_index = (virtual_address >> shift_level) & (num_of_entries - 1);
     
     let pte_address = table_address + table_index * core::mem::size_of::<TableEntry>();
-    let mut pte: TableEntry;
-    asm!(
-        "hlv.d {0}, {1}",
-        out(reg) pte,
-        in(reg) pte_address
-    );
+    let value = read_vm_memory(false, pte_address, 64);
+    let mut pte = TableEntry::new();
+    pte.0 = value;
     if !pte.is_valid_pte() {
         return Err(());
     }
@@ -160,10 +159,14 @@ fn _resolve_guest_virtual_address_stage2(
     )
 }
 
+#[cfg(feature = "nested_support")]
 pub fn resolve_guest_virtual_address_stage2(virtual_address: usize) -> Result<usize, ()> {
+    println!("virtual_address: {:#x}", virtual_address);
     let hgatp = VIRTUAL_CSR.lock().hgatp;
+    println!("virtual hgatp: {:#x}", hgatp);
     let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
+
 
     let table_level: i8 = match mode {
         0 => {

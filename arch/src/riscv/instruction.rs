@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+use crate::riscv::cpu::{HSTATUS_SPVP, get_hstatus, set_hstatus};
+use core::arch::asm;
+
 pub struct Instruction(u32);
 
 impl Instruction {
@@ -70,5 +73,66 @@ impl Instruction {
     pub fn is_compression_instruction(&mut self) -> bool {
         let compression = self.get_compression();
         compression == Self::COMPRESSED_INSTRUCTION
+    }
+}
+
+// Hypervisor Instruction
+fn hstatus_effective_privileged(is_vu: bool) {
+    let mut hstatus = get_hstatus();
+    if is_vu {
+        hstatus &= !HSTATUS_SPVP as u64;
+    } else {
+        hstatus |= HSTATUS_SPVP as u64;
+    }
+    set_hstatus(hstatus);
+}
+
+pub fn read_vm_memory(is_vu: bool, address: usize, width: usize) -> u64 {
+    hstatus_effective_privileged(is_vu);
+    match width {
+        64 => unsafe {
+            let output: u64;
+            asm!("
+                .option arch, +h
+                hlv.d {0}, 0({1})",
+                out(reg) output,
+                in(reg) address
+            );
+            output
+        },
+        32 => unsafe {
+            let output: u32;
+            asm!("
+                .option arch, +h
+                hlv.w {0}, 0({1})",
+                out(reg) output,
+                in(reg) address
+            );
+            output as u64
+        },
+        _ => 0,
+    }
+}
+
+pub fn write_vm_memory(is_vu: bool, address: usize, value: u64, width: usize) {
+    hstatus_effective_privileged(is_vu);
+    match width {
+        64 => unsafe {
+            asm!("
+                .option arch, +h
+                hsv.d {0}, 0({1})",
+                in(reg) value,
+                in(reg) address
+            );
+        },
+        32 => unsafe {
+            asm!("
+                .option arch, +h
+                hsv.w {0}, 0({1})",
+                in(reg) value as u32,
+                in(reg) address
+            );
+        },
+        _ => {}
     }
 }

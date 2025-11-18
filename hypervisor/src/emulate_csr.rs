@@ -1,5 +1,5 @@
 use crate::println;
-use crate::paging::resolve_address_stage2_from_hgatp;
+use crate::paging::resolve_guest_virtual_address_stage2;
 use arch::riscv::cpu::csr_address::*;
 use arch::riscv::cpu::*;
 use spin::Mutex;
@@ -112,16 +112,11 @@ impl VirtualCsr {
             CSR_HGATP_ADDRESS => {
                 self.hgatp = value;
 
-                let original_mstatus = get_mstatus();
-                let mut mstatus = original_mstatus;
-                mstatus |= MSTATUS_MPRV as u64;
-                mstatus |= MSTATUS_MPV as u64;
-                mstatus |= MSTATUS_MPP_0 as u64;
-                mstatus &= !(MSTATUS_MPP_1 as u64);
-                set_mstatus(mstatus);
-                let address = resolve_address_stage2_from_hgatp(value, 0x80000000).expect("l1 page table error");
-                println!("Guest Physical Address: {:#x}", address);
-                set_mstatus(original_mstatus);
+                let sample_gva = 0x80000000;
+                println!("sample_gva: {:#x}", sample_gva);
+                let sample_gpa = resolve_guest_virtual_address_stage2(sample_gva).unwrap();
+                println!("{:#x} => {:#x}", sample_gva, sample_gpa);
+
                 panic!();
             }
             _ => {
