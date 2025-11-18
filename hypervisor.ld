@@ -28,7 +28,7 @@ SECTIONS
 
   .intr_stack (NOLOAD) : {
     _intr_stack_start = .;
-    . = . + 0x2000;
+    . = . + 0x4000;
     _intr_stack_end = .;
   }
 
