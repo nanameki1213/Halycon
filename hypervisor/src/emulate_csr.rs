@@ -111,13 +111,6 @@ impl VirtualCsr {
             }
             CSR_HGATP_ADDRESS => {
                 self.hgatp = value;
-
-                let sample_gva = 0x80000000;
-                println!("sample_gva: {:#x}", sample_gva);
-                let sample_gpa = resolve_guest_virtual_address_stage2(sample_gva).unwrap();
-                println!("{:#x} => {:#x}", sample_gva, sample_gpa);
-
-                panic!();
             }
             _ => {
                 println!("This csr number isn't supported: {:#x}", csr_address);
@@ -132,4 +125,10 @@ pub static VIRTUAL_CSR: Mutex<VirtualCsr> = Mutex::new(VirtualCsr::new());
 pub fn emulate_csr(csr_address: usize, rd: usize, write_value: u64, registers: &mut [u64]) {
     registers[rd] = VIRTUAL_CSR.lock().get_csr(csr_address);
     VIRTUAL_CSR.lock().set_csr(csr_address, write_value);
+
+    if csr_address == CSR_HGATP_ADDRESS {
+        let sample_gva = 0x80000000;
+        let sample_gpa = resolve_guest_virtual_address_stage2(sample_gva).unwrap();
+        println!("{:#x} => {:#x}", sample_gva, sample_gpa);
+    }
 }

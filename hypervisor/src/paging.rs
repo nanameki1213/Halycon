@@ -161,12 +161,9 @@ fn _resolve_guest_virtual_address_stage2(
 
 #[cfg(feature = "nested_support")]
 pub fn resolve_guest_virtual_address_stage2(virtual_address: usize) -> Result<usize, ()> {
-    println!("virtual_address: {:#x}", virtual_address);
     let hgatp = VIRTUAL_CSR.lock().hgatp;
-    println!("virtual hgatp: {:#x}", hgatp);
     let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
-
 
     let table_level: i8 = match mode {
         0 => {
