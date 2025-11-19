@@ -178,11 +178,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     setup_vector();
     println!("[setup] mtvec");
     println!("[setup] stvec");
-
-    // let mut mstatus = get_mstatus();
-    // mstatus |= (1 << MSTATUS_TVM_OFFSET) as u64;
-    // set_mstatus(mstatus);
-
+    
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
@@ -227,6 +223,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     mstatus |= MSTATUS_MIE as u64;
     set_mstatus(mstatus);
 
+    let mut hstatus = get_hstatus();
+    hstatus |= HSTATUS_VSTR as u64;
+    set_hstatus(hstatus);
+
     // 仮想マシンの領域のPMPを設定する;
     // let top_address = 0xF0000000 as usize;
     // let bottom_address = 0x80000000 as usize;
@@ -269,16 +269,20 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 }
 
 fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) -> ! {
+
+    let mut hstatus = get_hstatus();
+    hstatus |= HSTATUS_SPV as u64;
+    set_hstatus(hstatus);
+    let mut sstatus = get_sstatus();
+    sstatus |= SSTATUS_SPP as u64;
+    set_sstatus(sstatus);
+
     unsafe {
         asm!("
-            csrs sstatus, {tmp1}
-            csrs hstatus, {tmp2}
             csrw sepc, {entry_point}
             mv sp, {stack_pointer}
             mv a1, {dtb_pointer}
             sret", 
-        tmp1 = in(reg) 0x100, // set sstatus.SPP
-        tmp2 = in(reg) 0x80, // set hstatus.SPV
         stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         dtb_pointer = in(reg) dtb_pointer,

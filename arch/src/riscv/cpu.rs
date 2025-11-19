@@ -11,9 +11,15 @@ pub const MSTATUS_MIE: usize = 1 << 3;
 pub const MSTATUS_MPP_0: usize = 1 << 11;
 pub const MSTATUS_MPP_1: usize = 1 << 12;
 pub const MSTATUS_MPRV: usize = 1 << 17;
+pub const MSTATUS_TSR: usize = 1 << 22;
 pub const MSTATUS_MPV: usize = 1 << 39;
 
+pub const SSTATUS_SPP: usize = 1 << 8;
+
+pub const HSTATUS_VSBE: usize = 1 << 5;
+pub const HSTATUS_SPV: usize = 1 << 7;
 pub const HSTATUS_SPVP: usize = 1 << 8;
+pub const HSTATUS_VSTR: usize = 1 << 22;
 
 pub const MIE_MEIE: usize = 1 << 11; // 外部割込み許可
 pub const MIE_VSEIE: usize = 1 << 10;
@@ -43,16 +49,12 @@ pub const SATP_PPN_MASK: usize = (1 << 44) - 1;
 pub const SATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
 pub const SATP_ASID_MASK: usize = ((1 << 14) - 1) << 44;
 
-pub const MSTATUS_TVM_OFFSET: usize = 20;
-
 pub const PMP_1_CFG_OFFSET: usize = 8;
 pub const PMP_A_FIELD_OFFSET: usize = 3;
 
 pub const PMP_A_FIELD_TOR: usize = 1;
 pub const PMP_A_FIELD_NA4: usize = 2;
 pub const PMP_A_FIELD_NAPOT: usize = 3;
-
-pub const HSTATUS_VSBE_OFFSET: usize = 5;
 
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
