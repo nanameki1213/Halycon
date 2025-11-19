@@ -134,7 +134,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
     let physical_entry_point = virtual_machine_main as usize;
     println!(
         "[info] vm entry point physical address: {:#X}",
-       physical_entry_point 
+        physical_entry_point
     );
 
     match paging::add_mapping_stage2(
@@ -147,19 +147,14 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         true,
         true,
     ) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             panic!();
         }
     }
 
-    
     println!("switch to guest");
-    hs_to_vs(
-        virtual_entry_point,
-        stack_memory as usize,
-        0x0,
-    )
+    hs_to_vs(virtual_entry_point, stack_memory as usize, 0x0)
 }
 
 pub fn halt_loop() -> ! {

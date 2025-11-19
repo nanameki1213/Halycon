@@ -55,7 +55,7 @@ impl Instruction {
     pub fn get_rs2(&self) -> usize {
         ((self.0 & Self::RS2_MASK) >> Self::RS2_OFFSET) as usize
     }
-    
+
     pub fn get_funct7(&self) -> usize {
         ((self.0 & Self::FUNCT7_MASK) >> Self::FUNCT7_OFFSET) as usize
     }
@@ -81,7 +81,9 @@ impl Instruction {
     }
 
     pub fn is_sret(&self) -> bool {
-        self.get_opcode() == Self::OPCODE_SYSTEM && self.get_rs2() == Self::RS2_TRAP_RETURN && self.get_funct7() == Self::FUNCT7_SRET
+        self.get_opcode() == Self::OPCODE_SYSTEM
+            && self.get_rs2() == Self::RS2_TRAP_RETURN
+            && self.get_funct7() == Self::FUNCT7_SRET
     }
 
     pub fn is_compression_instruction(&mut self) -> bool {

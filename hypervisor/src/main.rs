@@ -178,7 +178,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     setup_vector();
     println!("[setup] mtvec");
     println!("[setup] stvec");
-    
+
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
@@ -269,7 +269,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 }
 
 fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) -> ! {
-
     let mut hstatus = get_hstatus();
     hstatus |= HSTATUS_SPV as u64;
     set_hstatus(hstatus);

@@ -328,7 +328,7 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
 }
 
 fn data_abort_handler(scause: usize, registers: &mut [u64]) {
-    let mut instruction = instruction::Instruction::new(get_htinst() as u32);
+    let instruction = instruction::Instruction::new(get_htinst() as u32);
     match scause {
         E_STORE_AMO_GUEST_PAGE_FAULT => {
             // write access
@@ -359,7 +359,7 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
             panic!();
         }
         E_VIRTUAL_INSTRUCTION => {
-            let mut instruction = instruction::Instruction::new(get_stval() as u32);
+            let instruction = instruction::Instruction::new(get_stval() as u32);
 
             if instruction.is_csrrw_instruction() {
                 let csr_address = instruction.get_funct12();
