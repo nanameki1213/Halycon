@@ -1,5 +1,5 @@
+use crate::paging::shadow_map_address_stage2;
 use crate::println;
-use crate::paging::resolve_guest_virtual_address_stage2;
 use arch::riscv::cpu::csr_address::*;
 use arch::riscv::cpu::*;
 use spin::Mutex;
@@ -127,8 +127,6 @@ pub fn emulate_csr(csr_address: usize, rd: usize, write_value: u64, registers: &
     VIRTUAL_CSR.lock().set_csr(csr_address, write_value);
 
     if csr_address == CSR_HGATP_ADDRESS {
-        let sample_gva = 0x80000000;
-        let sample_gpa = resolve_guest_virtual_address_stage2(sample_gva).unwrap();
-        println!("{:#x} => {:#x}", sample_gva, sample_gpa);
+        let _ = shadow_map_address_stage2(true, true, true);
     }
 }

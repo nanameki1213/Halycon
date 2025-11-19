@@ -1,11 +1,12 @@
 use core::borrow::BorrowMut;
 
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::VIRTUAL_CSR;
 use crate::memory::allocate_pages;
 use crate::println;
-#[cfg(feature="nested_support")]
-use crate::emulate_csr::VIRTUAL_CSR;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::*;
+use core::sync::atomic::{AtomicPtr, Ordering};
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
@@ -127,67 +128,6 @@ pub fn resolve_address_stage2(virtual_address: usize) -> Result<usize, ()> {
     Ok(physical_address)
 }
 
-#[cfg(feature = "nested_support")]
-fn _resolve_guest_virtual_address_stage2(
-    virtual_address: usize,
-    table_address: usize,
-    table_level: i8,
-    num_of_entries: usize,
-) -> Result<usize, ()> {
-    let shift_level = 12 + 9 * table_level as usize;
-    let table_index = (virtual_address >> shift_level) & (num_of_entries - 1);
-    
-    let pte_address = table_address + table_index * core::mem::size_of::<TableEntry>();
-    let value = read_vm_memory(false, pte_address, 64);
-    let mut pte = TableEntry::new();
-    pte.0 = value;
-    if !pte.is_valid_pte() {
-        return Err(());
-    }
-
-    if table_level == 0 {
-        let offset = virtual_address & ((1 << PAGE_SHIFT) - 1);
-        return Ok(pte.get_next_table_address() + offset);
-    }
-
-    let next_table_address = pte.get_next_table_address();
-    _resolve_guest_virtual_address_stage2(
-        virtual_address,
-        next_table_address,
-        table_level - 1,
-        (1 << VPN_SIZE) as usize,
-    )
-}
-
-#[cfg(feature = "nested_support")]
-pub fn resolve_guest_virtual_address_stage2(virtual_address: usize) -> Result<usize, ()> {
-    let hgatp = VIRTUAL_CSR.lock().hgatp;
-    let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
-    let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
-
-    let table_level: i8 = match mode {
-        0 => {
-            println!("Bare mode");
-            return Err(());
-        }
-        8 => 3,
-        9 => 4,
-        10 => 5,
-        _ => unreachable!(),
-    };
-
-    let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
-
-    let physical_address = _resolve_guest_virtual_address_stage2(
-        virtual_address,
-        table_address,
-        table_level - 1,
-        top_level_stage_2_num_of_entries,
-    )?;
-    Ok(physical_address)
-
-}
-
 fn _map_address_stage2(
     physical_address: &mut usize,
     virtual_address: &mut usize,
@@ -305,82 +245,131 @@ pub fn map_address_stage2(
     Ok(table_address as usize)
 }
 
+pub fn add_mapping_stage2(
+    mut physical_address: usize,
+    mut virtual_address: usize,
+    mut map_size: usize,
+    table_address: usize,
+    table_level: i8,
+    is_readable: bool,
+    is_writable: bool,
+    is_executable: bool,
+) -> Result<(), ()> {
+    let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
+
+    let mut permission: u64 = if is_readable {
+        (1 << TableEntry::R_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_writable {
+        (1 << TableEntry::W_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_executable {
+        (1 << TableEntry::X_OFFSET) as u64
+    } else {
+        0
+    };
+
+    _map_address_stage2(
+        &mut physical_address,
+        &mut virtual_address,
+        &mut map_size,
+        table_address,
+        permission,
+        table_level - 1,
+        top_level_stage_2_num_of_entries,
+    )?;
+
+    Ok(())
+}
+
+pub static SHADOW_ROOT_PAGE_TABLE: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
+
 #[cfg(feature = "nested_support")]
 fn _shadow_map_address_stage2(
-    l1_table_address: usize,
+    virtual_address: &mut usize,
     table_address: usize,
     permission: u64,
     table_level: i8,
     num_of_entries: usize,
 ) -> Result<(), ()> {
-    let l1_table = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(l1_table_address as *mut TableEntry, num_of_entries)
-    };
-    let table = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(table_address as *mut TableEntry, num_of_entries)
-    };
+    if table_level == -1 {
+        let guest_physical_address = table_address;
+        let physical_address = resolve_address_stage2(guest_physical_address).unwrap();
 
-    if table_level == 0 {
-        for (i, e) in table[0..num_of_entries].iter_mut().enumerate() {
-            let l1_entry = &l1_table[i];
-            let guest_physical_address = l1_entry.get_next_table_address();
-            let physical_address = resolve_address_stage2(guest_physical_address).unwrap();
-            e.init();
-            e.set_output_address(physical_address);
-            e.set_permission(
-                permission | (1 << TableEntry::V_OFFSET) | (1 << TableEntry::U_OFFSET),
-            );
-        }
+        let shadow_table_address = SHADOW_ROOT_PAGE_TABLE.load(Ordering::Acquire);
+        add_mapping_stage2(
+            physical_address,
+            *virtual_address,
+            PAGE_SIZE,
+            shadow_table_address as usize,
+            DEFAULT_TABLE_LEVEL,
+            true,
+            true,
+            true,
+        )
+        .unwrap();
+
         return Ok(());
     }
 
-    for (i, e) in table[0..num_of_entries].iter_mut().enumerate() {
-        let l1_entry = &l1_table[i];
-        let permission = l1_entry.get_permission();
-        if !l1_entry.is_valid_pte() {
-            continue; 
+    let shift_level = 12 + 9 * table_level as usize;
+    for i in 0..num_of_entries {
+        let pte_address = table_address + i * core::mem::size_of::<TableEntry>();
+        if table_level == 0 {}
+        let value = read_vm_memory(false, pte_address, 64);
+        let mut pte = TableEntry::new();
+        pte.0 = value;
+        if !pte.is_valid_pte() {
+            if table_level != 0 {}
+            continue;
         }
-        e.init();
-        let mut next_l1_table_address = e.get_next_table_address();
-        if !e.is_valid_pte() {
-            let new_l1_table_address = allocate_pages(1, PAGE_SIZE);
-            if new_l1_table_address.is_null() {
-                println!("Failed to allocate pages for stage2 page table.");
-                return Err(());
-            }
-            next_l1_table_address = new_l1_table_address as usize;
-            e.set_output_address(next_l1_table_address);
-            e.set_non_leaf_permission();
-        }
-
-        let _ = _shadow_map_address_stage2(
-            next_l1_table_address,
-            next_l1_table_address,
+        *virtual_address &= !(((1 << VPN_SIZE) - 1) << shift_level);
+        *virtual_address |= (i & ((1 << VPN_SIZE) - 1)) << shift_level;
+        let next_table_address = pte.get_next_table_address();
+        _shadow_map_address_stage2(
+            virtual_address,
+            next_table_address,
             permission,
             table_level - 1,
             (1 << VPN_SIZE) as usize,
-        );
+        )?;
     }
     Ok(())
 }
 
 #[cfg(feature = "nested_support")]
 pub fn shadow_map_address_stage2(
-    table_level: i8,
     is_readable: bool,
     is_writable: bool,
     is_executable: bool,
-) -> Result<usize, ()> {
-    let vhgatp = VIRTUAL_CSR.lock().hgatp;
-    let l1_table_guest_physical_address = ((vhgatp & SATP_PPN_MASK as u64) << 12) as usize;
-    let l1_table_address = resolve_address_stage2(l1_table_guest_physical_address).unwrap();
-
-    let table_address_ptr = allocate_pages(4, 1 << 14);
-    if table_address_ptr.is_null() {
-        println!("Failed to allocate pages for stage 2 page table.");
+) -> Result<(), ()> {
+    let shadow_table_address = allocate_pages(4, 1 << 14);
+    if shadow_table_address.is_null() {
+        println!("Failed to allocate pages for stage 2 shadow page table.");
         return Err(());
     }
-    let table_address = table_address_ptr as usize;
+    SHADOW_ROOT_PAGE_TABLE.store(shadow_table_address, Ordering::Release);
+
+    let vhgatp = VIRTUAL_CSR.lock().hgatp;
+    let l1_table_address = ((vhgatp & SATP_PPN_MASK as u64) << 12) as usize;
+    let mode = ((vhgatp & SATP_MODE_MASK as u64) >> 60) as usize;
+
+    let table_level: i8 = match mode {
+        0 => {
+            println!("Bare mode");
+            return Err(());
+        }
+        8 => 3,
+        9 => 4,
+        10 => 5,
+        _ => unreachable!(),
+    };
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
@@ -402,13 +391,15 @@ pub fn shadow_map_address_stage2(
         0
     };
 
+    let mut virtual_address: usize = 0;
+
     let _ = _shadow_map_address_stage2(
+        &mut virtual_address,
         l1_table_address,
-        table_address,
         permission,
         table_level - 1,
         top_level_stage_2_num_of_entries,
     );
 
-    Ok(table_address as usize)
+    Ok(())
 }

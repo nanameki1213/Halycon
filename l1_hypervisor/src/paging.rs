@@ -2,7 +2,7 @@
 
 use core::borrow::BorrowMut;
 
-use crate::memory::allocate_pages;
+use crate::memory::callocate_pages;
 use crate::println;
 use arch::riscv::cpu::*;
 
@@ -159,7 +159,7 @@ fn _map_address_stage2(
         e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            let new_table_address = allocate_pages(1, PAGE_SIZE);
+            let new_table_address = callocate_pages(1, PAGE_SIZE);
             if new_table_address.is_null() {
                 println!("Failed to allocate pages for stage2 page table.");
                 return Err(());
@@ -199,7 +199,7 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let table_address_ptr = allocate_pages(4, 1 << 14);
+    let table_address_ptr = callocate_pages(4, 1 << 14);
     if table_address_ptr.is_null() {
         println!("Failed to allocate pages for stage 2 page table.");
         return Err(());

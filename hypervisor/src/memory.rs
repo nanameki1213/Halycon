@@ -17,6 +17,17 @@ pub fn allocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
 }
 
 #[allow(dead_code)]
+pub fn callocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
+    let layout =
+        unsafe { Layout::from_size_align_unchecked(num_of_pages * paging::PAGE_SIZE, align) };
+
+    match MEMORY_ALLOCATOR.lock().callocate(layout) {
+        Ok(ptr) => ptr.as_ptr(),
+        Err(_) => core::ptr::null_mut(),
+    }
+}
+
+#[allow(dead_code)]
 pub fn set_pmp(
     top_address: usize,
     bottom_address: usize,

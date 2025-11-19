@@ -88,6 +88,13 @@ unsafe impl GlobalAlloc for GlobalAllocator {
         }
     }
 
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        match MEMORY_ALLOCATOR.lock().callocate(layout) {
+            Ok(ptr) => ptr.as_ptr(),
+            Err(_) => core::ptr::null_mut(),
+        }
+    }
+
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         unsafe {
             MEMORY_ALLOCATOR

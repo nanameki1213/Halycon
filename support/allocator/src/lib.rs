@@ -89,6 +89,18 @@ impl<const ORDER: usize> Heap<ORDER> {
         Err(())
     }
 
+    pub fn callocate(&mut self, layout: Layout) -> Result<NonNull<u8>, ()> {
+        let size = max(
+            layout.size().next_power_of_two(),
+            max(layout.align(), size_of::<usize>()),
+        );
+        let memory = self.allocate(layout)?;
+        unsafe {
+            core::ptr::write_bytes(memory.as_ptr(), 0, size);
+        }
+        Ok(memory)
+    }
+
     pub fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) {
         let size = max(
             layout.size().next_power_of_two(),
