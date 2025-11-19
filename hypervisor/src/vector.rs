@@ -1,6 +1,9 @@
 use crate::PASS_THROUGH_VIRTIO_MMIO;
 #[cfg(feature = "nested_support")]
-use crate::emulate_csr::{VIRTUAL_CSR, emulate_csr};
+use {
+    crate::emulate_csr::{HypervisorCsr, VIRTUAL_CSR, emulate_csr},
+    crate::HOST_HYPERVISOR_CSR,
+};
 use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
 use crate::paging;
 use crate::plic;
@@ -400,7 +403,13 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
 
                 println!("CSRRS: {:#x}", csr_address)
             } else if instruction.is_sret() {
-                println!("sret");
+                let mut hypervisor_csr = HypervisorCsr::new();
+                hypervisor_csr.hstatus = get_hstatus();
+                hypervisor_csr.hgatp = get_hgatp();
+                let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
+                *locked_csr = hypervisor_csr;
+
+                println!("{:?}", *locked_csr);
                 panic!();
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());

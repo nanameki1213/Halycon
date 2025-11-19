@@ -27,6 +27,8 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::HypervisorCsr;
 use fdt::DeviceTreeInfo;
 use log;
 use memory::set_pmp_all_physical_address;
@@ -76,6 +78,8 @@ static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
 static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>> =
     Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
+#[cfg(feature = "nested_support")]
+static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};

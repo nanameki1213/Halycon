@@ -4,6 +4,7 @@ use arch::riscv::cpu::csr_address::*;
 use arch::riscv::cpu::*;
 use spin::Mutex;
 
+#[derive(Debug)]
 pub struct HypervisorCsr {
     pub hstatus: u64,
     pub hedeleg: u64,
