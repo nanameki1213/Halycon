@@ -16,6 +16,8 @@ impl Instruction {
     const RS1_MASK: u32 = ((1 << 5) - 1) << Self::RS1_OFFSET;
     const RS2_OFFSET: u32 = 20;
     const RS2_MASK: u32 = ((1 << 5) - 1) << Self::RS2_OFFSET;
+    const FUNCT7_OFFSET: u32 = 25;
+    const FUNCT7_MASK: u32 = ((1 << 7) - 1) << Self::FUNCT7_OFFSET;
     const FUNCT12_OFFSET: u32 = 20;
     const FUNCT12_MASK: u32 = ((1 << 12) - 1) << Self::FUNCT12_OFFSET;
     const COMPRESSION_OFFSET: u32 = 0;
@@ -24,6 +26,10 @@ impl Instruction {
     const OPCODE_SYSTEM: usize = 0b1110011;
     const FUNCT3_CSRRS: usize = 0b010;
     const FUNCT3_CSRRW: usize = 0b001;
+    const FUNCT7_SRET: usize = 0b0001000;
+    const FUNCT7_MRET: usize = 0b0011000;
+    const FUNCT7_MNRET: usize = 0b0111000;
+    const RS2_TRAP_RETURN: usize = 0b00010;
     const COMPRESSED_INSTRUCTION: usize = 0b01;
 
     pub const fn new(instruction: u32) -> Self {
@@ -42,12 +48,16 @@ impl Instruction {
         ((self.0 & Self::FUNCT3_MASK) >> Self::FUNCT3_OFFSET) as usize
     }
 
-    pub fn get_rs1(&mut self) -> usize {
+    pub fn get_rs1(&self) -> usize {
         ((self.0 & Self::RS1_MASK) >> Self::RS1_OFFSET) as usize
     }
 
-    pub fn get_rs2(&mut self) -> usize {
+    pub fn get_rs2(&self) -> usize {
         ((self.0 & Self::RS2_MASK) >> Self::RS2_OFFSET) as usize
+    }
+    
+    pub fn get_funct7(&self) -> usize {
+        ((self.0 & Self::FUNCT7_MASK) >> Self::FUNCT7_OFFSET) as usize
     }
 
     pub fn get_funct12(&self) -> usize {
@@ -66,8 +76,12 @@ impl Instruction {
         self.get_opcode() == Self::OPCODE_SYSTEM && self.get_funct3() == Self::FUNCT3_CSRRW
     }
 
-    pub fn is_csrrs_instruction(&mut self) -> bool {
+    pub fn is_csrrs_instruction(&self) -> bool {
         self.get_opcode() == Self::OPCODE_SYSTEM && self.get_funct3() == Self::FUNCT3_CSRRS
+    }
+
+    pub fn is_sret(&self) -> bool {
+        self.get_opcode() == Self::OPCODE_SYSTEM && self.get_rs2() == Self::RS2_TRAP_RETURN && self.get_funct7() == Self::FUNCT7_SRET
     }
 
     pub fn is_compression_instruction(&mut self) -> bool {

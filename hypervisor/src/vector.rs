@@ -370,10 +370,13 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                     let write_value = registers[rs1];
                     emulate_csr(csr_address, rd, write_value, registers);
 
+                    println!("CSR: {:#x}", csr_address);
+
                     return;
                 }
 
                 println!("CSRRW: {:#x}", csr_address);
+                panic!();
             } else if instruction.is_csrrs_instruction() {
                 let csr_address = instruction.get_funct12();
                 #[cfg(feature = "nested_support")]
@@ -396,6 +399,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                 }
 
                 println!("CSRRS: {:#x}", csr_address)
+            } else if instruction.is_sret() {
+                println!("sret");
+                panic!();
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
                 println!("[info] virtual address: {:#x}", get_sepc());
