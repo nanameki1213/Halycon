@@ -239,3 +239,46 @@ pub fn map_address_stage2(
 
     Ok(table_address as usize)
 }
+
+pub fn add_mapping_stage2(
+    mut physical_address: usize,
+    mut virtual_address: usize,
+    mut map_size: usize,
+    table_address: usize,
+    table_level: i8,
+    is_readable: bool,
+    is_writable: bool,
+    is_executable: bool,
+) -> Result<(), ()> {
+    let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
+
+    let mut permission: u64 = if is_readable {
+        (1 << TableEntry::R_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_writable {
+        (1 << TableEntry::W_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_executable {
+        (1 << TableEntry::X_OFFSET) as u64
+    } else {
+        0
+    };
+
+    _map_address_stage2(
+        &mut physical_address,
+        &mut virtual_address,
+        &mut map_size,
+        table_address,
+        permission,
+        table_level - 1,
+        top_level_stage_2_num_of_entries,
+    )?;
+
+    Ok(())
+}

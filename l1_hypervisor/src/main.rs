@@ -124,20 +124,72 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         ram_physical_base_address as usize
     );
 
+    let stack_memory = allocate_pages(2, paging::PAGE_SIZE);
+    if stack_memory.is_null() {
+        println!("Failed to allocate memory for VM stack.");
+        panic!();
+    }
+
     let virtual_entry_point = 0x80200000;
-    let bootloader_entry_point = paging::resolve_address_stage2(virtual_entry_point).unwrap();
+    let physical_entry_point = virtual_machine_main as usize;
     println!(
         "[info] vm entry point physical address: {:#X}",
-        bootloader_entry_point
+       physical_entry_point 
     );
 
-    halt_loop();
+    match paging::add_mapping_stage2(
+        physical_entry_point,
+        virtual_entry_point,
+        paging::PAGE_SIZE * 10,
+        table_address,
+        paging::DEFAULT_TABLE_LEVEL,
+        true,
+        true,
+        true,
+    ) {
+        Ok(_) => {},
+        Err(_) => {
+            panic!();
+        }
+    }
+
+    
+    println!("switch to guest");
+    hs_to_vs(
+        virtual_entry_point,
+        stack_memory as usize,
+        0x0,
+    )
 }
 
 pub fn halt_loop() -> ! {
     loop {
         unsafe { asm!("wfi") };
     }
+}
+
+fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) -> ! {
+    unsafe {
+        asm!("
+            csrs sstatus, {tmp1}
+            csrs hstatus, {tmp2}
+            csrw sepc, {entry_point}
+            mv sp, {stack_pointer}
+            mv a1, {dtb_pointer}
+            sret", 
+        tmp1 = in(reg) 0x100, // set sstatus.SPP
+        tmp2 = in(reg) 0x80, // set hstatus.SPV
+        stack_pointer = in(reg) vs_stack_pointer,
+        entry_point = in(reg) vs_entry_point,
+        dtb_pointer = in(reg) dtb_pointer,
+        options(noreturn)
+        )
+    };
+}
+
+fn virtual_machine_main() -> ! {
+    println!("Hello from Virtual Machine!");
+    halt_loop();
 }
 
 #[panic_handler]
