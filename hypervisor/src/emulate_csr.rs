@@ -4,7 +4,7 @@ use arch::riscv::cpu::csr_address::*;
 use arch::riscv::cpu::*;
 use spin::Mutex;
 
-pub struct VirtualCsr {
+pub struct HypervisorCsr {
     pub hstatus: u64,
     pub hedeleg: u64,
     pub hideleg: u64,
@@ -20,15 +20,15 @@ pub struct VirtualCsr {
     pub hgatp: u64,
 }
 
-impl Default for VirtualCsr {
+impl Default for HypervisorCsr {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl VirtualCsr {
+impl HypervisorCsr {
     pub const fn new() -> Self {
-        VirtualCsr {
+        HypervisorCsr {
             hstatus: 0,
             hedeleg: 0,
             hideleg: 0,
@@ -120,7 +120,7 @@ impl VirtualCsr {
     }
 }
 
-pub static VIRTUAL_CSR: Mutex<VirtualCsr> = Mutex::new(VirtualCsr::new());
+pub static VIRTUAL_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
 pub fn emulate_csr(csr_address: usize, rd: usize, write_value: u64, registers: &mut [u64]) {
     registers[rd] = VIRTUAL_CSR.lock().get_csr(csr_address);
