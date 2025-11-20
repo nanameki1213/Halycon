@@ -2,7 +2,7 @@
 
 use core::borrow::BorrowMut;
 
-use crate::memory::allocate_pages;
+use crate::memory::callocate_pages;
 use crate::println;
 use arch::riscv::cpu::*;
 
@@ -159,7 +159,7 @@ fn _map_address_stage2(
         e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            let new_table_address = allocate_pages(1, PAGE_SIZE);
+            let new_table_address = callocate_pages(1, PAGE_SIZE);
             if new_table_address.is_null() {
                 println!("Failed to allocate pages for stage2 page table.");
                 return Err(());
@@ -199,7 +199,7 @@ pub fn map_address_stage2(
         println!("Map size is not aligned.");
         return Err(());
     }
-    let table_address_ptr = allocate_pages(4, 1 << 14);
+    let table_address_ptr = callocate_pages(4, 1 << 14);
     if table_address_ptr.is_null() {
         println!("Failed to allocate pages for stage 2 page table.");
         return Err(());
@@ -237,4 +237,47 @@ pub fn map_address_stage2(
     );
 
     Ok(table_address as usize)
+}
+
+pub fn add_mapping_stage2(
+    mut physical_address: usize,
+    mut virtual_address: usize,
+    mut map_size: usize,
+    table_address: usize,
+    table_level: i8,
+    is_readable: bool,
+    is_writable: bool,
+    is_executable: bool,
+) -> Result<(), ()> {
+    let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
+
+    let mut permission: u64 = if is_readable {
+        (1 << TableEntry::R_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_writable {
+        (1 << TableEntry::W_OFFSET) as u64
+    } else {
+        0
+    };
+
+    permission |= if is_executable {
+        (1 << TableEntry::X_OFFSET) as u64
+    } else {
+        0
+    };
+
+    _map_address_stage2(
+        &mut physical_address,
+        &mut virtual_address,
+        &mut map_size,
+        table_address,
+        permission,
+        table_level - 1,
+        top_level_stage_2_num_of_entries,
+    )?;
+
+    Ok(())
 }

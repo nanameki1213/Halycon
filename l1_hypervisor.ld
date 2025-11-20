@@ -7,6 +7,7 @@ SECTIONS
   
   .text : {
     *(.text)
+    *(.text.*)
   }
   
   .rodata : {
@@ -17,10 +18,12 @@ SECTIONS
 
   .data : {
     *(.data)
+    *(.data.*)
   }
 
   .bss : {
     *(.bss)
+    *(.bss.*)
     *(COMMON)
   }
 
@@ -28,7 +31,7 @@ SECTIONS
 
   .intr_stack (NOLOAD) : {
     _intr_stack_start = .;
-    . = . + 0x4000;
+    . = . + 0x2000;
     _intr_stack_end = .;
   }
 

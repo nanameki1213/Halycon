@@ -8,6 +8,18 @@ pub const MIE_MEIE_OFFSET: usize = 11;
 
 pub const MSTATUS_SIE: usize = 1 << 1;
 pub const MSTATUS_MIE: usize = 1 << 3;
+pub const MSTATUS_MPP_0: usize = 1 << 11;
+pub const MSTATUS_MPP_1: usize = 1 << 12;
+pub const MSTATUS_MPRV: usize = 1 << 17;
+pub const MSTATUS_TSR: usize = 1 << 22;
+pub const MSTATUS_MPV: usize = 1 << 39;
+
+pub const SSTATUS_SPP: usize = 1 << 8;
+
+pub const HSTATUS_VSBE: usize = 1 << 5;
+pub const HSTATUS_SPV: usize = 1 << 7;
+pub const HSTATUS_SPVP: usize = 1 << 8;
+pub const HSTATUS_VSTR: usize = 1 << 22;
 
 pub const MIE_MEIE: usize = 1 << 11; // 外部割込み許可
 pub const MIE_VSEIE: usize = 1 << 10;
@@ -37,8 +49,6 @@ pub const SATP_PPN_MASK: usize = (1 << 44) - 1;
 pub const SATP_MODE_MASK: usize = ((1 << 4) - 1) << 60;
 pub const SATP_ASID_MASK: usize = ((1 << 14) - 1) << 44;
 
-pub const MSTATUS_TVM_OFFSET: usize = 20;
-
 pub const PMP_1_CFG_OFFSET: usize = 8;
 pub const PMP_A_FIELD_OFFSET: usize = 3;
 
@@ -46,14 +56,36 @@ pub const PMP_A_FIELD_TOR: usize = 1;
 pub const PMP_A_FIELD_NA4: usize = 2;
 pub const PMP_A_FIELD_NAPOT: usize = 3;
 
-pub const HSTATUS_VSBE_OFFSET: usize = 5;
-
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
 // CSRs address
-pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
-pub const CSR_MIE_ADDRESS: usize = 0x304;
-pub const CSR_TIME_ADDRESS: usize = 0xc01;
+pub mod csr_address {
+    // Machine
+    pub const CSR_MHARTID_ADDRESS: usize = 0xf14;
+    pub const CSR_MIE_ADDRESS: usize = 0x304;
+    pub const CSR_TIME_ADDRESS: usize = 0xc01;
+    // Hypervisor Trap Setup
+    pub const CSR_HSTATUS_ADDRESS: usize = 0x600;
+    pub const CSR_HEDELEG_ADDRESS: usize = 0x602;
+    pub const CSR_HIDELEG_ADDRESS: usize = 0x603;
+    pub const CSR_HIE_ADDRESS: usize = 0x604;
+    pub const CSR_HCOUNTEREN_ADDRESS: usize = 0x606;
+    pub const CSR_HGEIE_ADDRESS: usize = 0x607;
+    // Hypervisor Trap Handling
+    pub const CSR_HTVAL_ADDRESS: usize = 0x643;
+    pub const CSR_HIP_ADDRESS: usize = 0x644;
+    pub const CSR_HVIP_ADDRESS: usize = 0x645;
+    pub const CSR_HTINST_ADDRESS: usize = 0x64a;
+    pub const CSR_HGEIP_ADDRESS: usize = 0xe12;
+    // Hypervisor Configuration
+    pub const CSR_HENVCFG_ADDRESS: usize = 0x60a;
+    // Hypervisor Protection and Translation
+    pub const CSR_HGATP_ADDRESS: usize = 0x680;
+
+    pub fn is_hypervisor_csr(csr_number: usize) -> bool {
+        (csr_number & 0xF00) == 0x600 || csr_number == CSR_HGEIP_ADDRESS
+    }
+}
 
 // Registers
 pub const REGISTER_ZERO: usize = 0;

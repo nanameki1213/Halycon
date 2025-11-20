@@ -6,6 +6,8 @@ extern crate alloc;
 
 mod aplic;
 mod console;
+#[cfg(feature = "nested_support")]
+mod emulate_csr;
 mod loader;
 mod memory;
 mod paging;
@@ -19,6 +21,8 @@ mod mmio {
     pub mod virtio;
 }
 
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::HypervisorCsr;
 use alloc::vec::Vec;
 use arch::riscv::cpu::*;
 use core::alloc::{GlobalAlloc, Layout};
@@ -74,6 +78,8 @@ static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
 static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>> =
     Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
+#[cfg(feature = "nested_support")]
+static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
@@ -81,6 +87,13 @@ static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
 unsafe impl GlobalAlloc for GlobalAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         match MEMORY_ALLOCATOR.lock().allocate(layout) {
+            Ok(ptr) => ptr.as_ptr(),
+            Err(_) => core::ptr::null_mut(),
+        }
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        match MEMORY_ALLOCATOR.lock().callocate(layout) {
             Ok(ptr) => ptr.as_ptr(),
             Err(_) => core::ptr::null_mut(),
         }
@@ -170,10 +183,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[setup] mtvec");
     println!("[setup] stvec");
 
-    // let mut mstatus = get_mstatus();
-    // mstatus |= (1 << MSTATUS_TVM_OFFSET) as u64;
-    // set_mstatus(mstatus);
-
     let mut medeleg = get_medeleg();
     medeleg |= (1 << 20) as u64;
     medeleg |= (1 << 12) as u64;
@@ -218,6 +227,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     mstatus |= MSTATUS_MIE as u64;
     set_mstatus(mstatus);
 
+    let mut hstatus = get_hstatus();
+    hstatus |= HSTATUS_VSTR as u64;
+    set_hstatus(hstatus);
+
     // 仮想マシンの領域のPMPを設定する;
     // let top_address = 0xF0000000 as usize;
     // let bottom_address = 0x80000000 as usize;
@@ -260,16 +273,19 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 }
 
 fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) -> ! {
+    let mut hstatus = get_hstatus();
+    hstatus |= HSTATUS_SPV as u64;
+    set_hstatus(hstatus);
+    let mut sstatus = get_sstatus();
+    sstatus |= SSTATUS_SPP as u64;
+    set_sstatus(sstatus);
+
     unsafe {
         asm!("
-            csrs sstatus, {tmp1}
-            csrs hstatus, {tmp2}
             csrw sepc, {entry_point}
             mv sp, {stack_pointer}
             mv a1, {dtb_pointer}
             sret", 
-        tmp1 = in(reg) 0x100, // set sstatus.SPP
-        tmp2 = in(reg) 0x80, // set hstatus.SPV
         stack_pointer = in(reg) vs_stack_pointer,
         entry_point = in(reg) vs_entry_point,
         dtb_pointer = in(reg) dtb_pointer,

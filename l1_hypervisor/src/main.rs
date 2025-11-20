@@ -5,31 +5,15 @@ mod console;
 mod memory;
 mod paging;
 
+use arch::riscv::cpu::*;
 use arch::riscv::sbi;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use fdt::{DeviceTreeInfo, MemoryEntry};
-use log;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 
-pub struct SbiConsoleLogger;
-
-impl log::Log for SbiConsoleLogger {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::Level::Debug
-    }
-
-    fn log(&self, record: &log::Record) {
-        if self.enabled(record.metadata()) {
-            println!("{} - {}", record.level(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: SbiConsoleLogger = SbiConsoleLogger;
+use crate::memory::allocate_pages;
 
 struct GlobalAllocator {}
 
@@ -60,9 +44,6 @@ const MAX_MMIO_ENTRIES: usize = 64;
 
 #[unsafe(no_mangle)]
 extern "C" fn main(argc: usize, argv: *const *const u8) {
-    log::set_logger(&LOGGER).unwrap();
-    log::set_max_level(log::LevelFilter::Debug);
-
     if argc < 1 {
         panic!("fdt pointer isn't configured");
     }
@@ -96,13 +77,95 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         .init(free_ptr, memory.size - (free_ptr - memory.address));
     println!("[setup] allocator");
 
-    halt_loop();
+    let mut hedeleg = get_hedeleg();
+    hedeleg |= (1 << 2) as u64; // Illegal instruction
+    set_hedeleg(hedeleg);
+    println!("[setup] hedeleg");
+
+    let mut hie = get_hie();
+    hie |= XIE_SEIE as u64;
+    set_hie(hie);
+    println!("[setup] hie");
+
+    let sstatus = get_sstatus();
+    println!("[info] sstatus: {:#x}", sstatus as usize);
+
+    const RAM_VIRTUAL_BASE: usize = 0x80000000;
+    const RAM_SIZE: usize = 0x8000000;
+
+    let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
+    if ram_physical_base_address.is_null() {
+        println!("out of memory.");
+        panic!();
+    }
+    let table_address = paging::map_address_stage2(
+        ram_physical_base_address as usize,
+        RAM_VIRTUAL_BASE,
+        RAM_SIZE,
+        paging::DEFAULT_TABLE_LEVEL,
+        true,
+        true,
+        true,
+    )
+    .expect("Failed to mapping");
+    println!("[info] table_address");
+    let mut hgatp = match paging::DEFAULT_TABLE_LEVEL {
+        3 => 0b1000 << 60,
+        4 => 0b1001 << 60,
+        5 => 0b1010 << 60,
+        _ => unreachable!(),
+    };
+    hgatp |= (table_address >> 12) & SATP_PPN_MASK;
+    set_hgatp(hgatp as u64);
+
+    println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
+    println!(
+        "[info] vm physical address: {:#X}",
+        ram_physical_base_address as usize
+    );
+
+    let stack_size = 0x2000;
+    let stack_memory = allocate_pages(stack_size / paging::PAGE_SIZE, paging::PAGE_SIZE);
+    if stack_memory.is_null() {
+        println!("Failed to allocate memory for VM stack.");
+        panic!();
+    }
+    let stack_pointer = stack_memory as usize + stack_size;
+
+    let virtual_entry_point = 0x80200000;
+    let physical_entry_point = 0x0;
+    println!(
+        "[info] vm entry point physical address: {:#X}",
+        physical_entry_point
+    );
+
+    println!("switch to guest");
+    hs_to_vs(virtual_entry_point, stack_pointer, 0x0)
 }
 
 pub fn halt_loop() -> ! {
     loop {
         unsafe { asm!("wfi") };
     }
+}
+
+fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) -> ! {
+    unsafe {
+        asm!("
+            csrs sstatus, {tmp1}
+            csrs hstatus, {tmp2}
+            csrw sepc, {entry_point}
+            mv sp, {stack_pointer}
+            mv a1, {dtb_pointer}
+            sret", 
+        tmp1 = in(reg) 0x100, // set sstatus.SPP
+        tmp2 = in(reg) 0x80, // set hstatus.SPV
+        stack_pointer = in(reg) vs_stack_pointer,
+        entry_point = in(reg) vs_entry_point,
+        dtb_pointer = in(reg) dtb_pointer,
+        options(noreturn)
+        )
+    };
 }
 
 #[panic_handler]
