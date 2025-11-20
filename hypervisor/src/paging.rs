@@ -300,7 +300,7 @@ fn _shadow_map_address_stage2(
 ) -> Result<(), ()> {
     if table_level == -1 {
         let guest_physical_address = table_address;
-        let physical_address = resolve_address_stage2(guest_physical_address).unwrap();
+        let physical_address = resolve_address_stage2(guest_physical_address)?;
 
         let shadow_table_address = SHADOW_ROOT_PAGE_TABLE.load(Ordering::Acquire);
         add_mapping_stage2(
@@ -309,11 +309,10 @@ fn _shadow_map_address_stage2(
             PAGE_SIZE,
             shadow_table_address as usize,
             DEFAULT_TABLE_LEVEL,
-            true,
-            true,
-            true,
-        )
-        .unwrap();
+            (permission & (1 << TableEntry::R_OFFSET)) != 0,
+            (permission & (1 << TableEntry::W_OFFSET)) != 0,
+            (permission & (1 << TableEntry::X_OFFSET)) != 0,
+        )?;
 
         return Ok(());
     }
@@ -321,12 +320,10 @@ fn _shadow_map_address_stage2(
     let shift_level = 12 + 9 * table_level as usize;
     for i in 0..num_of_entries {
         let pte_address = table_address + i * core::mem::size_of::<TableEntry>();
-        if table_level == 0 {}
         let value = read_vm_memory(false, pte_address, 64);
         let mut pte = TableEntry::new();
         pte.0 = value;
         if !pte.is_valid_pte() {
-            if table_level != 0 {}
             continue;
         }
         *virtual_address &= !(((1 << VPN_SIZE) - 1) << shift_level);
@@ -393,13 +390,13 @@ pub fn shadow_map_address_stage2(
 
     let mut virtual_address: usize = 0;
 
-    let _ = _shadow_map_address_stage2(
+    _shadow_map_address_stage2(
         &mut virtual_address,
         l1_table_address,
         permission,
         table_level - 1,
         top_level_stage_2_num_of_entries,
-    );
+    )?;
 
     Ok(())
 }

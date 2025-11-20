@@ -21,14 +21,14 @@ mod mmio {
     pub mod virtio;
 }
 
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::HypervisorCsr;
 use alloc::vec::Vec;
 use arch::riscv::cpu::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
-#[cfg(feature = "nested_support")]
-use crate::emulate_csr::HypervisorCsr;
 use fdt::DeviceTreeInfo;
 use log;
 use memory::set_pmp_all_physical_address;

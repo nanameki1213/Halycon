@@ -124,38 +124,23 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         ram_physical_base_address as usize
     );
 
-    let stack_memory = allocate_pages(2, paging::PAGE_SIZE);
+    let stack_size = 0x2000;
+    let stack_memory = allocate_pages(stack_size / paging::PAGE_SIZE, paging::PAGE_SIZE);
     if stack_memory.is_null() {
         println!("Failed to allocate memory for VM stack.");
         panic!();
     }
+    let stack_pointer = stack_memory as usize + stack_size;
 
     let virtual_entry_point = 0x80200000;
-    const VM_MAIN: usize = 0x0;
-    let physical_entry_point = VM_MAIN;
+    let physical_entry_point = 0x0;
     println!(
         "[info] vm entry point physical address: {:#X}",
         physical_entry_point
     );
 
-    match paging::add_mapping_stage2(
-        physical_entry_point,
-        virtual_entry_point,
-        paging::PAGE_SIZE * 10,
-        table_address,
-        paging::DEFAULT_TABLE_LEVEL,
-        true,
-        true,
-        true,
-    ) {
-        Ok(_) => {}
-        Err(_) => {
-            panic!();
-        }
-    }
-
     println!("switch to guest");
-    hs_to_vs(virtual_entry_point, stack_memory as usize, 0x0)
+    hs_to_vs(virtual_entry_point, stack_pointer, 0x0)
 }
 
 pub fn halt_loop() -> ! {

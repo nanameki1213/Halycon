@@ -126,7 +126,7 @@ pub fn read_vm_memory(is_vu: bool, address: usize, width: usize) -> u64 {
             );
             output as u64
         },
-        _ => 0,
+        _ => panic!("Unsupported memory access width: {}", width),
     }
 }
 
@@ -149,6 +149,6 @@ pub fn write_vm_memory(is_vu: bool, address: usize, value: u64, width: usize) {
                 in(reg) address
             );
         },
-        _ => {}
+        _ => panic!("Unsupported memory access width: {}", width),
     }
 }

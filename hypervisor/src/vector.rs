@@ -1,9 +1,4 @@
 use crate::PASS_THROUGH_VIRTIO_MMIO;
-#[cfg(feature = "nested_support")]
-use {
-    crate::emulate_csr::{HypervisorCsr, VIRTUAL_CSR, emulate_csr},
-    crate::HOST_HYPERVISOR_CSR,
-};
 use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
 use crate::paging;
 use crate::plic;
@@ -12,6 +7,11 @@ use crate::sbi;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
+#[cfg(feature = "nested_support")]
+use {
+    crate::HOST_HYPERVISOR_CSR,
+    crate::emulate_csr::{HypervisorCsr, VIRTUAL_CSR, emulate_csr},
+};
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_INSTRUCTION_GUEST_PAGE_FAULT: usize = 20;
@@ -373,8 +373,6 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                     let write_value = registers[rs1];
                     emulate_csr(csr_address, rd, write_value, registers);
 
-                    println!("CSR: {:#x}", csr_address);
-
                     return;
                 }
 
@@ -387,7 +385,10 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                     let rd = instruction.get_rd();
                     let rs1 = instruction.get_rs1();
                     let reg_value = registers[rs1];
-                    let csr_value = VIRTUAL_CSR.lock().get_csr(csr_address);
+                    let csr_value = {
+                        let locked_csr = VIRTUAL_CSR.lock();
+                        locked_csr.get_csr(csr_address)
+                    };
                     let write_value = csr_value | reg_value;
                     emulate_csr(csr_address, rd, write_value, registers);
 
@@ -401,7 +402,8 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                     return;
                 }
 
-                println!("CSRRS: {:#x}", csr_address)
+                println!("CSRRS: {:#x}", csr_address);
+                panic!();
             } else if instruction.is_sret() {
                 let mut hypervisor_csr = HypervisorCsr::new();
                 hypervisor_csr.hstatus = get_hstatus();
@@ -409,6 +411,7 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                 let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
                 *locked_csr = hypervisor_csr;
 
+                // Implement this later
                 println!("{:?}", *locked_csr);
                 panic!();
             } else {

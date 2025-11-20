@@ -46,7 +46,7 @@ impl HypervisorCsr {
         }
     }
 
-    pub fn get_csr(&mut self, csr_address: usize) -> u64 {
+    pub fn get_csr(&self, csr_address: usize) -> u64 {
         match csr_address {
             CSR_TIME_ADDRESS => get_time(),
             CSR_HSTATUS_ADDRESS => self.hstatus,
@@ -72,7 +72,7 @@ impl HypervisorCsr {
     pub fn set_csr(&mut self, csr_address: usize, value: u64) {
         match csr_address {
             CSR_TIME_ADDRESS => {
-                get_time(); // this register is read only.
+                panic!("Attempted to write to read-only CSR_TIME_ADDRESS register");
             }
             CSR_HSTATUS_ADDRESS => {
                 self.hstatus = value;
