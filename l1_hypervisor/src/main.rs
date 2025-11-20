@@ -131,7 +131,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
     }
 
     let virtual_entry_point = 0x80200000;
-    let physical_entry_point = virtual_machine_main as usize;
+    const VM_MAIN: usize = 0x0;
+    let physical_entry_point = VM_MAIN;
     println!(
         "[info] vm entry point physical address: {:#X}",
         physical_entry_point
@@ -180,11 +181,6 @@ fn hs_to_vs(vs_entry_point: usize, vs_stack_pointer: usize, dtb_pointer: usize) 
         options(noreturn)
         )
     };
-}
-
-fn virtual_machine_main() -> ! {
-    println!("Hello from Virtual Machine!");
-    halt_loop();
 }
 
 #[panic_handler]
