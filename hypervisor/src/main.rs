@@ -23,20 +23,26 @@ mod mmio {
 
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
+use crate::mmio::ns16550::NS16550_ADDR;
 use alloc::vec::Vec;
+use alloc::boxed::Box;
 use arch::riscv::cpu::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
-use fdt::DeviceTreeInfo;
+use fdt::{DeviceTreeInfo};
 use log;
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
 use mmio::virtio::VirtioMmio;
+use vm::VM;
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
+
+// guest device
+use mmio_core::MmioEntry;
 
 pub struct UartLogger;
 
@@ -78,6 +84,7 @@ static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
 static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>> =
     Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
+static VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
@@ -254,14 +261,22 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         );
     }
 
+    let mut mmio: Vec<MmioEntry> = Vec::new();
+    let serial_entry = MmioEntry::new(NS16550_ADDR, 0x100, Box::new(ns16550::Ns16550));
+    mmio.push(serial_entry);
+
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
-    let vm = vm::create_vm(
+    let vmid = vm::create_vm(
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
         virtio_mmios[DEVICE_TREE_MMIO_INDEX],
+        mmio,
+        false,
     );
+    let locked_vm = VIRTUAL_MACHINES.lock();
+    let vm = &locked_vm[vmid];
 
     println!("switch to guest");
     hs_to_vs(

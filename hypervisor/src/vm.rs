@@ -1,10 +1,15 @@
+extern crate alloc;
+
 use crate::loader;
 use crate::memory::allocate_pages;
 use crate::mmio::virtio::VirtioMmio;
 use crate::paging;
 use crate::println;
+use crate::VIRTUAL_MACHINES;
 use arch::riscv::cpu::*;
 use core::arch::riscv64;
+use mmio_core::MmioEntry;
+use alloc::vec::Vec;
 
 #[allow(dead_code)]
 pub struct VM {
@@ -14,23 +19,30 @@ pub struct VM {
     ram_size: usize,
     entry_point: usize,
     dtb_pointer: usize,
+    mmio: Vec<MmioEntry>,
+    is_nested: bool,
 }
 
 impl VM {
     fn new(
+        vmid: usize,
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
         ram_size: usize,
         entry_point: usize,
         dtb_pointer: usize,
+        mmio: Vec<MmioEntry>,
+        is_nested: bool,
     ) -> Self {
         VM {
-            vmid: 0,
+            vmid,
             ram_virtual_base_address,
             ram_physical_base_address,
             ram_size,
             entry_point,
             dtb_pointer,
+            mmio,
+            is_nested,
         }
     }
 
@@ -41,9 +53,13 @@ impl VM {
     pub fn get_dtb_pointer(&self) -> usize {
         self.dtb_pointer
     }
+
+    pub fn get_mmio_list(&self) -> &Vec<MmioEntry> {
+        &self.mmio
+    }
 }
 
-pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio) -> VM {
+pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio, mmio: Vec<MmioEntry>, is_nested: bool) -> usize {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x20000000;
 
@@ -96,11 +112,19 @@ pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio) -> VM {
     println!("[info] dtb physical address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer, device_tree);
 
-    VM::new(
+    let mut locked_vms = VIRTUAL_MACHINES.lock();
+    let vmid = locked_vms.len();
+    let vm = VM::new(
+        vmid,
         RAM_VIRTUAL_BASE,
         ram_physical_base_address as usize,
         RAM_SIZE,
         virtual_entry_point,
         RAM_VIRTUAL_BASE + size,
-    )
+        mmio,
+        is_nested,
+    );
+    locked_vms.push(vm);
+
+    vmid
 }
