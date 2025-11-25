@@ -1,11 +1,15 @@
 use crate::PASS_THROUGH_VIRTIO_MMIO;
+use crate::VIRTUAL_MACHINES;
+use crate::CURRENT_VMID;
 use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
 use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
+use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
+use mmio_core::MmioEntry;
 use core::arch::global_asm;
 #[cfg(feature = "nested_support")]
 use {
@@ -254,13 +258,20 @@ pub fn machine_handler() {
 
 #[unsafe(no_mangle)]
 pub fn exception_handler() {
+    let locked_vm = VIRTUAL_MACHINES.lock();
+    let locked_current_vmid = CURRENT_VMID.lock();
+    let current_vmid = locked_current_vmid.clone();
+    let vm = &locked_vm[current_vmid];
+    
+    let mmio_list = vm.get_mmio_list();
+
     let scause = get_scause() as usize;
     let sp = get_sscratch() as usize;
 
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     if is_data_abort(scause) {
         // data abort
-        data_abort_handler(scause, contexts);
+        data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
         // instruction abort
         instruction_abort_handler(scause, contexts);
@@ -289,7 +300,13 @@ pub fn exception_handler() {
     set_sepc(sepc);
 }
 
-fn write_access(virtual_address: usize, value: u64) {
+fn write_access(virtual_address: usize, value: u64, mmios: &Vec<MmioEntry>) {
+    for mmio in mmios.iter() {
+        if (mmio.address..=mmio.address + mmio.size).contains(&virtual_address) {
+            let offset = virtual_address - mmio.address;
+            mmio.handler.read(offset);
+        } 
+    }
     if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
         ns16550::ns16550_set_by_offset(virtual_address - ns16550::NS16550_ADDR, value as u8);
     } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
@@ -330,7 +347,7 @@ fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut 
     }
 }
 
-fn data_abort_handler(scause: usize, registers: &mut [u64]) {
+fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntry>) {
     let instruction = instruction::Instruction::new(get_htinst() as u32);
     match scause {
         E_STORE_AMO_GUEST_PAGE_FAULT => {

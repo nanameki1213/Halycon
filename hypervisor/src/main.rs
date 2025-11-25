@@ -85,6 +85,7 @@ static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>>
     Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 static VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
+static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
@@ -164,9 +165,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     const DEVICE_TREE_MMIO_INDEX: usize = 6;
     const PASS_THROUGH_MMIO_INDEX: usize = 5;
 
-    PASS_THROUGH_VIRTIO_MMIO
-        .lock()
-        .write(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
+    let mut locked_virtual_virtio_mmio = PASS_THROUGH_VIRTIO_MMIO.lock();
+    locked_virtual_virtio_mmio.write(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -262,8 +262,12 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     }
 
     let mut mmio: Vec<MmioEntry> = Vec::new();
+
     let serial_entry = MmioEntry::new(NS16550_ADDR, 0x100, Box::new(ns16550::Ns16550));
     mmio.push(serial_entry);
+
+    let base_address = locked_virtual_virtio_mmio.base_address;
+    let virtio_entry = MmioEntry::new(base_address, 0x1000, )
 
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;
