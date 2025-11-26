@@ -32,20 +32,20 @@ impl HypervisorContext {
 
 #[allow(dead_code)]
 pub struct VM {
-    vmid: usize,
-    ram_virtual_base_address: usize,
-    ram_physical_base_address: usize,
-    ram_size: usize,
-    entry_point: usize,
-    dtb_pointer: usize,
+    pub vmid: usize,
+    pub ram_virtual_base_address: usize,
+    pub ram_physical_base_address: usize,
+    pub ram_size: usize,
+    pub entry_point: usize,
+    pub dtb_pointer: usize,
     #[cfg(not(feature = "nested_support"))]
-    mmio: Vec<MmioEntry>,
+    pub mmio: Vec<MmioEntry>,
     #[cfg(feature = "nested_support")]
-    mmio: Option<Vec<MmioEntry>>,
+    pub mmio: Option<Vec<MmioEntry>>,
     #[cfg(feature = "nested_support")]
-    parent_vmid: Option<usize>,
+    pub parent_vmid: Option<usize>,
     #[cfg(feature = "nested_support")]
-    hypervisor: Option<HypervisorContext>,
+    pub hypervisor: Option<HypervisorContext>,
 }
 
 impl VM {
@@ -71,7 +71,7 @@ impl VM {
             #[cfg(feature = "nested_support")]
             parent_vmid,
             #[cfg(feature = "nested_support")]
-            None,
+            hypervisor: None,
         }
     }
 
@@ -81,14 +81,6 @@ impl VM {
 
     pub fn get_dtb_pointer(&self) -> usize {
         self.dtb_pointer
-    }
-
-    pub fn get_mmio_list(&self) -> &Vec<MmioEntry> {
-        &self.mmio
-    }
-
-    pub fn get_hypervisor_context(&self) -> Option<usize> {
-        self.hypervisor
     }
 
     pub fn get_parent_vmid(&self) -> Option<usize> {

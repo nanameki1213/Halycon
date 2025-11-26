@@ -1,7 +1,5 @@
 use core::borrow::BorrowMut;
 
-#[cfg(feature = "nested_support")]
-use crate::emulate_csr::VIRTUAL_CSR;
 use crate::memory::allocate_pages;
 use crate::println;
 use arch::riscv::cpu::*;

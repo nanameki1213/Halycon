@@ -1,8 +1,8 @@
 use crate::paging::shadow_map_address_stage2;
 use crate::println;
+use crate::vm::HypervisorContext;
 use arch::riscv::cpu::csr_address::*;
 use arch::riscv::cpu::*;
-use spin::Mutex;
 
 #[derive(Clone, Copy, Debug)]
 pub struct HypervisorCsr {
@@ -121,11 +121,16 @@ impl HypervisorCsr {
     }
 }
 
-pub static VIRTUAL_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
-
-pub fn emulate_csr(csr_address: usize, rd: usize, write_value: u64, registers: &mut [u64]) {
-    registers[rd] = VIRTUAL_CSR.lock().get_csr(csr_address);
-    VIRTUAL_CSR.lock().set_csr(csr_address, write_value);
+pub fn emulate_csr(
+    hypervisor: &mut HypervisorContext,
+    csr_address: usize,
+    rd: usize,
+    write_value: u64,
+    registers: &mut [u64],
+) {
+    let mut virtual_csr = &mut hypervisor.csr;
+    registers[rd] = virtual_csr.get_csr(csr_address);
+    virtual_csr.set_csr(csr_address, write_value);
 
     if csr_address == CSR_HGATP_ADDRESS {
         let _ = shadow_map_address_stage2(true, true, true);
