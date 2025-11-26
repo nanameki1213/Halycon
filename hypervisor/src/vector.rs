@@ -1,3 +1,4 @@
+use crate::vm::VM;
 use crate::CURRENT_VMID;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
@@ -12,8 +13,7 @@ use core::arch::global_asm;
 use mmio_core::MmioEntry;
 #[cfg(feature = "nested_support")]
 use {
-    crate::HOST_HYPERVISOR_CSR,
-    crate::emulate_csr::{HypervisorCsr, VIRTUAL_CSR, emulate_csr},
+    crate::emulate_csr::{VIRTUAL_CSR, emulate_csr},
 };
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
@@ -258,7 +258,7 @@ pub fn machine_handler() {
 #[unsafe(no_mangle)]
 pub fn exception_handler() {
     let locked_vm = VIRTUAL_MACHINES.lock();
-    let locked_current_vmid = CURRENT_VMID.lock();
+    let mut locked_current_vmid = CURRENT_VMID.lock();
     let vm = &locked_vm[*locked_current_vmid];
 
     let mmio_list = vm.get_mmio_list();
@@ -272,7 +272,7 @@ pub fn exception_handler() {
         data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
         // instruction abort
-        instruction_abort_handler(scause, contexts);
+        instruction_abort_handler(scause, contexts, vm, &mut *locked_vm);
     } else {
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
@@ -348,7 +348,7 @@ fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntr
     };
 }
 
-fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
+fn instruction_abort_handler(scause: usize, registers: &mut [u64], vm: &VM, vms: &mut Vec<VM>) {
     match scause {
         E_ILLEGAL_INSTRUCTION => {
             println!("[info] E_ILLEGAL_INSTRUCTION: {:#x}", get_stval());
@@ -404,14 +404,15 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
                 println!("CSRRS: {:#x}", csr_address);
                 panic!();
             } else if instruction.is_sret() {
-                let mut hypervisor_csr = HypervisorCsr::new();
-                hypervisor_csr.hstatus = get_hstatus();
-                hypervisor_csr.hgatp = get_hgatp();
-                let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
-                *locked_csr = hypervisor_csr;
+                // L1 Hypervisor trying to context switching to L2 VM
+                if let Some(child_vmid) = vm.get_child_vmid() {
+                    let l2_vm = &vms[child_vmid];
+                    
+                } else {
+                    // create L2 VM
+                }
 
                 // Implement this later
-                println!("{:?}", *locked_csr);
                 panic!();
             } else {
                 println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());

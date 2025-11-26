@@ -43,7 +43,7 @@ use mmio::ns16550::Uart;
 use spin::{Mutex, Once};
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
-use virtio::{VirtioMmio, VIRTIO_MMIO_DEFAULT_ADDRESS};
+use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
 use vm::VM;
 
 // guest device
@@ -82,13 +82,9 @@ fn init_mmio(virtio_mmio: VirtioMmio) {
         Ok(device) => block_device = device,
         Err(err) => panic!("Block Device: {}", err),
     }
-    PASS_THROUGH_VIRTIO_MMIO.call_once(|| {
-        virtio_mmio
-    });
+    PASS_THROUGH_VIRTIO_MMIO.call_once(|| virtio_mmio);
 
-    PASS_THROUGH_VIRTIO_BLK_DEVICE.call_once(|| {
-        Mutex::new(block_device)
-    });
+    PASS_THROUGH_VIRTIO_BLK_DEVICE.call_once(|| Mutex::new(block_device));
 }
 
 struct GlobalAllocator {}
@@ -281,11 +277,29 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
+    let csr = HypervisorCsr {
+        hstatus,
+        hedeleg,
+        hideleg: get_hideleg(),
+        hie: get_hie(),
+        hcounteren: get_hcounteren(),
+        hgeie: 0,
+        htval: get_htval(),
+        hip: get_hip(),
+        hvip: 0,
+        htinst: get_htinst(),
+        hgeip: 0,
+        henvcfg: get_henvcfg(),
+        hgatp: get_hgatp(),
+    };
+
     let vmid = vm::create_vm(
+        csr,
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
         virtio_mmios[DEVICE_TREE_MMIO_INDEX],
         mmio,
-        false,
+        #[cfg(feature = "nested_support")]
+        None,
     );
     let entry_point: usize;
     let dtb_pointer: usize;

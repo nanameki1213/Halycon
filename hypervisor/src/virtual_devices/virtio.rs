@@ -101,8 +101,7 @@ impl MmioHandler for Virtio {
 
                 core::ptr::write_volatile(status_address, virtio_blk::VIRTIO_BLK_S_OK as u8);
             },
-            VIRTIO_MMIO_QUEUE_READY => {
-            }
+            VIRTIO_MMIO_QUEUE_READY => {}
             VIRTIO_MMIO_QUEUE_NUM => {
                 VIRTIO_MMIO_REGISTER.lock().queue_num = value as u32;
             }

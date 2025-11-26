@@ -10,39 +10,51 @@ use arch::riscv::cpu::*;
 use core::arch::riscv64;
 use mmio_core::MmioEntry;
 use virtio::VirtioMmio;
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::HypervisorCsr;
 
 #[allow(dead_code)]
 pub struct VM {
     vmid: usize,
+    csr: HypervisorCsr,
     ram_virtual_base_address: usize,
     ram_physical_base_address: usize,
     ram_size: usize,
     entry_point: usize,
     dtb_pointer: usize,
     mmio: Vec<MmioEntry>,
-    is_nested: bool,
+    #[cfg(feature = "nested_support")]
+    parent_vmid: Option<usize>,
+    #[cfg(feature = "nested_support")]
+    child_vmid: Option<usize>,
 }
 
 impl VM {
     fn new(
         vmid: usize,
+        csr: HypervisorCsr,
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
         ram_size: usize,
         entry_point: usize,
         dtb_pointer: usize,
         mmio: Vec<MmioEntry>,
-        is_nested: bool,
+        #[cfg(feature = "nested_support")]
+        parent_vmid: Option<usize>,
     ) -> Self {
         VM {
             vmid,
+            csr,
             ram_virtual_base_address,
             ram_physical_base_address,
             ram_size,
             entry_point,
             dtb_pointer,
             mmio,
-            is_nested,
+            #[cfg(feature = "nested_support")]
+            parent_vmid,
+            #[cfg(feature = "nested_support")]
+            child_vmid: None,
         }
     }
 
@@ -57,13 +69,23 @@ impl VM {
     pub fn get_mmio_list(&self) -> &Vec<MmioEntry> {
         &self.mmio
     }
+
+    pub fn get_child_vmid(&self) -> Option<usize> {
+        self.child_vmid
+    }
+
+    pub fn get_parent_vmid(&self) -> Option<usize> {
+        self.parent_vmid
+    }
 }
 
 pub fn create_vm(
+    csr: HypervisorCsr,
     bootloader: VirtioMmio,
     device_tree: VirtioMmio,
     mmio: Vec<MmioEntry>,
-    is_nested: bool,
+    #[cfg(feature = "nested_support")]
+    parent_vmid: Option<usize>,
 ) -> usize {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x20000000;
@@ -121,13 +143,15 @@ pub fn create_vm(
     let vmid = locked_vms.len();
     let vm = VM::new(
         vmid,
+        csr,
         RAM_VIRTUAL_BASE,
         ram_physical_base_address as usize,
         RAM_SIZE,
         virtual_entry_point,
         RAM_VIRTUAL_BASE + size,
         mmio,
-        is_nested,
+        #[cfg(feature = "nested_support")]
+        parent_vmid,
     );
     locked_vms.push(vm);
 

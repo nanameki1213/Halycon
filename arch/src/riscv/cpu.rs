@@ -322,6 +322,18 @@ pub fn set_mideleg(mideleg: u64) {
     unsafe { asm!("csrw mideleg, {}", in(reg) mideleg) };
 }
 
+#[inline(always)]
+pub fn get_hideleg() -> u64 {
+    let hideleg: u64;
+    unsafe { asm!("csrr {}, hideleg", out(reg) hideleg) };
+    hideleg
+}
+
+#[inline(always)]
+pub fn set_hideleg(hideleg: u64) {
+    unsafe { asm!("csrw hideleg, {}", in(reg) hideleg) };
+}
+
 // atp
 
 #[inline(always)]
@@ -597,6 +609,20 @@ pub fn get_henvcfg() -> u64 {
 #[inline(always)]
 pub fn set_henvcfg(henvcfg: u64) {
     unsafe { asm!("csrw henvcfg, {}", in(reg) henvcfg) };
+}
+
+// hcounteren
+
+#[inline(always)]
+pub fn get_hcounteren() -> u64 {
+    let hcounteren: u64;
+    unsafe { asm!("csrr {}, hcounteren", out(reg) hcounteren) };
+    hcounteren
+}
+
+#[inline(always)]
+pub fn set_hcounteren(hcounteren: u64) {
+    unsafe { asm!("csrw hcounteren, {}", in(reg) hcounteren) };
 }
 
 // pmp
