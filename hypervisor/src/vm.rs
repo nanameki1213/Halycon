@@ -13,10 +13,26 @@ use virtio::VirtioMmio;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 
+#[cfg(feature = "nested_support")]
+pub struct HypervisorContext {
+    csr: HypervisorCsr,
+    vmid: usize,
+}
+
+#[cfg(feature = "nested_support")]
+#[derive(Clone, Copy)]
+impl HypervisorContext {
+    pub const fn new() -> Self {
+        HypervisorContext {
+            pub csr: HypervisorCsr::new(),
+            pub vmid: 0,
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub struct VM {
     vmid: usize,
-    csr: HypervisorCsr,
     ram_virtual_base_address: usize,
     ram_physical_base_address: usize,
     ram_size: usize,
@@ -26,13 +42,12 @@ pub struct VM {
     #[cfg(feature = "nested_support")]
     parent_vmid: Option<usize>,
     #[cfg(feature = "nested_support")]
-    child_vmid: Option<usize>,
+    hypervisor: Option<HypervisorContext>,
 }
 
 impl VM {
     fn new(
         vmid: usize,
-        csr: HypervisorCsr,
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
         ram_size: usize,
@@ -44,7 +59,6 @@ impl VM {
     ) -> Self {
         VM {
             vmid,
-            csr,
             ram_virtual_base_address,
             ram_physical_base_address,
             ram_size,
@@ -54,7 +68,7 @@ impl VM {
             #[cfg(feature = "nested_support")]
             parent_vmid,
             #[cfg(feature = "nested_support")]
-            child_vmid: None,
+            None,
         }
     }
 
@@ -70,8 +84,8 @@ impl VM {
         &self.mmio
     }
 
-    pub fn get_child_vmid(&self) -> Option<usize> {
-        self.child_vmid
+    pub fn get_hypervisor_context(&self) -> Option<usize> {
+        self.hypervisor
     }
 
     pub fn get_parent_vmid(&self) -> Option<usize> {
