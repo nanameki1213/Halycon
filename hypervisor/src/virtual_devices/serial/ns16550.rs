@@ -1,5 +1,3 @@
-#![no_std]
-
 use mmio_core::MmioHandler;
 
 pub struct Ns16550;

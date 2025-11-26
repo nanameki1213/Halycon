@@ -1,7 +1,6 @@
-use crate::PASS_THROUGH_VIRTIO_MMIO;
-use crate::VIRTUAL_MACHINES;
 use crate::CURRENT_VMID;
-use crate::mmio::{ns16550, virtio, virtio::VIRTIO_MMIO_DEFAULT_ADDRESS};
+use crate::VIRTUAL_MACHINES;
+use crate::mmio::ns16550;
 use crate::paging;
 use crate::plic;
 use crate::println;
@@ -9,8 +8,8 @@ use crate::sbi;
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
-use mmio_core::MmioEntry;
 use core::arch::global_asm;
+use mmio_core::MmioEntry;
 #[cfg(feature = "nested_support")]
 use {
     crate::HOST_HYPERVISOR_CSR,
@@ -260,9 +259,8 @@ pub fn machine_handler() {
 pub fn exception_handler() {
     let locked_vm = VIRTUAL_MACHINES.lock();
     let locked_current_vmid = CURRENT_VMID.lock();
-    let current_vmid = locked_current_vmid.clone();
-    let vm = &locked_vm[current_vmid];
-    
+    let vm = &locked_vm[*locked_current_vmid];
+
     let mmio_list = vm.get_mmio_list();
 
     let scause = get_scause() as usize;
@@ -304,47 +302,31 @@ fn write_access(virtual_address: usize, value: u64, mmios: &Vec<MmioEntry>) {
     for mmio in mmios.iter() {
         if (mmio.address..=mmio.address + mmio.size).contains(&virtual_address) {
             let offset = virtual_address - mmio.address;
-            mmio.handler.read(offset);
-        } 
+            mmio.handler.write(offset, value as usize);
+            return;
+        }
     }
-    if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-        ns16550::ns16550_set_by_offset(virtual_address - ns16550::NS16550_ADDR, value as u8);
-    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
-        .contains(&(virtual_address))
-    {
-        let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
-        virtio::emulate_write_virtio(
-            virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS,
-            value as u32,
-            virtio_mmio,
-        );
-    } else {
-        println!("write access data abort");
-        println!("[info] virtual address: {:#X}", virtual_address);
-        let physical_address = paging::resolve_address_stage2(virtual_address).unwrap();
-        println!("[info] physical address: {:#X}", physical_address);
-        panic!();
-    }
+    println!("write access data abort");
+    println!("[info] virtual address: {:#X}", virtual_address);
+    panic!();
 }
 
-fn read_access(virtual_address: usize, dst_register_idx: usize, registers: &mut [u64]) {
-    if (ns16550::NS16550_ADDR..=ns16550::NS16550_ADDR + 0x100).contains(&(virtual_address)) {
-        registers[dst_register_idx] =
-            ns16550::ns16550_get_by_offset(virtual_address - ns16550::NS16550_ADDR) as u64;
-    } else if (virtio::VIRTIO_MMIO_DEFAULT_ADDRESS..=virtio::VIRTIO_MMIO_DEFAULT_ADDRESS + 0x1000)
-        .contains(&(virtual_address))
-    {
-        let virtio_mmio = unsafe { PASS_THROUGH_VIRTIO_MMIO.lock().assume_init() };
-        registers[dst_register_idx] =
-            virtio::emulate_read_virtio(virtual_address - VIRTIO_MMIO_DEFAULT_ADDRESS, virtio_mmio)
-                .unwrap() as u64;
-    } else {
-        println!("read access data abort");
-        println!("[info] virtual address: {:#X}", virtual_address);
-        let physical_address = paging::resolve_address_stage2(virtual_address).unwrap();
-        println!("[info] physical address: {:#X}", physical_address);
-        panic!();
+fn read_access(
+    virtual_address: usize,
+    dst_register_idx: usize,
+    registers: &mut [u64],
+    mmios: &Vec<MmioEntry>,
+) {
+    for mmio in mmios.iter() {
+        if (mmio.address..=mmio.address + mmio.size).contains(&virtual_address) {
+            let offset = virtual_address - mmio.address;
+            registers[dst_register_idx] = mmio.handler.read(offset) as u64;
+            return;
+        }
     }
+    println!("read access data abort");
+    println!("[info] virtual address: {:#X}", virtual_address);
+    panic!();
 }
 
 fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntry>) {
@@ -355,12 +337,12 @@ fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntr
             let stval = get_stval() as usize;
             let register_idx = instruction.get_rs2();
             let value = registers[register_idx];
-            write_access(stval, value);
+            write_access(stval, value, mmios);
         }
         E_LOAD_GUEST_PAGE_FAULT => {
             let stval = get_stval() as usize;
             let register_idx = instruction.get_rd();
-            read_access(stval, register_idx, registers);
+            read_access(stval, register_idx, registers, mmios);
         }
         _ => {}
     };

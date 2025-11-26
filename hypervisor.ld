@@ -7,6 +7,7 @@ SECTIONS
   
   .text : {
     *(.text)
+    *(.text.*)
   }
   
   .rodata : {
@@ -17,10 +18,12 @@ SECTIONS
 
   .data : {
     *(.data)
+    *(.data.*)
   }
 
   .bss : {
     *(.bss)
+    *(.bss.*)
     *(COMMON)
   }
 

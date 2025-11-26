@@ -1,15 +1,15 @@
 extern crate alloc;
 
+use crate::VIRTUAL_MACHINES;
 use crate::loader;
 use crate::memory::allocate_pages;
-use crate::mmio::virtio::VirtioMmio;
 use crate::paging;
 use crate::println;
-use crate::VIRTUAL_MACHINES;
+use alloc::vec::Vec;
 use arch::riscv::cpu::*;
 use core::arch::riscv64;
 use mmio_core::MmioEntry;
-use alloc::vec::Vec;
+use virtio::VirtioMmio;
 
 #[allow(dead_code)]
 pub struct VM {
@@ -59,7 +59,12 @@ impl VM {
     }
 }
 
-pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio, mmio: Vec<MmioEntry>, is_nested: bool) -> usize {
+pub fn create_vm(
+    bootloader: VirtioMmio,
+    device_tree: VirtioMmio,
+    mmio: Vec<MmioEntry>,
+    is_nested: bool,
+) -> usize {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x20000000;
 

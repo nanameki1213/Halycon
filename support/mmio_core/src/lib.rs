@@ -16,11 +16,7 @@ pub struct MmioEntry {
 }
 
 impl MmioEntry {
-    pub const fn new(
-        address: usize,
-        size: usize,
-        handler: Box<dyn MmioHandler>,
-    ) -> Self {
+    pub const fn new(address: usize, size: usize, handler: Box<dyn MmioHandler>) -> Self {
         MmioEntry {
             address,
             size,
