@@ -1,4 +1,3 @@
-use crate::vm::VM;
 use crate::CURRENT_VMID;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
@@ -6,6 +5,7 @@ use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
+use crate::vm::VM;
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
@@ -13,9 +13,8 @@ use core::arch::global_asm;
 use mmio_core::MmioEntry;
 #[cfg(feature = "nested_support")]
 use {
-    crate::emulate_csr::{VIRTUAL_CSR, emulate_csr},
-    crate::HOST_HYPERVISOR_CSR,
-    crate::HypervisorContext,
+    crate::HOST_HYPERVISOR_CSR, crate::emulate_csr::HypervisorCsr, crate::emulate_csr::emulate_csr,
+    crate::vm::HypervisorContext,
 };
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
@@ -349,7 +348,12 @@ fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntr
     };
 }
 
-fn instruction_abort_handler(scause: usize, registers: &mut [u64], current_vmid: usize, vms: &mut Vec<VM>) {
+fn instruction_abort_handler(
+    scause: usize,
+    registers: &mut [u64],
+    current_vmid: usize,
+    vms: &mut Vec<VM>,
+) {
     match scause {
         E_ILLEGAL_INSTRUCTION => {
             println!("[info] E_ILLEGAL_INSTRUCTION: {:#x}", get_stval());
@@ -365,9 +369,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64], current_vmid:
             let instruction = instruction::Instruction::new(get_stval() as u32);
             let vm = &vms[current_vmid];
 
+            #[cfg(feature = "nested_support")]
             if instruction.is_csrrw_instruction() {
                 let csr_address = instruction.get_funct12();
-                #[cfg(feature = "nested_support")]
                 if csr_address::is_hypervisor_csr(csr_address) {
                     // Access to a Hypervisor CSR from an L1 implies that
                     // a hypervisor is running within the L1 VM.
@@ -382,24 +386,27 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64], current_vmid:
 
                 println!("CSRRW: {:#x}", csr_address);
                 panic!();
-            } else if instruction.is_csrrs_instruction() {
+            }
+            if instruction.is_csrrs_instruction() {
                 let csr_address = instruction.get_funct12();
                 #[cfg(feature = "nested_support")]
                 if csr_address::is_hypervisor_csr(csr_address) {
                     // Access to a Hypervisor CSR from an L1 implies that
                     // a hypervisor is running within the L1 VM.
-                    
-                    l1_hypervisor = match vm.get_hypervisor_context() {
+
+                    let l1_hypervisor = match vm.get_hypervisor_context() {
                         Some(context) => context,
                         None => {
+                            let new_vmid = vms.len();
                             // Create L2 VM
+                            VM::new(new_vmid, 0, 0, 0, 0, 0, None, Some(current_vmid));
 
                             HypervisorContext {
                                 csr: HypervisorCsr::new(),
                                 vmid: 0,
                             }
                         }
-                    }
+                    };
                     let rd = instruction.get_rd();
                     let rs1 = instruction.get_rs1();
                     let reg_value = registers[rs1];
@@ -422,7 +429,9 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64], current_vmid:
 
                 println!("CSRRS: {:#x}", csr_address);
                 panic!();
-            } else if instruction.is_sret() {
+            }
+            #[cfg(feature = "nested_support")]
+            if instruction.is_sret() {
                 // L1 Hypervisor trying to context switching to L2 VM
                 if let Some(l1_hypervisor) = vm.get_hypervisor_context() {
                     let l2_vmid = l1_hypervisor.vmid;
@@ -440,15 +449,15 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64], current_vmid:
 
                 // Implement this later
                 panic!();
-            } else {
-                println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
-                println!("[info] virtual address: {:#x}", get_sepc());
-                println!(
-                    "[info] physical address: {:#x}",
-                    paging::resolve_address_stage2(get_sepc() as usize).unwrap()
-                );
-                panic!();
             }
+
+            println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
+            println!("[info] virtual address: {:#x}", get_sepc());
+            println!(
+                "[info] physical address: {:#x}",
+                paging::resolve_address_stage2(get_sepc() as usize).unwrap()
+            );
+            panic!();
         }
         E_ENVIRONMENT_CALL_FROM_VS_MODE => {
             // TODO: 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存

@@ -277,24 +277,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
-    let csr = HypervisorCsr {
-        hstatus,
-        hedeleg,
-        hideleg: get_hideleg(),
-        hie: get_hie(),
-        hcounteren: get_hcounteren(),
-        hgeie: 0,
-        htval: get_htval(),
-        hip: get_hip(),
-        hvip: 0,
-        htinst: get_htinst(),
-        hgeip: 0,
-        henvcfg: get_henvcfg(),
-        hgatp: get_hgatp(),
-    };
-
     let vmid = vm::create_vm(
-        csr,
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
         virtio_mmios[DEVICE_TREE_MMIO_INDEX],
         mmio,
