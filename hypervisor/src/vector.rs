@@ -264,6 +264,19 @@ pub fn exception_handler() {
     let scause = get_scause() as usize;
     let sp = get_sscratch() as usize;
 
+    let current_vm = &locked_vm[*locked_current_vmid];
+
+    #[cfg(feature = "nested_support")]
+    match current_vm.parent_vmid {
+        Some(parent_vmid) => {
+            // L2 VM
+            
+        }
+        None => {
+            // L1 VM
+        },
+    }
+
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     if is_data_abort(scause) {
         // data abort

@@ -82,10 +82,6 @@ impl VM {
     pub fn get_dtb_pointer(&self) -> usize {
         self.dtb_pointer
     }
-
-    pub fn get_parent_vmid(&self) -> Option<usize> {
-        self.parent_vmid
-    }
 }
 
 pub fn create_vm(
