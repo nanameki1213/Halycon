@@ -1,5 +1,6 @@
 use mmio_core::MmioHandler;
 
+#[derive(Debug)]
 pub struct Ns16550;
 
 impl MmioHandler for Ns16550 {

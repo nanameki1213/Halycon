@@ -1,7 +1,6 @@
 use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
 use crate::PASS_THROUGH_VIRTIO_MMIO;
 use crate::paging::resolve_address_stage2;
-use crate::println;
 use block::BlockDevice;
 use block::virtio_blk;
 use mmio_core::MmioHandler;
@@ -10,6 +9,7 @@ use virtio::*;
 
 static VIRTIO_MMIO_REGISTER: Mutex<VirtioMmioRegister> = Mutex::new(VirtioMmioRegister::new());
 
+#[derive(Debug)]
 pub struct Virtio;
 
 impl MmioHandler for Virtio {
@@ -47,12 +47,12 @@ impl MmioHandler for Virtio {
             _ => {}
         }
 
-        println!("read: {:#X}, {:#X}", offset, value);
+        // println!("read: {:#X}, {:#X}", offset, value);
         value as usize
     }
 
     fn write(&self, offset: usize, value: usize) {
-        println!("write: {:#X}, {:#X}", offset, value as u32);
+        // println!("write: {:#X}, {:#X}", offset, value as u32);
 
         match offset {
             VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {

@@ -3,12 +3,14 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use core::fmt::Debug;
 
-pub trait MmioHandler: Send {
+pub trait MmioHandler: Send + Debug {
     fn read(&self, offset: usize) -> usize;
     fn write(&self, offset: usize, value: usize);
 }
 
+#[derive(Debug)]
 pub struct MmioEntry {
     pub address: usize,
     pub size: usize,

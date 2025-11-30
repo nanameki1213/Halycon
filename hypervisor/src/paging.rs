@@ -4,7 +4,6 @@ use crate::memory::allocate_pages;
 use crate::println;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::*;
-use core::sync::atomic::{AtomicPtr, Ordering};
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
@@ -286,8 +285,6 @@ pub fn add_mapping_stage2(
     Ok(())
 }
 
-pub static SHADOW_ROOT_PAGE_TABLE: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
-
 #[cfg(feature = "nested_support")]
 fn _shadow_map_address_stage2(
     virtual_address: &mut usize,
@@ -295,12 +292,12 @@ fn _shadow_map_address_stage2(
     permission: u64,
     table_level: i8,
     num_of_entries: usize,
+    shadow_table_address: usize,
 ) -> Result<(), ()> {
     if table_level == -1 {
         let guest_physical_address = table_address;
         let physical_address = resolve_address_stage2(guest_physical_address)?;
 
-        let shadow_table_address = SHADOW_ROOT_PAGE_TABLE.load(Ordering::Acquire);
         add_mapping_stage2(
             physical_address,
             *virtual_address,
@@ -333,6 +330,7 @@ fn _shadow_map_address_stage2(
             permission,
             table_level - 1,
             (1 << VPN_SIZE) as usize,
+            shadow_table_address,
         )?;
     }
     Ok(())
@@ -343,15 +341,14 @@ pub fn shadow_map_address_stage2(
     is_readable: bool,
     is_writable: bool,
     is_executable: bool,
-) -> Result<(), ()> {
+    vhgatp: u64,
+) -> Result<usize, ()> {
     let shadow_table_address = allocate_pages(4, 1 << 14);
     if shadow_table_address.is_null() {
         println!("Failed to allocate pages for stage 2 shadow page table.");
         return Err(());
     }
-    SHADOW_ROOT_PAGE_TABLE.store(shadow_table_address, Ordering::Release);
 
-    let vhgatp = VIRTUAL_CSR.lock().hgatp;
     let l1_table_address = ((vhgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((vhgatp & SATP_MODE_MASK as u64) >> 60) as usize;
 
@@ -394,7 +391,8 @@ pub fn shadow_map_address_stage2(
         permission,
         table_level - 1,
         top_level_stage_2_num_of_entries,
+        shadow_table_address as usize,
     )?;
 
-    Ok(())
+    Ok(shadow_table_address as usize)
 }

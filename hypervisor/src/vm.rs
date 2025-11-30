@@ -14,7 +14,7 @@ use mmio_core::MmioEntry;
 use virtio::VirtioMmio;
 
 #[cfg(feature = "nested_support")]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct HypervisorContext {
     pub csr: HypervisorCsr,
     pub vmid: Option<usize>,
@@ -31,6 +31,7 @@ impl HypervisorContext {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct VM {
     pub vmid: usize,
     pub ram_virtual_base_address: usize,

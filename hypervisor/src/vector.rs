@@ -402,6 +402,7 @@ fn instruction_abort_handler(
                             vmid: None,
                         },
                     };
+                    println!("create L1 Hypervisor");
                     let rd = instruction.get_rd();
                     let rs1 = instruction.get_rs1();
                     let write_value = registers[rs1];
@@ -421,7 +422,6 @@ fn instruction_abort_handler(
                 if csr_address::is_hypervisor_csr(csr_address) {
                     // Access to a Hypervisor CSR from an L1 implies that
                     // a hypervisor is running within the L1 VM.
-
                     let mut l1_hypervisor = match vm.hypervisor {
                         Some(context) => context,
                         None => {
@@ -465,7 +465,10 @@ fn instruction_abort_handler(
                     Some(vmid) => vmid,
                     None => {
                         // Create L2 VM
-                        create_l2_vm(current_vmid, vms)
+                        println!("create L2 VM");
+                        let vmid = create_l2_vm(current_vmid, vms);
+                        vms[current_vmid].hypervisor.unwrap().vmid = Some(vmid);
+                        vmid
                     }
                 };
                 let l2_vm = &vms[l2_vmid];
@@ -476,9 +479,10 @@ fn instruction_abort_handler(
                 *locked_csr = host_csr;
 
                 // Set Hypervisor CSR to L1 Hypervisor's
-
+                set_hgatp(l1_hypervisor.csr.hgatp);
+                set_hstatus(l1_hypervisor.csr.hstatus);
                 // Implement this later
-                panic!();
+
             }
 
             println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());

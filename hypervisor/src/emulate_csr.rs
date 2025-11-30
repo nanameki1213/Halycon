@@ -133,6 +133,6 @@ pub fn emulate_csr(
     virtual_csr.set_csr(csr_address, write_value);
 
     if csr_address == CSR_HGATP_ADDRESS {
-        let _ = shadow_map_address_stage2(true, true, true);
+        let _ = shadow_map_address_stage2(true, true, true, virtual_csr.hgatp);
     }
 }
