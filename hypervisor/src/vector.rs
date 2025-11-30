@@ -14,7 +14,7 @@ use mmio_core::MmioEntry;
 #[cfg(feature = "nested_support")]
 use {
     crate::HOST_HYPERVISOR_CSR, crate::emulate_csr::HypervisorCsr, crate::emulate_csr::emulate_csr,
-    crate::vm::HypervisorContext,
+    crate::vm::HypervisorContext, crate::vm::create_l2_vm,
 };
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
@@ -264,24 +264,30 @@ pub fn exception_handler() {
     let scause = get_scause() as usize;
     let sp = get_sscratch() as usize;
 
-    let current_vm = &locked_vm[*locked_current_vmid];
+    if cfg!(feature = "nested_support") {
+        let current_vm = &locked_vm[*locked_current_vmid];
+        match current_vm.parent_vmid {
+            Some(parent_vmid) => {
+                // L2 VM
+                if is_data_abort(scause) {
+                    // Assert Page Fault to L1 Hypervisor
 
-    #[cfg(feature = "nested_support")]
-    match current_vm.parent_vmid {
-        Some(parent_vmid) => {
-            // L2 VM
-            
+                    // TODO: Consider that L1 changed page table.
+                } else if is_instruction_abort(scause) {
+                }
+
+                // don't return to here.
+            }
+            None => {
+                // L1 VM
+            }
         }
-        None => {
-            // L1 VM
-        },
     }
 
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     if is_data_abort(scause) {
         // data abort
         let vm = &locked_vm[*locked_current_vmid];
-        if cfg!(feature = "nested_support") {}
         let mmio_list = &vm.mmio;
         data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
@@ -381,32 +387,26 @@ fn instruction_abort_handler(
         }
         E_VIRTUAL_INSTRUCTION => {
             let instruction = instruction::Instruction::new(get_stval() as u32);
-            let mut vm = &mut vms[current_vmid];
 
-            #[cfg(feature = "nested_support")]
             if instruction.is_csrrw_instruction() {
+                let vm = &mut vms[current_vmid];
                 let csr_address = instruction.get_funct12();
+                #[cfg(feature = "nested_support")]
                 if csr_address::is_hypervisor_csr(csr_address) {
                     // Access to a Hypervisor CSR from an L1 implies that
                     // a hypervisor is running within the L1 VM.
                     let mut l1_hypervisor = match vm.hypervisor {
                         Some(context) => context,
-                        None => {
-                            let new_vmid = vms.len();
-                            // Create L2 VM
-                            let mut new_hypervisor = HypervisorContext {
-                                csr: HypervisorCsr::new(),
-                                vmid: new_vmid,
-                            };
-                            vm.hypervisor = Some(new_hypervisor);
-                            VM::new(new_vmid, 0, 0, 0, 0, 0, None, Some(current_vmid));
-                            new_hypervisor
-                        }
+                        None => HypervisorContext {
+                            csr: HypervisorCsr::new(),
+                            vmid: None,
+                        },
                     };
                     let rd = instruction.get_rd();
                     let rs1 = instruction.get_rs1();
                     let write_value = registers[rs1];
                     emulate_csr(&mut l1_hypervisor, csr_address, rd, write_value, registers);
+                    vm.hypervisor = Some(l1_hypervisor);
 
                     return;
                 }
@@ -415,6 +415,7 @@ fn instruction_abort_handler(
                 panic!();
             }
             if instruction.is_csrrs_instruction() {
+                let vm = &mut vms[current_vmid];
                 let csr_address = instruction.get_funct12();
                 #[cfg(feature = "nested_support")]
                 if csr_address::is_hypervisor_csr(csr_address) {
@@ -424,15 +425,11 @@ fn instruction_abort_handler(
                     let mut l1_hypervisor = match vm.hypervisor {
                         Some(context) => context,
                         None => {
-                            let new_vmid = vms.len();
                             // Create L2 VM
-                            let new_hypervisor = HypervisorContext {
+                            HypervisorContext {
                                 csr: HypervisorCsr::new(),
-                                vmid: new_vmid,
-                            };
-                            vm.hypervisor = Some(new_hypervisor);
-                            VM::new(new_vmid, 0, 0, 0, 0, 0, None, Some(current_vmid));
-                            new_hypervisor
+                                vmid: None,
+                            }
                         }
                     };
                     let virtual_csr = l1_hypervisor.csr;
@@ -442,6 +439,7 @@ fn instruction_abort_handler(
                     let csr_value = virtual_csr.get_csr(csr_address);
                     let write_value = csr_value | reg_value;
                     emulate_csr(&mut l1_hypervisor, csr_address, rd, write_value, registers);
+                    vm.hypervisor = Some(l1_hypervisor);
 
                     return;
                 }
@@ -459,19 +457,25 @@ fn instruction_abort_handler(
             #[cfg(feature = "nested_support")]
             if instruction.is_sret() {
                 // L1 Hypervisor trying to context switching to L2 VM
-                if let Some(l1_hypervisor) = vm.hypervisor {
-                    let l2_vmid = l1_hypervisor.vmid;
-                    let l2_vm = &vms[l2_vmid];
-                    let locked_csr = HOST_HYPERVISOR_CSR.lock();
-                    let mut host_csr = HypervisorCsr::new();
-                    host_csr.hstatus = get_hstatus();
-                    host_csr.hgatp = get_hgatp();
-                    *locked_csr = host_csr;
+                let l1_hypervisor = match vms[current_vmid].hypervisor {
+                    Some(hypervisor) => hypervisor,
+                    None => HypervisorContext::new(),
+                };
+                let l2_vmid = match l1_hypervisor.vmid {
+                    Some(vmid) => vmid,
+                    None => {
+                        // Create L2 VM
+                        create_l2_vm(current_vmid, vms)
+                    }
+                };
+                let l2_vm = &vms[l2_vmid];
+                let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
+                let mut host_csr = HypervisorCsr::new();
+                host_csr.hstatus = get_hstatus();
+                host_csr.hgatp = get_hgatp();
+                *locked_csr = host_csr;
 
-                    // Set Hypervisor CSR to L1 Hypervisor's
-                } else {
-                    // create L2 VM
-                }
+                // Set Hypervisor CSR to L1 Hypervisor's
 
                 // Implement this later
                 panic!();

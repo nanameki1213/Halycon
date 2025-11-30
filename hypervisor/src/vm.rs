@@ -17,7 +17,7 @@ use virtio::VirtioMmio;
 #[derive(Clone, Copy)]
 pub struct HypervisorContext {
     pub csr: HypervisorCsr,
-    pub vmid: usize,
+    pub vmid: Option<usize>,
 }
 
 #[cfg(feature = "nested_support")]
@@ -25,7 +25,7 @@ impl HypervisorContext {
     pub const fn new() -> Self {
         HypervisorContext {
             csr: HypervisorCsr::new(),
-            vmid: 0,
+            vmid: None,
         }
     }
 }
@@ -38,10 +38,7 @@ pub struct VM {
     pub ram_size: usize,
     pub entry_point: usize,
     pub dtb_pointer: usize,
-    #[cfg(not(feature = "nested_support"))]
     pub mmio: Vec<MmioEntry>,
-    #[cfg(feature = "nested_support")]
-    pub mmio: Option<Vec<MmioEntry>>,
     #[cfg(feature = "nested_support")]
     pub parent_vmid: Option<usize>,
     #[cfg(feature = "nested_support")]
@@ -56,8 +53,7 @@ impl VM {
         ram_size: usize,
         entry_point: usize,
         dtb_pointer: usize,
-        #[cfg(not(feature = "nested_support"))] mmio: Vec<MmioEntry>,
-        #[cfg(feature = "nested_support")] mmio: Option<Vec<MmioEntry>>,
+        mmio: Vec<MmioEntry>,
         #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
     ) -> Self {
         VM {
@@ -158,4 +154,13 @@ pub fn create_vm(
     locked_vms.push(vm);
 
     vmid
+}
+
+#[cfg(feature = "nested_support")]
+pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
+    let new_vmid = vms.len();
+    let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
+    vms.push(l2_vm);
+
+    new_vmid
 }

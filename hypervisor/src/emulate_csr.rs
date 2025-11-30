@@ -128,7 +128,7 @@ pub fn emulate_csr(
     write_value: u64,
     registers: &mut [u64],
 ) {
-    let mut virtual_csr = &mut hypervisor.csr;
+    let virtual_csr = &mut hypervisor.csr;
     registers[rd] = virtual_csr.get_csr(csr_address);
     virtual_csr.set_csr(csr_address, write_value);
 
