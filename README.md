@@ -12,12 +12,8 @@ Halycon はRISC-V 64上で動作するハイパーバイザです。
 ## ビルド方法
 ### U-Bootのブートスクリプトのコンパイル
 ```
-mkdir -p ./bin/disk
-mkdir ./bin/L1disk
-
-cd script
-../u-boot/u-boot/tools/mkimage -c none -A riscv -T script -d boot.script ../bin/disk/boot.scr
-../u-boot/u-boot/tools/mkimage -c none -A riscv -T script -d boot_L1hypervisor.script ../bin/L1disk/boot.scr
+cd tools
+./boot.sh
 ```
 ### ゲスト用のu-bootのビルド
 ```
@@ -55,15 +51,12 @@ cargo run --release
 - [ ] Linuxの起動
 
 ## TODO
-- [ ] ELFローダーの作成
-    - [ ] メモリアロケータの実装
-        - [ ] デバイスツリーの解析によるデバイスの把握
-    - [ ] ブロックデバイスドライバの実装(データ入出力のリクエストの処理、セグメントとページの対応付けを行うbio構造体) 
+- [x] メモリアロケータの実装
+    - [x] デバイスツリーの解析によるデバイスの把握
 - [x] virtio queueを使いまわさずにRing構造を利用する
 - [ ] virtio-blkの読み書き完了を割り込みによって把握する
-- [ ] デバイスツリーの解析によるデバイスの把握
+- [x] デバイスツリーの解析によるデバイスの把握
 - [ ] ネットワークの仮想化
 - [ ] 複数ゲストの起動
 - [ ] ファイルシステムの実装
-- [ ] 割り込み時のコンテキストをスタック上ではなくVM構造体に直接保存
-- [x] シリアルデバイス仮想化で、仕様に沿ったエミュレーションを実装する(FIFOなど)
+- [ ] UARTの完全仮想化
