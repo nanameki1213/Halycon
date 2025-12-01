@@ -436,6 +436,18 @@ pub fn set_sepc(sepc: u64) {
     unsafe { asm!("csrw sepc, {}", in(reg) sepc ) };
 }
 
+#[inline(always)]
+pub fn get_vsepc() -> u64 {
+    let vsepc: u64;
+    unsafe { asm!("csrr {}, vsepc", out(reg) vsepc ) };
+    vsepc
+}
+
+#[inline(always)]
+pub fn set_vsepc(vsepc: u64) {
+    unsafe { asm!("csrw vsepc, {}", in(reg) vsepc ) };
+}
+
 // tval
 
 #[inline(always)]
@@ -623,6 +635,34 @@ pub fn get_hcounteren() -> u64 {
 #[inline(always)]
 pub fn set_hcounteren(hcounteren: u64) {
     unsafe { asm!("csrw hcounteren, {}", in(reg) hcounteren) };
+}
+
+// hgeie
+
+#[inline(always)]
+pub fn get_hgeie() -> u64 {
+    let hgeie: u64;
+    unsafe { asm!("csrr {}, hgeie", out(reg) hgeie) };
+    hgeie
+}
+
+#[inline(always)]
+pub fn set_hgeie(hgeie: u64) {
+    unsafe { asm!("csrw hgeie, {}", in(reg) hgeie) };
+}
+
+// hgeip
+
+#[inline(always)]
+pub fn get_hgeip() -> u64 {
+    let hgeip: u64;
+    unsafe { asm!("csrr {}, hgeip", out(reg) hgeip) };
+    hgeip
+}
+
+#[inline(always)]
+pub fn set_hgeip(hgeip: u64) {
+    unsafe { asm!("csrw hgeip, {}", in(reg) hgeip) };
 }
 
 // pmp

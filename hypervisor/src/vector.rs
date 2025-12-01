@@ -11,6 +11,7 @@ use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
 use mmio_core::MmioEntry;
+use spin::MutexGuard;
 #[cfg(feature = "nested_support")]
 use {
     crate::HOST_HYPERVISOR_CSR, crate::emulate_csr::HypervisorCsr, crate::emulate_csr::emulate_csr,
@@ -27,181 +28,7 @@ pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
-global_asm!(
-    "
-.section .text
-.global machine_vector_table
-.balign 256
-machine_vector_table:
-    j machine_exception_handler 
-
-.section .text
-.global supervisor_vector_table
-.balign 256
-supervisor_vector_table:
-    j supervisor_exception_handler 
-    
-.text
-.global machine_exception_handler 
-.balign 256
-machine_exception_handler:
-    addi sp, sp, -8*31
-    sd x0, 0*8(sp)
-    sd x1, 1*8(sp)
-    sd x2, 2*8(sp)
-    sd x3, 3*8(sp)
-    sd x4, 4*8(sp)
-    sd x5, 5*8(sp)
-    sd x6, 6*8(sp)
-    sd x7, 7*8(sp)
-    sd x8, 8*8(sp)
-    sd x9, 9*8(sp)
-    sd x10, 10*8(sp)
-    sd x11, 11*8(sp)
-    sd x12, 12*8(sp)
-    sd x13, 13*8(sp)
-    sd x14, 14*8(sp)
-    sd x15, 15*8(sp)
-    sd x16, 16*8(sp)
-    sd x17, 17*8(sp)
-    sd x18, 18*8(sp)
-    sd x19, 19*8(sp)
-    sd x20, 20*8(sp)
-    sd x21, 21*8(sp)
-    sd x22, 22*8(sp)
-    sd x23, 23*8(sp)
-    sd x24, 24*8(sp)
-    sd x25, 25*8(sp)
-    sd x26, 26*8(sp)
-    sd x27, 27*8(sp)
-    sd x28, 28*8(sp)
-    sd x29, 29*8(sp)
-    sd x30, 30*8(sp)
-    sd x31, 31*8(sp)
-    csrr a0, mstatus
-    li t0, 0x8000000000
-    and t1, a0, t0
-    beq t1, x0, NOT_STACK_M
-    csrw mscratch, sp
-    la sp, _intr_stack_end
-    call machine_handler 
-    csrr sp, mscratch
-    jal x0, END_INTR_M
-NOT_STACK_M:
-    call machine_handler
-END_INTR_M:
-    ld x0, 0*8(sp)
-    ld x1, 1*8(sp)
-    ld x2, 2*8(sp)
-    ld x3, 3*8(sp)
-    ld x4, 4*8(sp)
-    ld x5, 5*8(sp)
-    ld x6, 6*8(sp)
-    ld x7, 7*8(sp)
-    ld x8, 8*8(sp)
-    ld x9, 9*8(sp)
-    ld x10, 10*8(sp)
-    ld x11, 11*8(sp)
-    ld x12, 12*8(sp)
-    ld x13, 13*8(sp)
-    ld x14, 14*8(sp)
-    ld x15, 15*8(sp)
-    ld x16, 16*8(sp)
-    ld x17, 17*8(sp)
-    ld x18, 18*8(sp)
-    ld x19, 19*8(sp)
-    ld x20, 20*8(sp)
-    ld x21, 21*8(sp)
-    ld x22, 22*8(sp)
-    ld x23, 23*8(sp)
-    ld x24, 24*8(sp)
-    ld x25, 25*8(sp)
-    ld x26, 26*8(sp)
-    ld x27, 27*8(sp)
-    ld x28, 28*8(sp)
-    ld x29, 29*8(sp)
-    ld x30, 30*8(sp)
-    ld x31, 31*8(sp)
-    addi sp, sp, 8*31
-    mret
-
-.text
-.global supervisor_exception_handler 
-.balign 256
-supervisor_exception_handler:
-    addi sp, sp, -8*31
-    sd x0, 0*8(sp)
-    sd x1, 1*8(sp)
-    sd x2, 2*8(sp)
-    sd x3, 3*8(sp)
-    sd x4, 4*8(sp)
-    sd x5, 5*8(sp)
-    sd x6, 6*8(sp)
-    sd x7, 7*8(sp)
-    sd x8, 8*8(sp)
-    sd x9, 9*8(sp)
-    sd x10, 10*8(sp)
-    sd x11, 11*8(sp)
-    sd x12, 12*8(sp)
-    sd x13, 13*8(sp)
-    sd x14, 14*8(sp)
-    sd x15, 15*8(sp)
-    sd x16, 16*8(sp)
-    sd x17, 17*8(sp)
-    sd x18, 18*8(sp)
-    sd x19, 19*8(sp)
-    sd x20, 20*8(sp)
-    sd x21, 21*8(sp)
-    sd x22, 22*8(sp)
-    sd x23, 23*8(sp)
-    sd x24, 24*8(sp)
-    sd x25, 25*8(sp)
-    sd x26, 26*8(sp)
-    sd x27, 27*8(sp)
-    sd x28, 28*8(sp)
-    sd x29, 29*8(sp)
-    sd x30, 30*8(sp)
-    sd x31, 31*8(sp)
-    csrw sscratch, sp
-    la sp, _intr_stack_end
-    call exception_handler
-    csrr sp, sscratch
-    ld x0, 0*8(sp)
-    ld x1, 1*8(sp)
-    ld x2, 2*8(sp)
-    ld x3, 3*8(sp)
-    ld x4, 4*8(sp)
-    ld x5, 5*8(sp)
-    ld x6, 6*8(sp)
-    ld x7, 7*8(sp)
-    ld x8, 8*8(sp)
-    ld x9, 9*8(sp)
-    ld x10, 10*8(sp)
-    ld x11, 11*8(sp)
-    ld x12, 12*8(sp)
-    ld x13, 13*8(sp)
-    ld x14, 14*8(sp)
-    ld x15, 15*8(sp)
-    ld x16, 16*8(sp)
-    ld x17, 17*8(sp)
-    ld x18, 18*8(sp)
-    ld x19, 19*8(sp)
-    ld x20, 20*8(sp)
-    ld x21, 21*8(sp)
-    ld x22, 22*8(sp)
-    ld x23, 23*8(sp)
-    ld x24, 24*8(sp)
-    ld x25, 25*8(sp)
-    ld x26, 26*8(sp)
-    ld x27, 27*8(sp)
-    ld x28, 28*8(sp)
-    ld x29, 29*8(sp)
-    ld x30, 30*8(sp)
-    ld x31, 31*8(sp)
-    addi sp, sp, 8*31
-    sret
-"
-);
+global_asm!(include_str!("./trap.S"));
 
 pub fn setup_vector() {
     unsafe extern "C" {
@@ -271,9 +98,18 @@ pub fn exception_handler() {
                 // L2 VM
                 if is_data_abort(scause) {
                     // Assert Page Fault to L1 Hypervisor
-
+                    assert_l1_hypervisor(
+                        get_vscause(),
+                        get_vsepc(),
+                        get_vstval(),
+                    );
                     // TODO: Consider that L1 changed page table.
                 } else if is_instruction_abort(scause) {
+                    assert_l1_hypervisor(
+                        get_vscause(),
+                        get_vsepc(),
+                        get_vstval(),
+                    );
                 }
 
                 // don't return to here.
@@ -292,7 +128,7 @@ pub fn exception_handler() {
         data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
         // instruction abort
-        instruction_abort_handler(scause, contexts, *locked_current_vmid, &mut *locked_vm);
+        instruction_abort_handler(scause, contexts, locked_current_vmid, &mut *locked_vm);
     } else {
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
@@ -371,9 +207,10 @@ fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntr
 fn instruction_abort_handler(
     scause: usize,
     registers: &mut [u64],
-    current_vmid: usize,
+    mut mutex_vmid: MutexGuard<'_, usize>,
     vms: &mut Vec<VM>,
 ) {
+    let current_vmid = *mutex_vmid;
     match scause {
         E_ILLEGAL_INSTRUCTION => {
             println!("[info] E_ILLEGAL_INSTRUCTION: {:#x}", get_stval());
@@ -471,18 +308,28 @@ fn instruction_abort_handler(
                         vmid
                     }
                 };
-                let l2_vm = &vms[l2_vmid];
-                let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
-                let mut host_csr = HypervisorCsr::new();
-                host_csr.hstatus = get_hstatus();
-                host_csr.hgatp = get_hgatp();
-                *locked_csr = host_csr;
+                if l1_hypervisor.csr.hstatus as usize & HSTATUS_SPV == 0 {
+                    // L1 Hypervisor must be set this bit
+                    panic!("Invalid SRET");
+                }
 
-                // Set Hypervisor CSR to L1 Hypervisor's
-                set_hgatp(l1_hypervisor.csr.hgatp);
-                set_hstatus(l1_hypervisor.csr.hstatus);
-                // Implement this later
+                // Switch Hypervisor Context from L0 to L1
+                store_l0_hypervisor_context();
+                load_hypervisor_context(l1_hypervisor.csr);
 
+                // Change Current VMID from L1 VM to L2 VM
+                *mutex_vmid = l2_vmid;
+
+                // Set L2 VM entry point
+                set_sepc(get_vsepc());
+
+                unsafe extern "C" {
+                    fn vm_entry();
+                }
+                unsafe {
+                    vm_entry();
+                }
+                // don't return to here
             }
 
             println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
@@ -515,4 +362,61 @@ fn instruction_abort_handler(
             panic!();
         }
     };
+}
+
+#[cfg(feature = "nested_support")]
+fn assert_l1_hypervisor(
+    scause: u64,
+    sepc: u64,
+    stval: u64,
+) {
+    set_scause(scause);
+    set_sepc(sepc);
+    set_stval(stval);
+
+    unsafe extern "C" {
+        fn vm_entry();
+    }
+    unsafe {
+        vm_entry();
+    }
+    // don't return to here
+}
+
+#[cfg(feature = "nested_support")]
+fn store_l0_hypervisor_context() {
+    let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
+    let host_csr = HypervisorCsr {
+        hstatus: get_hstatus(),
+        hedeleg: get_hedeleg(),
+        hideleg: get_hideleg(),
+        hie: get_hie(),
+        hcounteren: get_hcounteren(),
+        hgeie: get_hgeie(),
+        htval: get_htval(),
+        hip: get_hip(),
+        hvip: get_hvip(),
+        htinst: get_htinst(),
+        hgeip: get_hgeip(),
+        henvcfg: get_henvcfg(),
+        hgatp: get_hgatp(),
+    };
+    *locked_csr = host_csr;
+}
+
+#[cfg(feature = "nested_support")]
+fn load_hypervisor_context(csr: HypervisorCsr) {
+    set_hstatus(csr.hstatus);
+    set_hedeleg(csr.hedeleg);
+    set_hideleg(csr.hideleg);
+    set_hie(csr.hie);
+    set_hcounteren(csr.hcounteren);
+    set_hgeie(csr.hgeie);
+    set_htval(csr.htval);
+    set_hip(csr.hip);
+    set_hvip(csr.hvip);
+    set_htinst(csr.htinst);
+    set_hgeip(csr.hgeip);
+    set_henvcfg(csr.henvcfg);
+    set_hgatp(csr.hgatp);
 }
