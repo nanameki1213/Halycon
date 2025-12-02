@@ -17,7 +17,7 @@ use virtio::VirtioMmio;
 #[derive(Clone, Copy, Debug)]
 pub struct HypervisorContext {
     pub csr: HypervisorCsr,
-    pub vmid: Option<usize>,
+    pub vmid: usize,
 }
 
 #[cfg(feature = "nested_support")]
@@ -25,7 +25,7 @@ impl HypervisorContext {
     pub const fn new() -> Self {
         HypervisorContext {
             csr: HypervisorCsr::new(),
-            vmid: None,
+            vmid: 0,
         }
     }
 }
@@ -34,6 +34,7 @@ impl HypervisorContext {
 #[derive(Debug)]
 pub struct VM {
     pub vmid: usize,
+    pub page_table_address: usize,
     pub ram_virtual_base_address: usize,
     pub ram_physical_base_address: usize,
     pub ram_size: usize,
@@ -49,6 +50,7 @@ pub struct VM {
 impl VM {
     pub const fn new(
         vmid: usize,
+        page_table_address: usize,
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
         ram_size: usize,
@@ -59,6 +61,7 @@ impl VM {
     ) -> Self {
         VM {
             vmid,
+            page_table_address,
             ram_virtual_base_address,
             ram_physical_base_address,
             ram_size,
@@ -143,6 +146,7 @@ pub fn create_vm(
     let vmid = locked_vms.len();
     let vm = VM::new(
         vmid,
+        table_address,
         RAM_VIRTUAL_BASE,
         ram_physical_base_address as usize,
         RAM_SIZE,
@@ -158,9 +162,19 @@ pub fn create_vm(
 }
 
 #[cfg(feature = "nested_support")]
-pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
+pub fn create_l2_vm(parent_vmid: usize, page_table_address: usize, vms: &mut Vec<VM>) -> usize {
     let new_vmid = vms.len();
-    let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
+    let l2_vm = VM::new(
+        new_vmid,
+        page_table_address,
+        0,
+        0,
+        0,
+        0,
+        0,
+        Vec::new(),
+        Some(parent_vmid),
+    );
     vms.push(l2_vm);
 
     new_vmid
