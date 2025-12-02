@@ -16,7 +16,6 @@ pub struct HypervisorCsr {
     pub hip: u64,
     pub hvip: u64,
     pub htinst: u64,
-    pub hgeip: u64,
     pub henvcfg: u64,
     pub hgatp: u64,
 }
@@ -40,7 +39,6 @@ impl HypervisorCsr {
             hip: 0,
             hvip: 0,
             htinst: 0,
-            hgeip: 0,
             henvcfg: 0,
             hgatp: 0,
         }
@@ -59,7 +57,10 @@ impl HypervisorCsr {
             CSR_HIP_ADDRESS => self.hip,
             CSR_HVIP_ADDRESS => self.hvip,
             CSR_HTINST_ADDRESS => self.htinst,
-            CSR_HGEIP_ADDRESS => self.hgeip,
+            CSR_HGEIP_ADDRESS => {
+                // TODO: Emulate HGEIP register (read-only)
+                0
+            },
             CSR_HENVCFG_ADDRESS => self.henvcfg,
             CSR_HGATP_ADDRESS => self.hgatp,
             _ => {
@@ -105,7 +106,7 @@ impl HypervisorCsr {
                 self.htinst = value;
             }
             CSR_HGEIP_ADDRESS => {
-                self.hgeip = value;
+                panic!("Attempted to write to read-only CSR_HGEIP_ADDRESS register");
             }
             CSR_HENVCFG_ADDRESS => {
                 self.henvcfg = value;

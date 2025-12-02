@@ -660,11 +660,6 @@ pub fn get_hgeip() -> u64 {
     hgeip
 }
 
-#[inline(always)]
-pub fn set_hgeip(hgeip: u64) {
-    unsafe { asm!("csrw hgeip, {}", in(reg) hgeip) };
-}
-
 // pmp
 
 #[inline(always)]
