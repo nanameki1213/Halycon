@@ -1,4 +1,3 @@
-use crate::paging::shadow_map_address_stage2;
 use crate::println;
 use crate::vm::HypervisorContext;
 use arch::riscv::cpu::csr_address::*;
@@ -60,7 +59,7 @@ impl HypervisorCsr {
             CSR_HGEIP_ADDRESS => {
                 // TODO: Emulate HGEIP register (read-only)
                 0
-            },
+            }
             CSR_HENVCFG_ADDRESS => self.henvcfg,
             CSR_HGATP_ADDRESS => self.hgatp,
             _ => {
@@ -132,8 +131,4 @@ pub fn emulate_csr(
     let virtual_csr = &mut hypervisor.csr;
     registers[rd] = virtual_csr.get_csr(csr_address);
     virtual_csr.set_csr(csr_address, write_value);
-
-    if csr_address == CSR_HGATP_ADDRESS {
-        let _ = shadow_map_address_stage2(true, true, true, virtual_csr.hgatp);
-    }
 }
