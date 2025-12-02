@@ -80,6 +80,16 @@ impl Instruction {
         self.get_opcode() == Self::OPCODE_SYSTEM && self.get_funct3() == Self::FUNCT3_CSRRS
     }
 
+    pub fn is_csr_access(&self) -> Option<CsrAccessInstructionType> {
+        if self.is_csrrw_instruction() {
+            return Some(CsrAccessInstructionType::CSRRW);
+        } else if self.is_csrrs_instruction() {
+            return Some(CsrAccessInstructionType::CSRRS);
+        } else {
+            return None;
+        }
+    }
+
     pub fn is_sret(&self) -> bool {
         self.get_opcode() == Self::OPCODE_SYSTEM
             && self.get_rs2() == Self::RS2_TRAP_RETURN
@@ -90,6 +100,11 @@ impl Instruction {
         let compression = self.get_compression();
         compression == Self::COMPRESSED_INSTRUCTION
     }
+}
+
+pub enum CsrAccessInstructionType {
+    CSRRW,
+    CSRRS,
 }
 
 // Hypervisor Instruction
