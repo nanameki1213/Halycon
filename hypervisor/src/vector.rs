@@ -241,7 +241,7 @@ fn instruction_abort_handler(
                     let mut l1_hypervisor = match vms[current_vmid].hypervisor {
                         Some(context) => context,
                         None => {
-                            let vmid = create_l2_vm(current_vmid, 0, vms);
+                            let vmid = create_l2_vm(current_vmid, vms);
                             HypervisorContext {
                                 csr: HypervisorCsr::new(),
                                 vmid,
@@ -271,7 +271,10 @@ fn instruction_abort_handler(
                                 vms[l2_vmid].page_table_address = table_address;
                             }
                             None => {
-                                println!("Error: Failed to create shadow page table for L2 VM (vmid={})", l2_vmid);
+                                println!(
+                                    "Error: Failed to create shadow page table for L2 VM (vmid={})",
+                                    l2_vmid
+                                );
                                 return;
                             }
                         }
@@ -298,7 +301,7 @@ fn instruction_abort_handler(
                 let l1_hypervisor = match vms[current_vmid].hypervisor {
                     Some(hypervisor) => hypervisor,
                     None => {
-                        let vmid = create_l2_vm(current_vmid, 0, vms);
+                        let vmid = create_l2_vm(current_vmid, vms);
                         HypervisorContext {
                             csr: HypervisorCsr::new(),
                             vmid,

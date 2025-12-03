@@ -162,19 +162,9 @@ pub fn create_vm(
 }
 
 #[cfg(feature = "nested_support")]
-pub fn create_l2_vm(parent_vmid: usize, page_table_address: usize, vms: &mut Vec<VM>) -> usize {
+pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
     let new_vmid = vms.len();
-    let l2_vm = VM::new(
-        new_vmid,
-        page_table_address,
-        0,
-        0,
-        0,
-        0,
-        0,
-        Vec::new(),
-        Some(parent_vmid),
-    );
+    let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
     vms.push(l2_vm);
 
     new_vmid
