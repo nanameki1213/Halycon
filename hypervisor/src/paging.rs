@@ -96,6 +96,7 @@ impl fmt::Display for PageTableError {
     }
 }
 
+#[cfg(feature = "nested_support")]
 #[derive(Debug)]
 pub enum ShadowPageTableError {
     OutOfMemory,
@@ -104,6 +105,7 @@ pub enum ShadowPageTableError {
     ParentPageFault,
 }
 
+#[cfg(feature = "nested_support")]
 impl From<AddressTranslationError> for ShadowPageTableError {
     fn from(value: AddressTranslationError) -> Self {
         match value {
@@ -115,6 +117,7 @@ impl From<AddressTranslationError> for ShadowPageTableError {
     }
 }
 
+#[cfg(feature = "nested_support")]
 impl From<PageTableError> for ShadowPageTableError {
     fn from(value: PageTableError) -> Self {
         match value {
@@ -296,6 +299,7 @@ pub fn map_address_stage2(
     Ok(table_address as usize)
 }
 
+#[allow(dead_code)]
 pub fn add_mapping_stage2(
     mut physical_address: usize,
     mut virtual_address: usize,

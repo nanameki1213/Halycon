@@ -93,34 +93,32 @@ pub fn exception_handler() {
     let scause = get_scause() as usize;
     let sp = get_sscratch() as usize;
 
-    if cfg!(feature = "nested_support") {
-        let current_vm = &locked_vm[*locked_current_vmid];
-        match current_vm.parent_vmid {
-            Some(parent_vmid) => {
-                // Switch Hypervisor Context from L2 to L1
-                let l1_hypervisor_csr = HOST_HYPERVISOR_CSR.lock();
-                load_hypervisor_context(*l1_hypervisor_csr);
+    #[cfg(feature = "nested_support")]
+    match locked_vm[*locked_current_vmid].parent_vmid {
+        Some(parent_vmid) => {
+            // Switch Hypervisor Context from L2 to L1
+            let l1_hypervisor_csr = HOST_HYPERVISOR_CSR.lock();
+            load_hypervisor_context(*l1_hypervisor_csr);
 
-                // Change Current VMID from L1 VM to L2 VM
-                *locked_current_vmid = parent_vmid;
+            // Change Current VMID from L1 VM to L2 VM
+            *locked_current_vmid = parent_vmid;
 
-                println!("↓L2 VM ↑L1 VMM");
-                println!("vscause: {:#x}", get_vscause());
-                println!("vsepc: {:#x}", get_vsepc());
-                println!("vstval: {:#x}", get_vstval());
+            println!("↓L2 VM ↑L1 VMM");
+            println!("vscause: {:#x}", get_vscause());
+            println!("vsepc: {:#x}", get_vsepc());
+            println!("vstval: {:#x}", get_vstval());
 
-                if is_data_abort(scause) {
-                    // Assert Page Fault to L1 Hypervisor
-                    assert_l1_hypervisor(get_vscause(), get_vsepc(), get_vstval());
-                    // TODO: Consider that L1 changed page table.
-                } else if is_instruction_abort(scause) {
-                    assert_l1_hypervisor(get_vscause(), get_vsepc(), get_vstval());
-                }
-                // don't return to here.
+            if is_data_abort(scause) {
+                // Assert Page Fault to L1 Hypervisor
+                assert_l1_hypervisor(get_vscause(), get_vsepc(), get_vstval());
+                // TODO: Consider that L1 changed page table.
+            } else if is_instruction_abort(scause) {
+                assert_l1_hypervisor(get_vscause(), get_vsepc(), get_vstval());
             }
-            None => {
-                // L1 VM
-            }
+            // don't return to here.
+        }
+        None => {
+            // L1 VM
         }
     }
 
@@ -231,7 +229,9 @@ fn instruction_abort_handler(
 
             if let Some(access_type) = instruction.is_csr_access() {
                 let csr_address = instruction.get_funct12();
+                // dst register number
                 let rd = instruction.get_rd();
+                // src register number
                 let rs1 = instruction.get_rs1();
 
                 #[cfg(feature = "nested_support")]
