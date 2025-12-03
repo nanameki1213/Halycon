@@ -80,7 +80,7 @@ impl MmioHandler for Virtio {
                 // }
 
                 // println!("virtio: {}", virtio_blk_req.sector);
-                let mutex = PASS_THROUGH_VIRTIO_BLK_DEVICE.get_unchecked();
+                let mutex = PASS_THROUGH_VIRTIO_BLK_DEVICE.get().expect("PASS_THROUGH_VIRTIO_BLK_DEVICE not initialized");
                 let mut block_device = mutex.lock();
 
                 if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
