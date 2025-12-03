@@ -2,7 +2,6 @@ use crate::CURRENT_VMID;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
 use crate::paging;
-use crate::paging::resolve_address_stage2;
 use crate::plic;
 use crate::println;
 use crate::sbi;
@@ -323,8 +322,6 @@ fn instruction_abort_handler(
 
                 // Change Current VMID from L1 VM to L2 VM
                 *mutex_vmid = l2_vmid;
-
-                resolve_address_stage2(0x80000000).unwrap();
 
                 // Set L2 VM entry point
                 set_sepc(get_vsepc());
