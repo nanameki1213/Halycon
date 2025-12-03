@@ -267,13 +267,13 @@ fn instruction_abort_handler(
                             true,
                             l1_hypervisor.csr.hgatp,
                         ) {
-                            Some(table_address) => {
+                            Ok(table_address) => {
                                 vms[l2_vmid].page_table_address = table_address;
                             }
-                            None => {
+                            Err(err) => {
                                 println!(
-                                    "Error: Failed to create shadow page table for L2 VM (vmid={})",
-                                    l2_vmid
+                                    "Error: Failed to create shadow page table for L2 VM: {}",
+                                    err
                                 );
                                 return;
                             }
