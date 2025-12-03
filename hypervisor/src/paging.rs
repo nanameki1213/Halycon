@@ -1,7 +1,7 @@
 use core::borrow::BorrowMut;
 use core::fmt;
 
-use crate::memory::allocate_pages;
+use crate::memory::callocate_pages;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::*;
 
@@ -217,10 +217,9 @@ fn _map_address_stage2(
     }
 
     for e in table[table_index..num_of_entries].iter_mut() {
-        e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            let new_table_address = allocate_pages(1, PAGE_SIZE);
+            let new_table_address = callocate_pages(1, PAGE_SIZE);
             if new_table_address.is_null() {
                 return Err(PageTableError::OutOfMemory);
             }
@@ -258,7 +257,7 @@ pub fn map_address_stage2(
     if (map_size & PAGE_MASK) != 0 {
         return Err(PageTableError::InvalidAlign);
     }
-    let table_address_ptr = allocate_pages(4, 1 << 14);
+    let table_address_ptr = callocate_pages(4, 1 << 14);
     if table_address_ptr.is_null() {
         return Err(PageTableError::OutOfMemory);
     }
@@ -398,7 +397,7 @@ pub fn shadow_map_address_stage2(
     is_executable: bool,
     vhgatp: u64,
 ) -> Result<usize, ShadowPageTableError> {
-    let shadow_page_table_address = allocate_pages(4, 1 << 14);
+    let shadow_page_table_address = callocate_pages(4, 1 << 14);
     if shadow_page_table_address.is_null() {
         return Err(ShadowPageTableError::OutOfMemory);
     }
