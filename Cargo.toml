@@ -9,7 +9,9 @@ members = [
   "support/fdt",
   "support/string_utils",
   "support/mmio_core",
-  "xtask", "support/devices/virtio", "support/devices/block", 
+  "support/devices/virtio",
+  "support/devices/block",
+  "xtask", 
 ]
 
 [workspace.dependencies]
