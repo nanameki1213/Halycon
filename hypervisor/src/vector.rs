@@ -261,14 +261,20 @@ fn instruction_abort_handler(
 
                     if csr_address == CSR_HGATP_ADDRESS {
                         let l2_vmid = l1_hypervisor.vmid;
-                        let table_address = paging::shadow_map_address_stage2(
+                        match paging::shadow_map_address_stage2(
                             true,
                             true,
                             true,
                             l1_hypervisor.csr.hgatp,
-                        )
-                        .unwrap();
-                        vms[l2_vmid].page_table_address = table_address;
+                        ) {
+                            Some(table_address) => {
+                                vms[l2_vmid].page_table_address = table_address;
+                            }
+                            None => {
+                                println!("Error: Failed to create shadow page table for L2 VM (vmid={})", l2_vmid);
+                                return;
+                            }
+                        }
                     }
 
                     vms[current_vmid].hypervisor = Some(l1_hypervisor);
