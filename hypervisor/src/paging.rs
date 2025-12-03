@@ -105,6 +105,16 @@ pub enum ShadowPageTableError {
     ParentPageFault,
 }
 
+impl fmt::Display for ShadowPageTableError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OutOfMemory => write!(f, "Failed to allocate pages for shadow page table"),
+            Self::InvalidAlign => write!(f, "Map size is not aligned in shadow page table"),
+            Self::ParentDisableAddressTranslation => write!(f, "Parent MMU is not available"),
+            Self::ParentPageFault => write!(f, "Parent page fault"),
+        }
+    }
+}
 #[cfg(feature = "nested_support")]
 impl From<AddressTranslationError> for ShadowPageTableError {
     fn from(value: AddressTranslationError) -> Self {
