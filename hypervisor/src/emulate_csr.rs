@@ -1,10 +1,9 @@
-use crate::paging::shadow_map_address_stage2;
 use crate::println;
+use crate::vm::HypervisorContext;
 use arch::riscv::cpu::csr_address::*;
 use arch::riscv::cpu::*;
-use spin::Mutex;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct HypervisorCsr {
     pub hstatus: u64,
     pub hedeleg: u64,
@@ -16,7 +15,6 @@ pub struct HypervisorCsr {
     pub hip: u64,
     pub hvip: u64,
     pub htinst: u64,
-    pub hgeip: u64,
     pub henvcfg: u64,
     pub hgatp: u64,
 }
@@ -40,7 +38,6 @@ impl HypervisorCsr {
             hip: 0,
             hvip: 0,
             htinst: 0,
-            hgeip: 0,
             henvcfg: 0,
             hgatp: 0,
         }
@@ -59,7 +56,10 @@ impl HypervisorCsr {
             CSR_HIP_ADDRESS => self.hip,
             CSR_HVIP_ADDRESS => self.hvip,
             CSR_HTINST_ADDRESS => self.htinst,
-            CSR_HGEIP_ADDRESS => self.hgeip,
+            CSR_HGEIP_ADDRESS => {
+                // TODO: Emulate HGEIP register (read-only)
+                0
+            }
             CSR_HENVCFG_ADDRESS => self.henvcfg,
             CSR_HGATP_ADDRESS => self.hgatp,
             _ => {
@@ -105,7 +105,7 @@ impl HypervisorCsr {
                 self.htinst = value;
             }
             CSR_HGEIP_ADDRESS => {
-                self.hgeip = value;
+                panic!("Attempted to write to read-only CSR_HGEIP_ADDRESS register");
             }
             CSR_HENVCFG_ADDRESS => {
                 self.henvcfg = value;
@@ -121,13 +121,14 @@ impl HypervisorCsr {
     }
 }
 
-pub static VIRTUAL_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
-
-pub fn emulate_csr(csr_address: usize, rd: usize, write_value: u64, registers: &mut [u64]) {
-    registers[rd] = VIRTUAL_CSR.lock().get_csr(csr_address);
-    VIRTUAL_CSR.lock().set_csr(csr_address, write_value);
-
-    if csr_address == CSR_HGATP_ADDRESS {
-        let _ = shadow_map_address_stage2(true, true, true);
-    }
+pub fn emulate_csr(
+    hypervisor: &mut HypervisorContext,
+    csr_address: usize,
+    rd: usize,
+    write_value: u64,
+    registers: &mut [u64],
+) {
+    let virtual_csr = &mut hypervisor.csr;
+    registers[rd] = virtual_csr.get_csr(csr_address);
+    virtual_csr.set_csr(csr_address, write_value);
 }

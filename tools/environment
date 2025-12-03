@@ -1,2 +1,5 @@
-DISK_IMG_DIR=bin/disk
-U_BOOT_DIR=$HOME/u-boot
+BIN_DIR=../bin
+DISK_IMG_DIR=$BIN_DIR/disk
+L1_DISK_IMG_DIR=$BIN_DIR/L1disk
+SOURCE_DIR=../scripts
+U_BOOT_DIR=../u-boot/u-boot

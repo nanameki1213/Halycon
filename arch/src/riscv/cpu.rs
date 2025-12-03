@@ -322,6 +322,18 @@ pub fn set_mideleg(mideleg: u64) {
     unsafe { asm!("csrw mideleg, {}", in(reg) mideleg) };
 }
 
+#[inline(always)]
+pub fn get_hideleg() -> u64 {
+    let hideleg: u64;
+    unsafe { asm!("csrr {}, hideleg", out(reg) hideleg) };
+    hideleg
+}
+
+#[inline(always)]
+pub fn set_hideleg(hideleg: u64) {
+    unsafe { asm!("csrw hideleg, {}", in(reg) hideleg) };
+}
+
 // atp
 
 #[inline(always)]
@@ -422,6 +434,18 @@ pub fn get_sepc() -> u64 {
 #[inline(always)]
 pub fn set_sepc(sepc: u64) {
     unsafe { asm!("csrw sepc, {}", in(reg) sepc ) };
+}
+
+#[inline(always)]
+pub fn get_vsepc() -> u64 {
+    let vsepc: u64;
+    unsafe { asm!("csrr {}, vsepc", out(reg) vsepc ) };
+    vsepc
+}
+
+#[inline(always)]
+pub fn set_vsepc(vsepc: u64) {
+    unsafe { asm!("csrw vsepc, {}", in(reg) vsepc ) };
 }
 
 // tval
@@ -597,6 +621,43 @@ pub fn get_henvcfg() -> u64 {
 #[inline(always)]
 pub fn set_henvcfg(henvcfg: u64) {
     unsafe { asm!("csrw henvcfg, {}", in(reg) henvcfg) };
+}
+
+// hcounteren
+
+#[inline(always)]
+pub fn get_hcounteren() -> u64 {
+    let hcounteren: u64;
+    unsafe { asm!("csrr {}, hcounteren", out(reg) hcounteren) };
+    hcounteren
+}
+
+#[inline(always)]
+pub fn set_hcounteren(hcounteren: u64) {
+    unsafe { asm!("csrw hcounteren, {}", in(reg) hcounteren) };
+}
+
+// hgeie
+
+#[inline(always)]
+pub fn get_hgeie() -> u64 {
+    let hgeie: u64;
+    unsafe { asm!("csrr {}, hgeie", out(reg) hgeie) };
+    hgeie
+}
+
+#[inline(always)]
+pub fn set_hgeie(hgeie: u64) {
+    unsafe { asm!("csrw hgeie, {}", in(reg) hgeie) };
+}
+
+// hgeip
+
+#[inline(always)]
+pub fn get_hgeip() -> u64 {
+    let hgeip: u64;
+    unsafe { asm!("csrr {}, hgeip", out(reg) hgeip) };
+    hgeip
 }
 
 // pmp

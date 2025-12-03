@@ -3,6 +3,7 @@
 #![no_main]
 
 extern crate alloc;
+extern crate lazy_static;
 
 mod aplic;
 mod console;
@@ -14,47 +15,39 @@ mod paging;
 mod plic;
 mod sbi;
 mod vector;
-mod virtio_blk;
 mod vm;
+mod virtual_devices {
+    pub mod virtio;
+    pub mod serial {
+        pub mod ns16550;
+    }
+}
 mod mmio {
     pub mod ns16550;
-    pub mod virtio;
 }
 
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
+use crate::mmio::ns16550::NS16550_ADDR;
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use arch::riscv::cpu::*;
+use block::virtio_blk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
-use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
-use log;
+use lazy_static::lazy_static;
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
-use mmio::virtio::VirtioMmio;
-use spin::Mutex;
+use spin::{Mutex, Once};
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
+use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
+use vm::VM;
 
-pub struct UartLogger;
-
-impl log::Log for UartLogger {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::Level::Debug
-    }
-
-    fn log(&self, record: &log::Record) {
-        if self.enabled(record.metadata()) {
-            println!("{} - {}", record.level(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: UartLogger = UartLogger;
+// guest device
+use mmio_core::MmioEntry;
 
 #[macro_export]
 macro_rules! bitmask {
@@ -70,16 +63,31 @@ const MAX_MMIO_ENTRIES: usize = 64;
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
-struct GlobalAllocator {}
-
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
-static PASS_THROUGH_VIRTIO_MMIO: Mutex<MaybeUninit<VirtioMmio>> =
-    Mutex::new(MaybeUninit::<VirtioMmio>::uninit());
-static PASS_THROUGH_VIRTIO_BLK_DEVICE: Mutex<MaybeUninit<virtio_blk::VirtioBlk>> =
-    Mutex::new(MaybeUninit::<virtio_blk::VirtioBlk>::uninit());
+static PASS_THROUGH_VIRTIO_MMIO: Once<VirtioMmio> = Once::new();
+static PASS_THROUGH_VIRTIO_BLK_DEVICE: Once<Mutex<virtio_blk::VirtioBlk>> = Once::new();
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
+static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
+
+lazy_static! {
+    pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
+}
+
+fn init_mmio(virtio_mmio: VirtioMmio) {
+    println!("version; {}", virtio_mmio.get_virtio_mmio(0));
+    let block_device: virtio_blk::VirtioBlk;
+    match virtio_blk::VirtioBlk::new(virtio_mmio) {
+        Ok(device) => block_device = device,
+        Err(err) => panic!("Block Device: {}", err),
+    }
+    PASS_THROUGH_VIRTIO_MMIO.call_once(|| virtio_mmio);
+
+    PASS_THROUGH_VIRTIO_BLK_DEVICE.call_once(|| Mutex::new(block_device));
+}
+
+struct GlobalAllocator {}
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
@@ -110,9 +118,6 @@ unsafe impl GlobalAlloc for GlobalAllocator {
 
 #[unsafe(no_mangle)]
 extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
-    log::set_logger(&LOGGER).unwrap();
-    log::set_max_level(log::LevelFilter::Debug);
-
     if argc < 1 {
         panic!("dtb pointer not configured.");
     }
@@ -157,9 +162,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     const DEVICE_TREE_MMIO_INDEX: usize = 6;
     const PASS_THROUGH_MMIO_INDEX: usize = 5;
 
-    PASS_THROUGH_VIRTIO_MMIO
-        .lock()
-        .write(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
+    init_mmio(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -254,21 +257,45 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         );
     }
 
+    let mut mmio: Vec<MmioEntry> = Vec::new();
+
+    let serial_entry = MmioEntry::new(
+        NS16550_ADDR,
+        0x100,
+        Box::new(virtual_devices::serial::ns16550::Ns16550),
+    );
+    mmio.push(serial_entry);
+
+    let virtio_entry = MmioEntry::new(
+        VIRTIO_MMIO_DEFAULT_ADDRESS,
+        0x1000,
+        Box::new(virtual_devices::virtio::Virtio),
+    );
+    mmio.push(virtio_entry);
+
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
-    let vm = vm::create_vm(
+    let vmid = vm::create_vm(
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
         virtio_mmios[DEVICE_TREE_MMIO_INDEX],
+        mmio,
+        #[cfg(feature = "nested_support")]
+        None,
     );
+    let entry_point: usize;
+    let dtb_pointer: usize;
+    {
+        let locked_vm = { VIRTUAL_MACHINES.lock() };
+        let vm = &locked_vm[vmid];
+
+        entry_point = vm.get_entry_point() as usize;
+        dtb_pointer = vm.get_dtb_pointer();
+    }
 
     println!("switch to guest");
-    hs_to_vs(
-        vm.get_entry_point() as usize,
-        stack_address,
-        vm.get_dtb_pointer(),
-    )
+    hs_to_vs(entry_point, stack_address, dtb_pointer)
     // don't return to here
 }
 

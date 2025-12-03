@@ -1,12 +1,9 @@
 use core::borrow::BorrowMut;
+use core::fmt;
 
-#[cfg(feature = "nested_support")]
-use crate::emulate_csr::VIRTUAL_CSR;
-use crate::memory::allocate_pages;
-use crate::println;
+use crate::memory::callocate_pages;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::*;
-use core::sync::atomic::{AtomicPtr, Ordering};
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
@@ -69,12 +66,83 @@ impl TableEntry {
     }
 }
 
+#[derive(Debug)]
+pub enum AddressTranslationError {
+    DisableAddressTranslation,
+    PageFault,
+}
+
+impl fmt::Display for AddressTranslationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DisableAddressTranslation => write!(f, "mmu is not available"),
+            Self::PageFault => write!(f, "page fault"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum PageTableError {
+    OutOfMemory,
+    InvalidAlign,
+}
+
+impl fmt::Display for PageTableError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OutOfMemory => write!(f, "Failed to allocate pages for page table"),
+            Self::InvalidAlign => write!(f, "Map size is not aligned"),
+        }
+    }
+}
+
+#[cfg(feature = "nested_support")]
+#[derive(Debug)]
+pub enum ShadowPageTableError {
+    OutOfMemory,
+    InvalidAlign,
+    ParentDisableAddressTranslation,
+    ParentPageFault,
+}
+
+impl fmt::Display for ShadowPageTableError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OutOfMemory => write!(f, "Failed to allocate pages for shadow page table"),
+            Self::InvalidAlign => write!(f, "Map size is not aligned in shadow page table"),
+            Self::ParentDisableAddressTranslation => write!(f, "Parent MMU is not available"),
+            Self::ParentPageFault => write!(f, "Parent page fault"),
+        }
+    }
+}
+#[cfg(feature = "nested_support")]
+impl From<AddressTranslationError> for ShadowPageTableError {
+    fn from(value: AddressTranslationError) -> Self {
+        match value {
+            AddressTranslationError::DisableAddressTranslation => {
+                Self::ParentDisableAddressTranslation
+            }
+            AddressTranslationError::PageFault => Self::ParentPageFault,
+        }
+    }
+}
+
+#[cfg(feature = "nested_support")]
+impl From<PageTableError> for ShadowPageTableError {
+    fn from(value: PageTableError) -> Self {
+        match value {
+            PageTableError::OutOfMemory => Self::OutOfMemory,
+            PageTableError::InvalidAlign => Self::InvalidAlign,
+        }
+    }
+}
+
 fn _resolve_address_stage2(
     virtual_address: usize,
     table_address: usize,
     table_level: i8,
     num_of_entries: usize,
-) -> Result<usize, ()> {
+) -> Result<usize, AddressTranslationError> {
     let shift_level = 12 + 9 * table_level as usize;
     let table_index = (virtual_address >> shift_level) & (num_of_entries - 1);
     let table = unsafe {
@@ -83,7 +151,7 @@ fn _resolve_address_stage2(
 
     let pte = table[table_index].borrow_mut();
     if !pte.is_valid_pte() {
-        return Err(());
+        return Err(AddressTranslationError::PageFault);
     }
 
     if table_level == 0 {
@@ -101,15 +169,14 @@ fn _resolve_address_stage2(
 }
 
 #[allow(dead_code)]
-pub fn resolve_address_stage2(virtual_address: usize) -> Result<usize, ()> {
+pub fn resolve_address_stage2(virtual_address: usize) -> Result<usize, AddressTranslationError> {
     let hgatp = get_hgatp();
     let table_address = ((hgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((hgatp & SATP_MODE_MASK as u64) >> 60) as usize;
 
     let table_level: i8 = match mode {
         0 => {
-            println!("Bare mode");
-            return Err(());
+            return Err(AddressTranslationError::DisableAddressTranslation);
         }
         8 => 3,
         9 => 4,
@@ -136,7 +203,7 @@ fn _map_address_stage2(
     permission: u64,
     table_level: i8,
     num_of_entries: usize,
-) -> Result<(), ()> {
+) -> Result<(), PageTableError> {
     let shift_level = 12 + 9 * table_level as usize;
     let table_index = (*virtual_address >> shift_level) & (num_of_entries - 1);
     let table = unsafe {
@@ -150,6 +217,7 @@ fn _map_address_stage2(
             e.set_permission(
                 permission | (1 << TableEntry::V_OFFSET) | (1 << TableEntry::U_OFFSET),
             );
+
             *physical_address += PAGE_SIZE;
             *virtual_address += PAGE_SIZE;
             *remaining_size -= PAGE_SIZE;
@@ -162,20 +230,18 @@ fn _map_address_stage2(
     }
 
     for e in table[table_index..num_of_entries].iter_mut() {
-        e.init();
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            let new_table_address = allocate_pages(1, PAGE_SIZE);
+            let new_table_address = callocate_pages(1, PAGE_SIZE);
             if new_table_address.is_null() {
-                println!("Failed to allocate pages for stage2 page table.");
-                return Err(());
+                return Err(PageTableError::OutOfMemory);
             }
             next_table_address = new_table_address as usize;
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
         }
 
-        let _ = _map_address_stage2(
+        _map_address_stage2(
             physical_address,
             virtual_address,
             remaining_size,
@@ -183,7 +249,7 @@ fn _map_address_stage2(
             permission,
             table_level - 1,
             (1 << VPN_SIZE) as usize,
-        );
+        )?;
 
         if *remaining_size == 0 {
             return Ok(());
@@ -200,15 +266,13 @@ pub fn map_address_stage2(
     is_readable: bool,
     is_writable: bool,
     is_executable: bool,
-) -> Result<usize, ()> {
+) -> Result<usize, PageTableError> {
     if (map_size & PAGE_MASK) != 0 {
-        println!("Map size is not aligned.");
-        return Err(());
+        return Err(PageTableError::InvalidAlign);
     }
-    let table_address_ptr = allocate_pages(4, 1 << 14);
+    let table_address_ptr = callocate_pages(4, 1 << 14);
     if table_address_ptr.is_null() {
-        println!("Failed to allocate pages for stage 2 page table.");
-        return Err(());
+        return Err(PageTableError::OutOfMemory);
     }
     let table_address = table_address_ptr as usize;
 
@@ -232,7 +296,7 @@ pub fn map_address_stage2(
         0
     };
 
-    let _ = _map_address_stage2(
+    _map_address_stage2(
         &mut physical_address,
         &mut virtual_address,
         &mut map_size,
@@ -240,11 +304,12 @@ pub fn map_address_stage2(
         permission,
         table_level - 1,
         top_level_stage_2_num_of_entries,
-    );
+    )?;
 
     Ok(table_address as usize)
 }
 
+#[allow(dead_code)]
 pub fn add_mapping_stage2(
     mut physical_address: usize,
     mut virtual_address: usize,
@@ -254,7 +319,7 @@ pub fn add_mapping_stage2(
     is_readable: bool,
     is_writable: bool,
     is_executable: bool,
-) -> Result<(), ()> {
+) -> Result<(), PageTableError> {
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
     let mut permission: u64 = if is_readable {
@@ -288,8 +353,6 @@ pub fn add_mapping_stage2(
     Ok(())
 }
 
-pub static SHADOW_ROOT_PAGE_TABLE: AtomicPtr<u8> = AtomicPtr::new(core::ptr::null_mut());
-
 #[cfg(feature = "nested_support")]
 fn _shadow_map_address_stage2(
     virtual_address: &mut usize,
@@ -297,17 +360,17 @@ fn _shadow_map_address_stage2(
     permission: u64,
     table_level: i8,
     num_of_entries: usize,
-) -> Result<(), ()> {
+    shadow_page_table_address: usize,
+) -> Result<(), ShadowPageTableError> {
     if table_level == -1 {
         let guest_physical_address = table_address;
         let physical_address = resolve_address_stage2(guest_physical_address)?;
 
-        let shadow_table_address = SHADOW_ROOT_PAGE_TABLE.load(Ordering::Acquire);
         add_mapping_stage2(
             physical_address,
             *virtual_address,
             PAGE_SIZE,
-            shadow_table_address as usize,
+            shadow_page_table_address as usize,
             DEFAULT_TABLE_LEVEL,
             (permission & (1 << TableEntry::R_OFFSET)) != 0,
             (permission & (1 << TableEntry::W_OFFSET)) != 0,
@@ -335,6 +398,7 @@ fn _shadow_map_address_stage2(
             permission,
             table_level - 1,
             (1 << VPN_SIZE) as usize,
+            shadow_page_table_address,
         )?;
     }
     Ok(())
@@ -345,22 +409,19 @@ pub fn shadow_map_address_stage2(
     is_readable: bool,
     is_writable: bool,
     is_executable: bool,
-) -> Result<(), ()> {
-    let shadow_table_address = allocate_pages(4, 1 << 14);
-    if shadow_table_address.is_null() {
-        println!("Failed to allocate pages for stage 2 shadow page table.");
-        return Err(());
+    vhgatp: u64,
+) -> Result<usize, ShadowPageTableError> {
+    let shadow_page_table_address = callocate_pages(4, 1 << 14);
+    if shadow_page_table_address.is_null() {
+        return Err(ShadowPageTableError::OutOfMemory);
     }
-    SHADOW_ROOT_PAGE_TABLE.store(shadow_table_address, Ordering::Release);
 
-    let vhgatp = VIRTUAL_CSR.lock().hgatp;
     let l1_table_address = ((vhgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((vhgatp & SATP_MODE_MASK as u64) >> 60) as usize;
 
     let table_level: i8 = match mode {
         0 => {
-            println!("Bare mode");
-            return Err(());
+            return Err(ShadowPageTableError::ParentDisableAddressTranslation);
         }
         8 => 3,
         9 => 4,
@@ -396,7 +457,8 @@ pub fn shadow_map_address_stage2(
         permission,
         table_level - 1,
         top_level_stage_2_num_of_entries,
+        shadow_page_table_address as usize,
     )?;
 
-    Ok(())
+    Ok(shadow_page_table_address as usize)
 }

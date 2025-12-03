@@ -8,7 +8,10 @@ members = [
   "support/allocator",
   "support/fdt",
   "support/string_utils",
-  "xtask",
+  "support/mmio_core",
+  "support/devices/virtio",
+  "support/devices/block",
+  "xtask", 
 ]
 
 [workspace.dependencies]

@@ -1,14 +1,10 @@
+#![no_std]
 #![allow(dead_code)]
 
 extern crate alloc;
 
-use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
-use crate::paging::resolve_address_stage2;
-use crate::println;
-use crate::virtio_blk::{self, SECTOR_SIZE};
 use alloc::boxed::Box;
-use core::usize;
-use spin::Mutex;
+use core::{fmt, usize};
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
@@ -170,6 +166,22 @@ impl VirtQueue {
     }
 }
 
+pub enum VirtQueueError {
+    UnsupportedVersion,
+    InvalidQueue,
+    AlreadyInUse,
+}
+
+impl fmt::Display for VirtQueueError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedVersion => write!(f, "Virtio version is not supported."),
+            Self::InvalidQueue => write!(f, "Virt Queue is invalid."),
+            Self::AlreadyInUse => write!(f, "Virt Queue is already in use."),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct VirtioMmio {
     pub base_address: usize,
@@ -253,25 +265,22 @@ impl VirtioMmio {
         self.set_virtio_mmio(VIRTIO_MMIO_STATUS, status);
     }
 
-    pub fn setup_virt_queue(&self, index: u32) -> Result<Box<VirtQueue>, ()> {
+    pub fn setup_virt_queue(&self, index: u32) -> Result<Box<VirtQueue>, VirtQueueError> {
         let version = self.get_virtio_mmio(VIRTIO_MMIO_VERSION);
         if version != VIRTIO_VERSION as u32 {
-            println!("virtio version is not compatible");
-            return Err(());
+            return Err(VirtQueueError::UnsupportedVersion);
         }
         // 1. Select the queue writing its index to QueueSel.
         self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
         // 2. Check if the queue is not already in use
         if self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY) != 0 {
             // u-boot is already using the queue 0, so we overriding.
-            // println!("queue is already in use: {:#X}", self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_READY));
-            // return Err(());
+            // return Err(VirtQueueError::AlreadyInUse);
         }
         // 3. Read maxium queue size (number of elements) from QueueNumMax
         let max_size = self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX);
         if max_size == 0 {
-            println!("queue is invalid");
-            return Err(());
+            return Err(VirtQueueError::InvalidQueue);
         }
         // 4. Allocate and zero the queue memory
         let vq: Box<VirtQueue> = Box::new(VirtQueue::new());
@@ -355,136 +364,5 @@ impl VirtioMmioRegister {
             driver_features_high: 0,
             driver_features_sel: 0,
         }
-    }
-}
-
-static VIRTIO_MMIO_REGISTER: Mutex<VirtioMmioRegister> = Mutex::new(VirtioMmioRegister::new());
-
-pub fn emulate_read_virtio(offset: usize, virtio_mmio: VirtioMmio) -> Result<u32, ()> {
-    let mut value = virtio_mmio.get_virtio_mmio(offset);
-
-    match offset {
-        VIRTIO_MMIO_VERSION => {
-            virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
-            VIRTIO_MMIO_REGISTER.lock().device_features_low =
-                virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
-            virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
-            VIRTIO_MMIO_REGISTER.lock().device_features_high =
-                virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
-        }
-        VIRTIO_MMIO_QUEUE_READY => {
-            value = VIRTIO_DEFAULT_INDEX;
-        }
-        VIRTIO_MMIO_STATUS => {
-            value = VIRTIO_MMIO_REGISTER.lock().status;
-        }
-        VIRTIO_MMIO_DEVICE_FEATURES => {
-            if VIRTIO_MMIO_REGISTER.lock().device_features_sel == 0 {
-                value = VIRTIO_MMIO_REGISTER.lock().device_features_low;
-            } else {
-                value = VIRTIO_MMIO_REGISTER.lock().device_features_high;
-            }
-        }
-        _ => {}
-    }
-
-    // println!("read: {:#X}, {:#X}", offset, value);
-    Ok(value)
-}
-
-pub fn emulate_write_virtio(offset: usize, value: u32, virtio_mmio: VirtioMmio) {
-    // println!("write: {:#X}, {:#X}", offset, value);
-
-    match offset {
-        VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
-            if value != VIRTIO_MMIO_REGISTER.lock().queue_sel {
-                println!("invalid queue num");
-                return;
-            }
-
-            let desc_address =
-                resolve_address_stage2(VIRTIO_MMIO_REGISTER.lock().desc_address as usize).unwrap();
-            let desc_ring = &mut *core::ptr::slice_from_raw_parts_mut(
-                desc_address as *mut VRingDesc,
-                VIRTQ_ENTRY_NUM as usize,
-            );
-            let request_address = resolve_address_stage2(desc_ring[0].addr as usize).unwrap();
-            let data_address = resolve_address_stage2(desc_ring[1].addr as usize).unwrap();
-            let status_address =
-                resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
-            let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
-
-            // println!("\n");
-            // for i in 0..3 {
-            //     println!("desc[{}]: addr: {:#x}, len: {}", i, desc_ring[i].addr as usize, desc_ring[i].len);
-            // }
-
-            // println!("virtio: {}", virtio_blk_req.sector);
-
-            if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
-                let mut locked_block_device = PASS_THROUGH_VIRTIO_BLK_DEVICE.lock();
-                let count = desc_ring[1].len as usize / SECTOR_SIZE;
-                let block_device = locked_block_device.assume_init_mut();
-                block_device.read_write_disk(
-                    data_address as *mut usize,
-                    virtio_blk_req.sector,
-                    count,
-                    false,
-                );
-            }
-
-            let device_address =
-                resolve_address_stage2(VIRTIO_MMIO_REGISTER.lock().device_address as usize)
-                    .unwrap();
-            let used_ring = &mut *(device_address as *mut VRingUsed);
-            used_ring.idx += 1;
-
-            core::ptr::write_volatile(status_address, virtio_blk::VIRTIO_BLK_S_OK as u8);
-        },
-        VIRTIO_MMIO_QUEUE_READY => {
-            let block_device = match virtio_blk::VirtioBlk::new(virtio_mmio) {
-                Ok(virtio_blk) => virtio_blk,
-                Err(_) => {
-                    println!("can't set up block device.");
-                    panic!();
-                }
-            };
-            PASS_THROUGH_VIRTIO_BLK_DEVICE.lock().write(block_device);
-        }
-        VIRTIO_MMIO_QUEUE_NUM => {
-            VIRTIO_MMIO_REGISTER.lock().queue_num = value;
-        }
-        VIRTIO_MMIO_QUEUE_SEL => {
-            VIRTIO_MMIO_REGISTER.lock().queue_sel = value;
-        }
-        VIRTIO_MMIO_DEVICE_FEATURES_SEL => {
-            VIRTIO_MMIO_REGISTER.lock().device_features_sel = value;
-        }
-        VIRTIO_MMIO_DRIVER_FEATURES_SEL => {
-            VIRTIO_MMIO_REGISTER.lock().driver_features_sel = value;
-        }
-        VIRTIO_MMIO_DRIVER_FEATURES => {
-            if VIRTIO_MMIO_REGISTER.lock().driver_features_sel == 0 {
-                VIRTIO_MMIO_REGISTER.lock().driver_features_low = value;
-            } else {
-                VIRTIO_MMIO_REGISTER.lock().driver_features_high = value;
-            }
-        }
-        VIRTIO_MMIO_STATUS_FEATURES_OK => {
-            VIRTIO_MMIO_REGISTER.lock().status |= VIRTIO_MMIO_STATUS_FEATURES_OK as u32;
-        }
-        VIRTIO_MMIO_STATUS => {
-            VIRTIO_MMIO_REGISTER.lock().status = value;
-        }
-        VIRTIO_MMIO_DESC_LOW => {
-            VIRTIO_MMIO_REGISTER.lock().desc_address = value as u64;
-        }
-        VIRTIO_MMIO_DRIVER_LOW => {
-            VIRTIO_MMIO_REGISTER.lock().driver_address = value as u64;
-        }
-        VIRTIO_MMIO_DEVICE_LOW => {
-            VIRTIO_MMIO_REGISTER.lock().device_address = value as u64;
-        }
-        _ => {}
     }
 }

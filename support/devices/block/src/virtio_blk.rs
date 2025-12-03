@@ -2,13 +2,14 @@
 
 extern crate alloc;
 
-use crate::mmio::virtio::*;
-use crate::println;
 use alloc::boxed::Box;
 use core::mem::size_of;
 use core::usize;
+use virtio::*;
 
-pub const SECTOR_SIZE: usize = 512;
+use crate::BlockDevice;
+use crate::BlockDeviceError;
+use crate::SECTOR_SIZE;
 
 pub const VIRTIO_BLK_T_IN: usize = 0;
 pub const VIRTIO_BLK_T_OUT: usize = 1;
@@ -47,9 +48,15 @@ pub struct VirtioBlk {
     pub queue: Box<VirtQueue>,
 }
 
+impl From<VirtQueueError> for BlockDeviceError {
+    fn from(_: VirtQueueError) -> Self {
+        BlockDeviceError::QueueError
+    }
+}
+
 impl VirtioBlk {
     // TODO: ここでbase_addressを受け取るとMMIO前提となってしまう。PCI等の対応
-    pub fn new(mmio_device: VirtioMmio) -> Result<Self, ()> {
+    pub fn new(mmio_device: VirtioMmio) -> Result<Self, VirtQueueError> {
         let vq = mmio_device.setup_virt_queue(VIRTIO_DEFAULT_INDEX)?;
 
         Ok(VirtioBlk {
@@ -57,18 +64,16 @@ impl VirtioBlk {
             queue: vq,
         })
     }
+}
 
-    pub fn get_capacity(&self) -> usize {
-        unsafe { core::ptr::read_volatile((self.mmio.base_address + 0x100) as *mut u64) as usize }
-    }
-
-    pub fn read_write_disk(
+impl BlockDevice for VirtioBlk {
+    fn read_write_disk(
         &mut self,
         buf_address: *mut usize,
         sector: u64,
         count: usize,
         is_write: bool,
-    ) {
+    ) -> Result<(), BlockDeviceError> {
         // make a request
         let req_type = if is_write {
             VIRTIO_BLK_T_OUT
@@ -118,16 +123,15 @@ impl VirtioBlk {
             != unsafe { core::ptr::read_volatile(&self.queue.vring.used.idx) }
         {}
 
-        if virtio_blk_req.status != VIRTIO_BLK_S_OK as u8 {
-            println!(
-                "Virtio-Blk Error: {}",
-                match virtio_blk_req.status as usize {
-                    VIRTIO_BLK_S_IOERR => "Input/Output ERROR",
-                    VIRTIO_BLK_S_UNSUPP => "UNSUPPORTED BY DEVICE",
-                    _ => unreachable!(),
-                }
-            );
-            panic!();
+        match virtio_blk_req.status as usize {
+            VIRTIO_BLK_S_OK => return Ok(()),
+            VIRTIO_BLK_S_IOERR => return Err(BlockDeviceError::IOError),
+            VIRTIO_BLK_S_UNSUPP => return Err(BlockDeviceError::UnsupportedDevice),
+            _ => unreachable!(),
         }
+    }
+
+    fn get_capacity(&self) -> usize {
+        unsafe { core::ptr::read_volatile((self.mmio.base_address + 0x100) as *mut u64) as usize }
     }
 }

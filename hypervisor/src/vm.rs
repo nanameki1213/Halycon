@@ -1,36 +1,77 @@
+extern crate alloc;
+
+use crate::VIRTUAL_MACHINES;
+#[cfg(feature = "nested_support")]
+use crate::emulate_csr::HypervisorCsr;
 use crate::loader;
 use crate::memory::allocate_pages;
-use crate::mmio::virtio::VirtioMmio;
 use crate::paging;
 use crate::println;
+use alloc::vec::Vec;
 use arch::riscv::cpu::*;
 use core::arch::riscv64;
+use mmio_core::MmioEntry;
+use virtio::VirtioMmio;
+
+#[cfg(feature = "nested_support")]
+#[derive(Clone, Copy, Debug)]
+pub struct HypervisorContext {
+    pub csr: HypervisorCsr,
+    pub vmid: usize,
+}
+
+#[cfg(feature = "nested_support")]
+impl HypervisorContext {
+    pub const fn new() -> Self {
+        HypervisorContext {
+            csr: HypervisorCsr::new(),
+            vmid: 0,
+        }
+    }
+}
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct VM {
-    vmid: usize,
-    ram_virtual_base_address: usize,
-    ram_physical_base_address: usize,
-    ram_size: usize,
-    entry_point: usize,
-    dtb_pointer: usize,
+    pub vmid: usize,
+    pub page_table_address: usize,
+    pub ram_virtual_base_address: usize,
+    pub ram_physical_base_address: usize,
+    pub ram_size: usize,
+    pub entry_point: usize,
+    pub dtb_pointer: usize,
+    pub mmio: Vec<MmioEntry>,
+    #[cfg(feature = "nested_support")]
+    pub parent_vmid: Option<usize>,
+    #[cfg(feature = "nested_support")]
+    pub hypervisor: Option<HypervisorContext>,
 }
 
 impl VM {
-    fn new(
+    pub const fn new(
+        vmid: usize,
+        page_table_address: usize,
         ram_virtual_base_address: usize,
         ram_physical_base_address: usize,
         ram_size: usize,
         entry_point: usize,
         dtb_pointer: usize,
+        mmio: Vec<MmioEntry>,
+        #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
     ) -> Self {
         VM {
-            vmid: 0,
+            vmid,
+            page_table_address,
             ram_virtual_base_address,
             ram_physical_base_address,
             ram_size,
             entry_point,
             dtb_pointer,
+            mmio,
+            #[cfg(feature = "nested_support")]
+            parent_vmid,
+            #[cfg(feature = "nested_support")]
+            hypervisor: None,
         }
     }
 
@@ -43,7 +84,12 @@ impl VM {
     }
 }
 
-pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio) -> VM {
+pub fn create_vm(
+    bootloader: VirtioMmio,
+    device_tree: VirtioMmio,
+    mmio: Vec<MmioEntry>,
+    #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
+) -> usize {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x20000000;
 
@@ -96,11 +142,30 @@ pub fn create_vm(bootloader: VirtioMmio, device_tree: VirtioMmio) -> VM {
     println!("[info] dtb physical address: {:#X}", dtb_pointer);
     loader::load_dtb(dtb_pointer, device_tree);
 
-    VM::new(
+    let mut locked_vms = VIRTUAL_MACHINES.lock();
+    let vmid = locked_vms.len();
+    let vm = VM::new(
+        vmid,
+        table_address,
         RAM_VIRTUAL_BASE,
         ram_physical_base_address as usize,
         RAM_SIZE,
         virtual_entry_point,
         RAM_VIRTUAL_BASE + size,
-    )
+        mmio,
+        #[cfg(feature = "nested_support")]
+        parent_vmid,
+    );
+    locked_vms.push(vm);
+
+    vmid
+}
+
+#[cfg(feature = "nested_support")]
+pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
+    let new_vmid = vms.len();
+    let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
+    vms.push(l2_vm);
+
+    new_vmid
 }
