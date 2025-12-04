@@ -1,5 +1,12 @@
 #![no_std]
 
+use block::{
+    BlockDevice,
+    BlockDeviceError,
+    SECTOR_SIZE,
+};
+use core::fmt;
+
 #[repr(C)]
 pub struct PartitionTableEntry {
     bootflag: u8,
@@ -39,4 +46,37 @@ pub struct BiosParameterBlock {
     volume_id: u32,
     volume_label: [u8; 11],
     filesystem_type: u64,
+}
+
+enum FatError {
+    DeviceError(BlockDeviceError),
+}
+
+impl fmt::Display for FatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DeviceError(err) => write!(f, "block device error: {}", err),
+        }
+    }
+}
+
+impl From<BlockDeviceError> for FatError {
+    fn from(value: BlockDeviceError) -> Self {
+        FatError::DeviceError(value)
+    }
+}
+
+const PARTITION_TABLE_OFFSET: usize = 446;
+const NUM_PARTITIONS: usize = 4;
+
+pub fn fat32_init<T>(block_device: T) -> Result<(), FatError>
+where
+    T: BlockDevice
+{
+    // read first sector to check partition table
+    let buf: [u8; SECTOR_SIZE];
+    block_device.read_write_disk(buf.as_mut_ptr() as *mut usize, 0, 1, false)?;
+    let partition_table = unsafe {
+        &mut *core::ptr::slice_from_raw_parts_mut(buf.as_mut_ptr().add(PARTITION_TABLE_OFFSET) as *mut PartitionTableEntry, NUM_PARTITIONS)
+    };
 }
