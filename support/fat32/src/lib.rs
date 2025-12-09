@@ -7,6 +7,8 @@ use block::{
 };
 use core::fmt;
 
+const PARTITION_TYPE_FAT32: usize = 0x1c;
+
 #[repr(C)]
 pub struct PartitionTableEntry {
     bootflag: u8,
@@ -17,7 +19,9 @@ pub struct PartitionTableEntry {
     sector_number: u32,
 }
 
-#[repr(C)]
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+#[repr(packed)]
 pub struct BiosParameterBlock {
     jump_boot: [u8; 3],
     name: [u8; 8],
@@ -48,7 +52,41 @@ pub struct BiosParameterBlock {
     filesystem_type: u64,
 }
 
-enum FatError {
+impl BiosParameterBlock {
+    pub fn new() -> Self {
+        BiosParameterBlock {
+            jump_boot: [0; 3],
+            name: [0; 8],
+            bytes_per_sector: 0,
+            sectors_per_cluster: 0,
+            reserved_sectors_count: 0,
+            fat_number: 0,
+            root_entry_count: 0,
+            total_sectors: 0,
+            media: 0,
+            fat_size_16: 0,
+            sectors_per_track: 0,
+            heads_number: 0,
+            hidden_sectors: 0,
+            total_sectors_32: 0,
+            fat_size_32: 0,
+            ext_flags: 0,
+            filesystem_version: 0,
+            root_cluster: 0,
+            filesystem_info: 0,
+            bk_boot_sector: 0,
+            reserved: [0; 12],
+            drive_number_32: 0,
+            reserved1: 0,
+            boot_signature: 0,
+            volume_id: 0,
+            volume_label: [0; 11],
+            filesystem_type: 0,
+        }
+    }
+}
+
+pub enum FatError {
     DeviceError(BlockDeviceError),
 }
 
@@ -66,17 +104,50 @@ impl From<BlockDeviceError> for FatError {
     }
 }
 
+pub struct Fat32<T: BlockDevice> {
+    pub block_device: T,
+    pub bpb: BiosParameterBlock,
+}
+
+impl<T: BlockDevice> Fat32<T> {
+    pub fn new(mut block_device: T, first_sector: usize) -> Result<Self, FatError> {
+        let mut bpb_buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
+        block_device.read_write_disk(&mut bpb_buf as *mut _ as *mut usize, first_sector as u64, 1, false)?;
+        let bpb = unsafe {
+            let ptr = bpb_buf.as_ptr() as *const BiosParameterBlock;
+            
+            core::ptr::read_volatile(ptr)
+        };
+
+        Ok(Fat32 {
+            block_device,
+            bpb,
+        })
+    }
+}
+
 const PARTITION_TABLE_OFFSET: usize = 446;
 const NUM_PARTITIONS: usize = 4;
 
-pub fn fat32_init<T>(block_device: T) -> Result<(), FatError>
+pub fn fat32_init<T>(mut block_device: T) -> Result<Fat32<T>, ()>
 where
     T: BlockDevice
 {
     // read first sector to check partition table
-    let buf: [u8; SECTOR_SIZE];
-    block_device.read_write_disk(buf.as_mut_ptr() as *mut usize, 0, 1, false)?;
+    let mut buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
+    let _ = block_device.read_write_disk(buf.as_mut_ptr() as *mut usize, 0, 1, false);
     let partition_table = unsafe {
         &mut *core::ptr::slice_from_raw_parts_mut(buf.as_mut_ptr().add(PARTITION_TABLE_OFFSET) as *mut PartitionTableEntry, NUM_PARTITIONS)
     };
+
+    for partition in partition_table {
+        if partition.partition_type as usize == PARTITION_TYPE_FAT32 {
+            match Fat32::new(block_device, partition.lba_partition_start as usize) {
+                Ok(fat32) => return Ok(fat32),
+                Err(_) => return Err(()),
+            }
+        }
+    }
+
+    return Err(())
 }
