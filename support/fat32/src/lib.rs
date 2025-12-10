@@ -2,11 +2,10 @@
 
 extern crate alloc;
 
-mod memory;
 
 use alloc::vec::Vec;
+use alloc::vec;
 use block::{BlockDevice, BlockDeviceError, SECTOR_SIZE};
-use memory::allocate_pages;
 use core::fmt;
 
 const PARTITION_TYPE_FAT32: usize = 0x1c;
@@ -128,11 +127,24 @@ impl<T: BlockDevice> Fat32<T> {
             core::ptr::read_volatile(ptr)
         };
 
+        let fat_start_sector = bpb.reserved_sectors_count as usize;
+        let fat_bytes = bpb.fat_size_32 as usize * bpb.bytes_per_sector as usize;
+
+        let fat_num_of_sectors = if fat_bytes % SECTOR_SIZE == 0 {
+            fat_bytes / SECTOR_SIZE
+        } else {
+            fat_bytes / SECTOR_SIZE + 1
+        };
+
+        let mut fat = vec![0u32; fat_bytes / core::mem::size_of::<u32>()];
+
+        block_device.read_write_disk(fat.as_mut_ptr() as *mut usize, fat_start_sector as u64, fat_num_of_sectors, false)?;
+
         Ok(Fat32 {
             block_device,
             volume_start_sector,
             bpb,
-            fat: Vec::new(),
+            fat,
         })
     }
 
