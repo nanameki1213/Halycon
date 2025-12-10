@@ -1,7 +1,7 @@
 use core::borrow::BorrowMut;
 use core::fmt;
 
-use crate::memory::callocate_pages;
+use allocate_pages::callocate_pages;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::*;
 

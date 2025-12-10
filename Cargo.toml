@@ -11,7 +11,8 @@ members = [
   "support/mmio_core",
   "support/devices/virtio",
   "support/devices/block",
-  "xtask", 
+  "support/allocate_pages",
+  "xtask",
 ]
 
 [workspace.dependencies]

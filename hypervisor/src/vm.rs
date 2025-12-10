@@ -4,7 +4,7 @@ use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 use crate::loader;
-use crate::memory::allocate_pages;
+use allocate_pages::allocate_pages;
 use crate::paging;
 use crate::println;
 use alloc::vec::Vec;
