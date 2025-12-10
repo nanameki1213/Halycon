@@ -1,10 +1,12 @@
 #![no_std]
 
-use block::{
-    BlockDevice,
-    BlockDeviceError,
-    SECTOR_SIZE,
-};
+extern crate alloc;
+
+mod memory;
+
+use alloc::vec::Vec;
+use block::{BlockDevice, BlockDeviceError, SECTOR_SIZE};
+use memory::allocate_pages;
 use core::fmt;
 
 const PARTITION_TYPE_FAT32: usize = 0x1c;
@@ -31,7 +33,7 @@ pub struct BiosParameterBlock {
     fat_number: u8,
     root_entry_count: u16,
     total_sectors: u16,
-    media: u8, // unused in FAT32
+    media: u8,        // unused in FAT32
     fat_size_16: u16, // unused in FAT32
     sectors_per_track: u16,
     heads_number: u16,
@@ -106,24 +108,61 @@ impl From<BlockDeviceError> for FatError {
 
 pub struct Fat32<T: BlockDevice> {
     pub block_device: T,
+    pub volume_start_sector: usize,
     pub bpb: BiosParameterBlock,
+    pub fat: Vec<u32>,
 }
 
 impl<T: BlockDevice> Fat32<T> {
-    pub fn new(mut block_device: T, first_sector: usize) -> Result<Self, FatError> {
+    pub fn new(mut block_device: T, volume_start_sector: usize) -> Result<Self, FatError> {
         let mut bpb_buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
-        block_device.read_write_disk(&mut bpb_buf as *mut _ as *mut usize, first_sector as u64, 1, false)?;
+        block_device.read_write_disk(
+            &mut bpb_buf as *mut _ as *mut usize,
+            volume_start_sector as u64,
+            1,
+            false,
+        )?;
         let bpb = unsafe {
             let ptr = bpb_buf.as_ptr() as *const BiosParameterBlock;
-            
+
             core::ptr::read_volatile(ptr)
         };
 
         Ok(Fat32 {
             block_device,
+            volume_start_sector,
             bpb,
+            fat: Vec::new(),
         })
     }
+
+    fn get_sector(
+        &mut self,
+        sector_offset: usize,
+        count: usize,
+        buf_address: *mut usize,
+    ) -> Result<(), FatError> {
+        let sector = self.volume_start_sector + sector_offset;
+        self.block_device
+            .read_write_disk(buf_address, sector as u64, count, false)?;
+
+        Ok(())
+    }
+
+    fn cluster_to_sector(&self, cluster: usize) -> usize {
+        self.bpb.reserved_sectors_count as usize
+            + (self.bpb.fat_number as usize * self.bpb.fat_size_32 as usize)
+            + ((cluster - 2) * self.bpb.bytes_per_sector as usize)
+    }
+
+    fn get_cluster(&mut self, cluster: usize, buf_address: *mut usize) -> Result<(), FatError> {
+        let sector = self.cluster_to_sector(cluster);
+        self.get_sector(sector, self.bpb.sectors_per_cluster as usize, buf_address)?;
+
+        Ok(())
+    }
+
+    fn get_next_cluster(&mut self) {}
 }
 
 const PARTITION_TABLE_OFFSET: usize = 446;
@@ -131,13 +170,16 @@ const NUM_PARTITIONS: usize = 4;
 
 pub fn fat32_init<T>(mut block_device: T) -> Result<Fat32<T>, ()>
 where
-    T: BlockDevice
+    T: BlockDevice,
 {
     // read first sector to check partition table
     let mut buf: [u8; SECTOR_SIZE] = [0; SECTOR_SIZE];
     let _ = block_device.read_write_disk(buf.as_mut_ptr() as *mut usize, 0, 1, false);
     let partition_table = unsafe {
-        &mut *core::ptr::slice_from_raw_parts_mut(buf.as_mut_ptr().add(PARTITION_TABLE_OFFSET) as *mut PartitionTableEntry, NUM_PARTITIONS)
+        &mut *core::ptr::slice_from_raw_parts_mut(
+            buf.as_mut_ptr().add(PARTITION_TABLE_OFFSET) as *mut PartitionTableEntry,
+            NUM_PARTITIONS,
+        )
     };
 
     for partition in partition_table {
@@ -149,5 +191,5 @@ where
         }
     }
 
-    return Err(())
+    return Err(());
 }
