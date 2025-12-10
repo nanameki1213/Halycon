@@ -1,3 +1,5 @@
+mod create_disk;
+
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -115,12 +117,13 @@ fn run() -> Result<(), DynError> {
     let smp = "1".to_string();
     let memory = "2G".to_string();
 
-    // Path
-    let hypervisor_directory = "bin/disk".to_string();
-    let l1_hypervisor_directory = "bin/L1disk".to_string();
+    // BIOS path
     let bios_binary_path = "bin/disk/u-boot".to_string();
-    let vm_bios_binary_path = "bin/u-boot.bin".to_string();
-    let vm_fdt_binary_path = "bin/virt.dtb".to_string();
+    // Disk image path
+    let host_disk_image_path = "host.disk".to_string();
+    let vm_disk_image_path = "vm.disk".to_string();
+
+    // make image for host and vm
 
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
@@ -146,20 +149,14 @@ fn run() -> Result<(), DynError> {
         "-device",
         "virtio-blk-device,drive=drive0",
         "-drive",
-        format!("file=fat:rw:{hypervisor_directory},format=raw,if=none,media=disk,id=drive0")
+        format!("file={host_disk_image_path},format=raw,if=none,media=disk,id=drive0")
             .as_str(),
         "-device",
         "virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0",
         "-drive",
-        format!("file={vm_bios_binary_path},format=raw,if=none,id=drive1").as_str(),
+        format!("file={vm_disk_image_path},format=raw,if=none,media=disk,id=drive1").as_str(),
         "-device",
         "virtio-blk-device,drive=drive2,bus=virtio-mmio-bus.1",
-        "-drive",
-        format!("file={vm_fdt_binary_path},format=raw,if=none,id=drive2").as_str(),
-        "-device",
-        "virtio-blk-device,drive=drive3,bus=virtio-mmio-bus.2",
-        "-drive",
-        format!("file=fat:rw:{l1_hypervisor_directory},format=raw,if=none,id=drive3").as_str(),
         "-global",
         "virtio-mmio.force-legacy=false",
         "-D",
