@@ -149,8 +149,7 @@ fn run() -> Result<(), DynError> {
         "-device",
         "virtio-blk-device,drive=drive0",
         "-drive",
-        format!("file={host_disk_image_path},format=raw,if=none,media=disk,id=drive0")
-            .as_str(),
+        format!("file={host_disk_image_path},format=raw,if=none,media=disk,id=drive0").as_str(),
         "-device",
         "virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0",
         "-drive",

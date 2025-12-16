@@ -1,79 +1,62 @@
 use std::{
-    fs, io::Write, path::{Path, PathBuf}, process::{Command, Stdio}
+    path::Path,
+    io::{
+        Cursor,
+        Seek,
+    }
 };
+use mbrman;
+use fatfs::{self, FileSystem, FormatVolumeOptions, FsOptions};
 
 type DynError = Box<dyn std::error::Error>;
 
-pub fn create_disk(image_path: &str, contents_dir: &str) -> Result<(), DynError> {
-    let path = Path::new(image_path);
-    
-    if !path.exists() {
-        Command::new("dd")
-            .arg("if=/dev/zero")
-            .arg(format!("of={image_path}").as_str())
-            .arg("bs=1M")
-            .arg("count=128")
-            .output()?;
-    }
+const SECTOR_SIZE: usize = 512;
+const PARTITION_TYPE_FAT32: u8 = 0x1c;
 
-    create_partition_with_fdisk(image_path)?;
+pub fn create_fat32_disk(image_path: &Path, files_path: &[(&Path, &Path)]) -> Result<(), DynError> {
+    let disk_size = 1024 * 1024 * 64; // 64MiB
+    let num_sectors = disk_size / SECTOR_SIZE;
 
-    let output = Command::new("mkfs.fat")
-        .arg("-F")
-        .arg("32")
-        .arg("--offset=2048")
-        .arg(format!("{image_path}").as_str())
-        .output()?;
+    let mut data = vec![0; disk_size];
+    let mut cur = Cursor::new(&mut data);
 
-    if !output.status.success() {
-        return Err(format!(
-                "Failed to run mkfs.fat. exit code: {}",
-                String::from_utf8_lossy(&output.stderr)
-        ).into());
-    }
+    let mut mbr = mbrman::MBR::new_from(&mut cur, num_sectors as u32, [0xff; 4])
+        .expect("could not create partition table");
 
-    // make mount directory
-    
-    // mount directory
-    
-    // cp
+    mbr[1] = mbrman::MBRPartitionEntry {
+        boot: mbrman::BOOT_ACTIVE,
+        first_chs: mbrman::CHS::empty(),
+        sys: PARTITION_TYPE_FAT32,
+        last_chs: mbrman::CHS::empty(),
+        starting_lba: 1,
+        sectors: mbr.disk_size - 1,
+    };
+    mbr.write_into(&mut cur)?;
+    let partition_start_byte = mbr[1].starting_lba as usize * SECTOR_SIZE;
+    let partition_num_bytes = (mbr[1].starting_lba + mbr[1].sectors) as usize * SECTOR_SIZE;
+    let mbr_partition_range = partition_start_byte..partition_start_byte + partition_num_bytes;
 
-    // unmount and delete mount directory
+    init_fat(&mut data[mbr_partition_range], files_path)?;
 
     Ok(())
 }
 
-fn create_partition_with_fdisk(image_path: &str) -> Result<(), DynError> {
-    let fdisk_intaraction = [
-        "o", // Create a new empty DOS partition table
-        "n", // Add a new partition,
-        "p", // Primary partition
-        "1", // Partition number 1
-        "2048", // First sector
-        "", // Last sector (Default)
-        "t", // Partition type
-        "c", // Select FAT32
-        "w", // Write table disk and exit
-    ];
+fn init_fat(partition: &mut [u8], files_path: &[(&Path, &Path)]) -> Result<(), DynError> {
+    let fat32_fs = {
+        let mut cur = Cursor::new(partition);
+        fatfs::format_volume(
+            &mut cur,
+            FormatVolumeOptions::new()
+                .fat_type(fatfs::FatType::Fat32)
+        )?;
+        
+        cur.rewind()?;
+        FileSystem::new(cur, FsOptions::new().update_accessed_date(false))?
+    };
 
-    let input_data = fdisk_intaraction.join("\n");
+    let root_dir = fat32_fs.root_dir();
+    
 
-    let mut fdisk = Command::new("fdisk")
-        .arg(image_path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()?;
-
-    if let Some(mut stdin) = fdisk.stdin.take() {
-        stdin.write_all(input_data.as_bytes())?;
-    }
-
-    let status = fdisk.wait()?;
-
-    if !status.success() {
-        return Err(format!("Failed to run fdisk. exit code: {:?}", status.code()).into());
-    }
 
     Ok(())
 }
