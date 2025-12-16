@@ -5,4 +5,6 @@ edition = "2024"
 
 [dependencies]
 fatfs = "0.3.6"
+fs-err = "3.2.1"
+log = "0.4.29"
 mbrman = "0.6.1"

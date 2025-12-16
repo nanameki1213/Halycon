@@ -1,9 +1,8 @@
 use std::{
-    path::Path,
     io::{
         Cursor,
-        Seek,
-    }
+        Seek, Write,
+    }, path::Path
 };
 use mbrman;
 use fatfs::{self, FileSystem, FormatVolumeOptions, FsOptions};
@@ -13,7 +12,7 @@ type DynError = Box<dyn std::error::Error>;
 const SECTOR_SIZE: usize = 512;
 const PARTITION_TYPE_FAT32: u8 = 0x1c;
 
-pub fn create_fat32_disk(image_path: &Path, files_path: &[(&Path, &Path)]) -> Result<(), DynError> {
+pub fn create_fat32_disk(image_path: &Path, files_path: &[&Path]) -> Result<(), DynError> {
     let disk_size = 1024 * 1024 * 64; // 64MiB
     let num_sectors = disk_size / SECTOR_SIZE;
 
@@ -38,10 +37,13 @@ pub fn create_fat32_disk(image_path: &Path, files_path: &[(&Path, &Path)]) -> Re
 
     init_fat(&mut data[mbr_partition_range], files_path)?;
 
+    fs_err::write(image_path, &data)?;
+    log::info!("Wrote disk image to: {}", image_path.display());
+
     Ok(())
 }
 
-fn init_fat(partition: &mut [u8], files_path: &[(&Path, &Path)]) -> Result<(), DynError> {
+fn init_fat(partition: &mut [u8], files_path: &[&Path]) -> Result<(), DynError> {
     let fat32_fs = {
         let mut cur = Cursor::new(partition);
         fatfs::format_volume(
@@ -55,8 +57,21 @@ fn init_fat(partition: &mut [u8], files_path: &[(&Path, &Path)]) -> Result<(), D
     };
 
     let root_dir = fat32_fs.root_dir();
-    
+    for src_file in files_path {
+        let ancestors = src_file.ancestors().collect::<Vec<_>>();
+        let num_ancestors = ancestors.len();
 
+        for (i, chunk) in ancestors.into_iter().rev().enumerate() {
+            if i == num_ancestors - 1 {
+                log::info!("creating file: {}", chunk.display());
+                let mut file = root_dir
+                    .create_file(chunk.to_str().unwrap())?;
+                std::io::copy(&mut fs_err::File::open(src_file)?, &mut file)?;
+            }
+        }
+    }
+
+    log::info!("{:?}", fat32_fs.stats()?);
 
     Ok(())
 }

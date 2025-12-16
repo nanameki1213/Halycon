@@ -1,10 +1,12 @@
-mod create_disk;
+pub mod tasks;
 
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
+use tasks::create_disk;
+use tasks::device_tree;
 
 type DynError = Box<dyn std::error::Error>;
 
@@ -30,18 +32,15 @@ fn build() -> Result<(), DynError> {
     // Default settings
     let mut is_release = false;
     let mut is_nested = false;
-    let mut hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
-    let mut l1_hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
-    let mut hypervisor_output_directory = project_root().join("bin/disk");
-    let mut l1_hypervisor_output_directory = project_root().join("bin/L1disk");
 
     // Path
-    let hypervisor_path = project_root().join("hypervisor");
+    let output_directory = project_root().join("bin");
     let l1_hypervisor_path = project_root().join("l1_hypervisor");
+    let hypervisor_image_path = project_root().join("disk.img");
+    let vm_disk_image_path = project_root().join("vm.img");
 
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
-
     // Parse options
     while let Some(v) = args_iter.next() {
         if v == "-f" || v == "--features" {
@@ -61,19 +60,23 @@ fn build() -> Result<(), DynError> {
         }
     }
 
-    let mut hypervisor_binary_path = project_root();
-    let mut l1_hypervisor_binary_path = project_root();
+    // build hypervisor
+    let hypervisor_binary_path = {
+        let binary_path = project_root().join(format!("target/{}", target));
+        if is_release {
+            binary_path.push("release");
+        }
+        build_hypervisor(is_nested, is_release)?;
+        binary_path
+    };
 
-    hypervisor_binary_path.push("target");
-    hypervisor_binary_path.push(target);
-    l1_hypervisor_binary_path.push("target");
-    l1_hypervisor_binary_path.push(target);
+    // compile device tree script
+    let device_tree_script =
+    device_tree::compile_dts(src, dst);
 
     if is_release {
         hypervisor_binary_path.push("release");
         l1_hypervisor_binary_path.push("release");
-        hypervisor_cargo_args.push("--release".to_string());
-        l1_hypervisor_cargo_args.push("--release".to_string());
     } else {
         hypervisor_binary_path.push("debug");
         l1_hypervisor_binary_path.push("debug");
@@ -82,30 +85,62 @@ fn build() -> Result<(), DynError> {
     hypervisor_binary_path.push("hypervisor");
     l1_hypervisor_binary_path.push("l1_hypervisor");
 
-    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    fs::create_dir_all(&output_directory)?;
+
     if is_nested {
-        hypervisor_cargo_args.push("--features".to_string());
-        hypervisor_cargo_args.push("nested_support".to_string());
-        let _ = Command::new(&cargo)
-            .current_dir(l1_hypervisor_path)
-            .args(&l1_hypervisor_cargo_args)
-            .status()?;
-
-        fs::create_dir_all(&l1_hypervisor_output_directory)?;
-        l1_hypervisor_output_directory.push("hypervisor");
-
-        fs::rename(l1_hypervisor_binary_path, l1_hypervisor_output_directory)?;
+        build_l1_hypervisor(is_release)?;       
+        fs::rename(l1_hypervisor_binary_path, output_directory)?;
     }
-
-    let _ = Command::new(&cargo)
-        .current_dir(hypervisor_path)
-        .args(hypervisor_cargo_args)
-        .status()?;
+    build_hypervisor(is_nested, is_release)?;
 
     fs::create_dir_all(&hypervisor_output_directory)?;
     hypervisor_output_directory.push("hypervisor");
 
     fs::rename(hypervisor_binary_path, hypervisor_output_directory)?;
+
+    // Create image
+
+    create_disk::create_fat32_disk(&hypervisor_image_path, &[
+        &
+    ])
+
+    Ok(())
+}
+
+fn build_hypervisor(is_nested: bool, is_release: bool) -> Result<(), DynError> {
+    let hypervisor_path = project_root().join("hypervisor");
+    let mut hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
+
+    if is_release {
+        hypervisor_cargo_args.push("--release".to_string());
+    }
+    if is_nested {
+        hypervisor_cargo_args.push("--features".to_string());
+        hypervisor_cargo_args.push("nested_support".to_string());
+    }
+
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let _ = Command::new(&cargo)
+        .current_dir(hypervisor_path)
+        .args(hypervisor_cargo_args)
+        .status()?;
+
+    Ok(())
+}
+
+fn build_l1_hypervisor(is_release: bool) -> Result<(), DynError> {
+    let l1_hypervisor_path = project_root().join("l1_hypervisor");
+    let mut l1_hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
+
+    if is_release {
+        l1_hypervisor_cargo_args.push("--release".to_string());
+    }
+
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let _ = Command::new(&cargo)
+        .current_dir(l1_hypervisor_path)
+        .args(l1_hypervisor_cargo_args)
+        .status()?;
 
     Ok(())
 }
