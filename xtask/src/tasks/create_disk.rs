@@ -58,17 +58,9 @@ fn init_fat(partition: &mut [u8], files_path: &[&Path]) -> Result<(), DynError> 
 
     let root_dir = fat32_fs.root_dir();
     for src_file in files_path {
-        let ancestors = src_file.ancestors().collect::<Vec<_>>();
-        let num_ancestors = ancestors.len();
-
-        for (i, chunk) in ancestors.into_iter().rev().enumerate() {
-            if i == num_ancestors - 1 {
-                log::info!("creating file: {}", chunk.display());
-                let mut file = root_dir
-                    .create_file(chunk.to_str().unwrap())?;
-                std::io::copy(&mut fs_err::File::open(src_file)?, &mut file)?;
-            }
-        }
+        let mut file = root_dir.create_file(src_file.file_name().unwrap().to_str().unwrap())?;
+        log::info!("create file: {}", src_file.file_name().unwrap().to_str().unwrap());
+        std::io::copy(&mut fs_err::File::open(src_file)?, &mut file)?;
     }
 
     log::info!("{:?}", fat32_fs.stats()?);

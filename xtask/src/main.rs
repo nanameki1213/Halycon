@@ -3,14 +3,18 @@ pub mod tasks;
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Stdio}, result,
 };
 use tasks::create_disk;
 use tasks::device_tree;
+use tasks::mkimage;
+use simple_logger::SimpleLogger;
 
 type DynError = Box<dyn std::error::Error>;
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     if let Err(e) = try_main() {
         eprintln!("{}", e);
         std::process::exit(-1);
@@ -34,10 +38,12 @@ fn build() -> Result<(), DynError> {
     let mut is_nested = false;
 
     // Path
-    let output_directory = project_root().join("bin");
+    let base_output_directory = project_root().join("bin");
+    let hypervisor_output_directory = base_output_directory.clone().join("disk");
     let l1_hypervisor_path = project_root().join("l1_hypervisor");
     let hypervisor_image_path = project_root().join("disk.img");
     let vm_disk_image_path = project_root().join("vm.img");
+    let script_path = project_root().join("scripts");
 
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
@@ -60,50 +66,48 @@ fn build() -> Result<(), DynError> {
         }
     }
 
+    fs::create_dir_all(&hypervisor_output_directory)?;
+
     // build hypervisor
-    let hypervisor_binary_path = {
-        let binary_path = project_root().join(format!("target/{}", target));
-        if is_release {
-            binary_path.push("release");
-        }
-        build_hypervisor(is_nested, is_release)?;
-        binary_path
-    };
-
-    // compile device tree script
-    let device_tree_script =
-    device_tree::compile_dts(src, dst);
-
+    log::info!("build hypervisor");
+    let output_path = hypervisor_output_directory.clone().join("hypervisor");
+    let mut binary_path = project_root().join(format!("target/{}", target));
     if is_release {
-        hypervisor_binary_path.push("release");
-        l1_hypervisor_binary_path.push("release");
+        binary_path.push("release/hypervisor");
     } else {
-        hypervisor_binary_path.push("debug");
-        l1_hypervisor_binary_path.push("debug");
-    }
-
-    hypervisor_binary_path.push("hypervisor");
-    l1_hypervisor_binary_path.push("l1_hypervisor");
-
-    fs::create_dir_all(&output_directory)?;
-
-    if is_nested {
-        build_l1_hypervisor(is_release)?;       
-        fs::rename(l1_hypervisor_binary_path, output_directory)?;
+        binary_path.push("debug/hypervisor");
     }
     build_hypervisor(is_nested, is_release)?;
+    fs::rename(&binary_path, &output_path)?;
 
-    fs::create_dir_all(&hypervisor_output_directory)?;
-    hypervisor_output_directory.push("hypervisor");
+    // compile device tree script
+    log::info!("compile device tree script");
+    let dts_path = script_path.clone().join("virt.dts");
+    let output_path = hypervisor_output_directory.clone().join("virt.dtb");
+    device_tree::compile_dts(&dts_path, &output_path)?;
 
-    fs::rename(hypervisor_binary_path, hypervisor_output_directory)?;
+    // compile boot script
+    log::info!("compile u-boot boot script");
+    let binary_path = script_path.clone().join("boot.script");
+    let output_path = hypervisor_output_directory.clone().join("boot.scr");
+    mkimage::uboot_mkimage(&binary_path, &output_path)?;
+
+    if is_nested {
+        log::info!("build l1 hypervisor");
+        build_l1_hypervisor(is_release)?;       
+    }
 
     // Create image
+    // make list of file in `hypervisor_output_directory`
+    let entries = read_dir_entries(&hypervisor_output_directory)?;
+    let files: Vec<&Path> = entries.iter()
+        .map(|e| e.as_path())
+        .collect();
+    log::info!("files: {:?}", files);
 
-    create_disk::create_fat32_disk(&hypervisor_image_path, &[
-        &
-    ])
-
+    log::info!("create disk");
+    create_disk::create_fat32_disk(&project_root().join("disk.img"), &files)?;
+  
     Ok(())
 }
 
@@ -145,6 +149,14 @@ fn build_l1_hypervisor(is_release: bool) -> Result<(), DynError> {
     Ok(())
 }
 
+fn read_dir_entries(path: &Path) -> Result<Vec<PathBuf>, DynError> {
+    let entries = fs::read_dir(path)?
+        .map(|res| res.map(|e| e.path()))
+        .collect::<Result<Vec<_>, std::io::Error>>()?;
+
+    Ok(entries)
+}
+
 fn run() -> Result<(), DynError> {
     // default settings
     let qemu = "qemu-system-riscv64".to_string();
@@ -153,10 +165,10 @@ fn run() -> Result<(), DynError> {
     let memory = "2G".to_string();
 
     // BIOS path
-    let bios_binary_path = "bin/disk/u-boot".to_string();
+    let bios_binary_path = "bin/u-boot".to_string();
     // Disk image path
-    let host_disk_image_path = "host.disk".to_string();
-    let vm_disk_image_path = "vm.disk".to_string();
+    let host_disk_image_path = "disk.img".to_string();
+    let vm_disk_image_path = "vm.img".to_string();
 
     // make image for host and vm
 
