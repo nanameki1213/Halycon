@@ -4,10 +4,10 @@ use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 use crate::loader;
-use allocate_pages::allocate_pages;
 use crate::paging;
 use crate::println;
 use alloc::vec::Vec;
+use allocate_pages::allocate_pages;
 use arch::riscv::cpu::*;
 use core::arch::riscv64;
 use mmio_core::MmioEntry;

@@ -1,14 +1,14 @@
 pub mod tasks;
 
+use simple_logger::SimpleLogger;
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::{Command, Stdio}, result,
+    process::{Command, Stdio},
 };
 use tasks::create_disk;
 use tasks::device_tree;
 use tasks::mkimage;
-use simple_logger::SimpleLogger;
 
 type DynError = Box<dyn std::error::Error>;
 
@@ -40,9 +40,9 @@ fn build() -> Result<(), DynError> {
     // Path
     let base_output_directory = project_root().join("bin");
     let hypervisor_output_directory = base_output_directory.clone().join("disk");
-    let l1_hypervisor_path = project_root().join("l1_hypervisor");
-    let hypervisor_image_path = project_root().join("disk.img");
-    let vm_disk_image_path = project_root().join("vm.img");
+    // let l1_hypervisor_path = project_root().join("l1_hypervisor");
+    // let hypervisor_image_path = project_root().join("disk.img");
+    // let vm_disk_image_path = project_root().join("vm.img");
     let script_path = project_root().join("scripts");
 
     let args: Vec<String> = env::args().collect();
@@ -94,20 +94,18 @@ fn build() -> Result<(), DynError> {
 
     if is_nested {
         log::info!("build l1 hypervisor");
-        build_l1_hypervisor(is_release)?;       
+        build_l1_hypervisor(is_release)?;
     }
 
     // Create image
     // make list of file in `hypervisor_output_directory`
     let entries = read_dir_entries(&hypervisor_output_directory)?;
-    let files: Vec<&Path> = entries.iter()
-        .map(|e| e.as_path())
-        .collect();
+    let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
     log::info!("files: {:?}", files);
 
     log::info!("create disk");
     create_disk::create_fat32_disk(&project_root().join("disk.img"), &files)?;
-  
+
     Ok(())
 }
 

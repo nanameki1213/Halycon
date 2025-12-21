@@ -2,9 +2,8 @@
 
 extern crate alloc;
 
-
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use block::{BlockDevice, BlockDeviceError, SECTOR_SIZE};
 use core::fmt;
 
@@ -138,7 +137,12 @@ impl<T: BlockDevice> Fat32<T> {
 
         let mut fat = vec![0u32; fat_bytes / core::mem::size_of::<u32>()];
 
-        block_device.read_write_disk(fat.as_mut_ptr() as *mut usize, fat_start_sector as u64, fat_num_of_sectors, false)?;
+        block_device.read_write_disk(
+            fat.as_mut_ptr() as *mut usize,
+            fat_start_sector as u64,
+            fat_num_of_sectors,
+            false,
+        )?;
 
         Ok(Fat32 {
             block_device,
