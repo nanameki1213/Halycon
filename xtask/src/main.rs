@@ -40,6 +40,7 @@ fn build() -> Result<(), DynError> {
     // Path
     let base_output_directory = project_root().join("bin");
     let hypervisor_output_directory = base_output_directory.clone().join("disk");
+    let l1_hypervisor_output_directory = base_output_directory.clone().join("l1_disk");
     // let l1_hypervisor_path = project_root().join("l1_hypervisor");
     // let hypervisor_image_path = project_root().join("disk.img");
     // let vm_disk_image_path = project_root().join("vm.img");
@@ -92,19 +93,46 @@ fn build() -> Result<(), DynError> {
     let output_path = hypervisor_output_directory.clone().join("boot.scr");
     mkimage::uboot_mkimage(&binary_path, &output_path)?;
 
-    if is_nested {
-        log::info!("build l1 hypervisor");
-        build_l1_hypervisor(is_release)?;
-    }
-
-    // Create image
+    // create image
     // make list of file in `hypervisor_output_directory`
     let entries = read_dir_entries(&hypervisor_output_directory)?;
     let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
-    log::info!("files: {:?}", files);
 
     log::info!("create disk");
     create_disk::create_fat32_disk(&project_root().join("disk.img"), &files)?;
+
+    if is_nested {
+        fs::create_dir_all(&l1_hypervisor_output_directory)?;
+        log::info!("build l1 hypervisor");
+        let output_path = l1_hypervisor_output_directory.clone().join("l1_hypervisor");
+        let mut binary_path = project_root().join(format!("target/{}", target));
+        if is_release {
+            binary_path.push("release/l1_hypervisor");
+        } else {
+            binary_path.push("debug/l1_hypervisor");
+        }
+        build_l1_hypervisor(is_release)?;
+        fs::rename(&binary_path, &output_path)?;
+
+        // compile device tree script
+        log::info!("compile device tree script for L1 Hypervisor");
+        let dts_path = script_path.clone().join("virt.dts");
+        let output_path = l1_hypervisor_output_directory.clone().join("virt.dtb");
+        device_tree::compile_dts(&dts_path, &output_path)?;
+
+        // compile boot script
+        log::info!("compile u-boot boot script for L1 Hypervisor");
+        let binary_path = script_path.clone().join("boot_L1hypervisor.script");
+        let output_path = l1_hypervisor_output_directory.clone().join("boot.scr");
+        mkimage::uboot_mkimage(&binary_path, &output_path)?;
+
+        // create image
+        let entries = read_dir_entries(&l1_hypervisor_output_directory)?;
+        let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
+
+        log::info!("create disk");
+        create_disk::create_fat32_disk(&project_root().join("vm.img"), &files)?;
+    }
 
     Ok(())
 }
