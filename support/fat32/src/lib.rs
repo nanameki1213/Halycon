@@ -2,10 +2,11 @@
 
 extern crate alloc;
 
-use alloc::vec;
+use alloc::{string::String, vec};
 use alloc::vec::Vec;
 use block::{BlockDevice, BlockDeviceError, SECTOR_SIZE};
 use core::fmt;
+use allocate_pages::callocate_pages;
 
 const PARTITION_TYPE_FAT32: usize = 0x1c;
 
@@ -104,6 +105,32 @@ impl From<BlockDeviceError> for FatError {
     }
 }
 
+#[repr(C, packed)]
+#[derive(Clone, Copy)]
+struct DirEntry {
+    name: [u8; 8],
+    ext: [u8; 3],
+    attributes: u8,
+    reserved: u8,
+    creation_tenths: u8,
+    creation_time: u16,
+    creation_date: u16,
+    last_access_date: u16,
+    first_cluster_high: u16,
+    last_write_time: u16,
+    last_write_data: u16,
+    first_cluster_low: u16,
+    file_size: u32,
+}
+
+const ATTR_READ_ONLY: u8 = 0x01;
+const ATTR_HIDDEN: u8 = 0x02;
+const ATTR_SYSTEM: u8 = 0x04;
+const ATTR_VOLUME_ID: u8 = 0x08;
+const ATTR_DIRECTORY: u8 = 0x10;
+const ATTR_ARCHIVE: u8 = 0x20;
+const ATTR_LONG_NAME: u8 = ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID;
+
 pub struct Fat32<T: BlockDevice> {
     pub block_device: T,
     pub volume_start_sector: usize,
@@ -179,6 +206,28 @@ impl<T: BlockDevice> Fat32<T> {
     }
 
     fn get_next_cluster(&mut self) {}
+
+    fn list_root_files(&mut self) -> Result<Vec<String>, FatError> {
+        let mut file_list = Vec::new();
+
+        const PAGE_SIZE = 0x1000;
+
+        // get root directory cluster number
+        let bytes_per_cluster = (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
+        let pages_per_cluster = if bytes_per_cluster % PAGE_SIZE == 0 {
+            bytes_per_cluster / PAGE_SIZE
+        } else {
+            bytes_per_cluster / PAGE_SIZE + 1
+        };
+        let root_directory_buf = callocate_pages(pages_per_cluster, PAGE_SIZE);
+        if root_directory_buf.is_null() {
+            // TODO: Error handling
+            panic!("Out of memory");
+        }
+        
+
+        Ok(file_list)
+    }
 }
 
 const PARTITION_TABLE_OFFSET: usize = 446;

@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+allocate_pages = { version = "0.1.0", path = "../allocate_pages" }
 block = { version = "0.1.0", path = "../devices/block" }
+log = "0.4.29"
