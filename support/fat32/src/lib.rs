@@ -205,7 +205,15 @@ impl<T: BlockDevice> Fat32<T> {
         Ok(())
     }
 
-    fn get_next_cluster(&mut self) {}
+    fn get_next_cluster(&mut self, cluster: usize) -> usize {
+        let fat_offset = self.bpb.reserved_sectors_count as usize;
+        let fat_entry_num = self.bpb.fat_size_32 as usize;
+        let fat_pages_num = 
+        
+        let fat = unsafe {
+            &mut *core::ptr::slice_from_raw_parts_mut(self, len)
+        }
+    }
 
     fn list_root_files(&mut self) -> Result<Vec<String>, FatError> {
         let mut file_list = Vec::new();
