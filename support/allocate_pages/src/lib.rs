@@ -4,34 +4,94 @@
 
 extern crate alloc;
 
-use alloc::alloc::{Layout, Allocator, Global};
+use core::ptr::NonNull;
 
-const PAGE_SIZE: usize = 0x1000;
+use alloc::alloc::{AllocError, Allocator, Global, Layout};
 
-pub fn allocate_pages_in<A: Allocator>(num_of_pages: usize, align: usize, allocator: A) -> *mut u8 {
-    let layout =
-        unsafe { Layout::from_size_align_unchecked(num_of_pages * PAGE_SIZE, align) };
+pub const PAGE_SIZE: usize = 0x1000;
 
-    match allocator.allocate(layout) {
-        Ok(ptr) => ptr.as_mut_ptr(),
-        Err(_) => core::ptr::null_mut(),
+pub struct Pages<A: Allocator = Global> {
+    ptr: NonNull<u8>,
+    count: usize,
+    align: usize,
+    alloc: A,
+}
+
+impl Pages<Global> {
+    pub fn new(count: usize, align: usize) -> Result<Self, AllocError> {
+        Self::new_in(count, align, Global)
+    }
+
+    pub fn new_zeroed(count: usize, align: usize) -> Result<Self, AllocError> {
+        Self::new_zeroed_in(count, align, Global)
     }
 }
 
-pub fn allocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
-    allocate_pages_in(num_of_pages, align, Global)
-}
+impl<A: Allocator> Pages<A> {
+    pub fn new_in(count: usize, align: usize, alloc: A) -> Result<Self, AllocError> {
+        if count == 0 {
+            return Err(AllocError);
+        }
 
-pub fn callocate_pages_in<A: Allocator>(num_of_pages: usize, align: usize, allocator: A) -> *mut u8 {
-    let layout =
-        unsafe { Layout::from_size_align_unchecked(num_of_pages * PAGE_SIZE, align) };
+        let layout = unsafe { Layout::from_size_align_unchecked(count * PAGE_SIZE, align) };
 
-    match allocator.allocate_zeroed(layout) {
-        Ok(ptr) => ptr.as_mut_ptr(),
-        Err(_) => core::ptr::null_mut(),
+        match alloc.allocate(layout) {
+            Ok(ptr) => {
+                let pages = Pages {
+                    ptr: ptr.cast::<u8>(),
+                    count,
+                    align,
+                    alloc,
+                };
+                Ok(pages)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn new_zeroed_in(count: usize, align: usize, alloc: A) -> Result<Self, AllocError> {
+        if count == 0 {
+            return Err(AllocError);
+        }
+
+        let layout = unsafe { Layout::from_size_align_unchecked(count * PAGE_SIZE, align) };
+
+        match alloc.allocate_zeroed(layout) {
+            Ok(ptr) => {
+                let pages = Pages {
+                    ptr: ptr.cast::<u8>(),
+                    count,
+                    align,
+                    alloc,
+                };
+                Ok(pages)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn as_ptr(&self) -> *const u8 {
+        self.ptr.as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        unsafe { self.ptr.as_mut() }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), self.count * PAGE_SIZE) }
+    }
+
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.count * PAGE_SIZE) }
     }
 }
 
-pub fn callocate_pages(num_of_pages: usize, align: usize) -> *mut u8 {
-    callocate_pages_in(num_of_pages, align, Global)
+impl<A: Allocator> Drop for Pages<A> {
+    fn drop(&mut self) {
+        unsafe {
+            let layout = Layout::from_size_align_unchecked(self.count * PAGE_SIZE, self.align);
+            self.alloc.deallocate(self.ptr, layout);
+        }
+    }
 }
