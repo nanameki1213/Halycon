@@ -4,12 +4,14 @@ use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 use crate::loader;
-use allocate_pages::allocate_pages;
 use crate::paging;
 use crate::println;
+use alloc::alloc::AllocError;
 use alloc::vec::Vec;
+use allocate_pages::Pages;
 use arch::riscv::cpu::*;
 use core::arch::riscv64;
+use core::fmt;
 use mmio_core::MmioEntry;
 use virtio::VirtioMmio;
 
@@ -84,19 +86,38 @@ impl VM {
     }
 }
 
+pub enum CreateVmError {
+    AllocError(AllocError),
+}
+
+impl From<AllocError> for CreateVmError {
+    fn from(value: AllocError) -> Self {
+        CreateVmError::AllocError(value)
+    }
+}
+
+impl fmt::Display for CreateVmError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CreateVmError::AllocError(err) => write!(f, "Allocate memory error: {}", err),
+        }
+    }
+}
+
 pub fn create_vm(
     bootloader: VirtioMmio,
     device_tree: VirtioMmio,
     mmio: Vec<MmioEntry>,
     #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
-) -> usize {
+) -> Result<usize, CreateVmError> {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
     const RAM_SIZE: usize = 0x20000000;
 
-    let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
-    if ram_physical_base_address.is_null() {
-        println!("Out of memory");
-    }
+    let ram_physical_base_pages = Pages::new(
+        RAM_SIZE / allocate_pages::PAGE_SIZE,
+        allocate_pages::PAGE_SIZE,
+    )?;
+    let ram_physical_base_address = ram_physical_base_pages.as_ptr();
 
     let table_address = paging::map_address_stage2(
         ram_physical_base_address as usize,
@@ -158,14 +179,14 @@ pub fn create_vm(
     );
     locked_vms.push(vm);
 
-    vmid
+    Ok(vmid)
 }
 
 #[cfg(feature = "nested_support")]
-pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
+pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> Result<usize, AllocError> {
     let new_vmid = vms.len();
     let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
     vms.push(l2_vm);
 
-    new_vmid
+    Ok(new_vmid)
 }
