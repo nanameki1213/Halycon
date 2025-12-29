@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
 
@@ -93,5 +93,64 @@ impl<A: Allocator> Drop for Pages<A> {
             let layout = Layout::from_size_align_unchecked(self.count * PAGE_SIZE, self.align);
             self.alloc.deallocate(self.ptr, layout);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_allocation() {
+        let count = 3;
+        let align = PAGE_SIZE;
+        let mut pages = Pages::new(count, align).expect("Allocation failed");
+
+        let slice = pages.as_bytes();
+        assert_eq!(slice.len(), count * PAGE_SIZE);
+
+        let slice_mut = pages.as_bytes_mut();
+        slice_mut[0] = 0xAA;
+        slice_mut[slice_mut.len() - 1] = 0xBB;
+
+        assert_eq!(pages.as_bytes()[0], 0xAA);
+        assert_eq!(pages.as_bytes()[count * PAGE_SIZE - 1], 0xBB);
+    }
+
+    #[test]
+    fn test_new_zeroed() {
+        let count = 2;
+        let align = 16;
+        let mut pages = Pages::new_zeroed(count, align).expect("Allocation failed");
+
+        let slice = pages.as_bytes();
+        for &byte in slice {
+            assert_eq!(byte, 0, "Memory was not zeroed");
+        }
+
+        pages.as_bytes_mut()[0] = 1;
+        assert_eq!(pages.as_bytes()[0], 1);
+    }
+
+    #[test]
+    fn test_alignment() {
+        let count = 1;
+        let align = 8192;
+        let pages = Pages::new(count, align).expect("Allocation failed");
+
+        let addr = pages.as_ptr() as usize;
+        assert_eq!(
+            addr % align,
+            0,
+            "Address {:x} is not aligned to {}",
+            addr,
+            align
+        );
+    }
+
+    #[test]
+    fn test_zero_count_error() {
+        let result = Pages::new(0, PAGE_SIZE);
+        assert!(result.is_err());
     }
 }
