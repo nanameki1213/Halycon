@@ -1,7 +1,10 @@
+extern crate alloc;
+
+use alloc::alloc::AllocError;
 use core::borrow::BorrowMut;
 use core::fmt;
 
-use allocate_pages::callocate_pages;
+use allocate_pages::Pages;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::*;
 
@@ -83,14 +86,20 @@ impl fmt::Display for AddressTranslationError {
 
 #[derive(Debug)]
 pub enum PageTableError {
-    OutOfMemory,
+    AllocError(AllocError),
     InvalidAlign,
+}
+
+impl From<AllocError> for PageTableError {
+    fn from(value: AllocError) -> Self {
+        PageTableError::AllocError(value)
+    }
 }
 
 impl fmt::Display for PageTableError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::OutOfMemory => write!(f, "Failed to allocate pages for page table"),
+            Self::AllocError(err) => write!(f, "Failed to allocate pages for page table: {}", err),
             Self::InvalidAlign => write!(f, "Map size is not aligned"),
         }
     }
@@ -99,16 +108,25 @@ impl fmt::Display for PageTableError {
 #[cfg(feature = "nested_support")]
 #[derive(Debug)]
 pub enum ShadowPageTableError {
-    OutOfMemory,
+    AllocError(AllocError),
     InvalidAlign,
     ParentDisableAddressTranslation,
     ParentPageFault,
 }
 
+#[cfg(feature = "nested_support")]
+impl From<AllocError> for ShadowPageTableError {
+    fn from(value: AllocError) -> Self {
+        ShadowPageTableError::AllocError(value)
+    }
+}
+
 impl fmt::Display for ShadowPageTableError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::OutOfMemory => write!(f, "Failed to allocate pages for shadow page table"),
+            Self::AllocError(err) => {
+                write!(f, "Failed to allocate pages for shadow page table: {}", err)
+            }
             Self::InvalidAlign => write!(f, "Map size is not aligned in shadow page table"),
             Self::ParentDisableAddressTranslation => write!(f, "Parent MMU is not available"),
             Self::ParentPageFault => write!(f, "Parent page fault"),
@@ -131,7 +149,7 @@ impl From<AddressTranslationError> for ShadowPageTableError {
 impl From<PageTableError> for ShadowPageTableError {
     fn from(value: PageTableError) -> Self {
         match value {
-            PageTableError::OutOfMemory => Self::OutOfMemory,
+            PageTableError::AllocError(err) => Self::AllocError(err),
             PageTableError::InvalidAlign => Self::InvalidAlign,
         }
     }
@@ -232,10 +250,10 @@ fn _map_address_stage2(
     for e in table[table_index..num_of_entries].iter_mut() {
         let mut next_table_address = e.get_next_table_address();
         if !e.is_valid_pte() {
-            let new_table_address = callocate_pages(1, PAGE_SIZE);
-            if new_table_address.is_null() {
-                return Err(PageTableError::OutOfMemory);
-            }
+            let new_table_address = {
+                let new_table_pages = Pages::new_zeroed(1, PAGE_SIZE)?;
+                new_table_pages.as_ptr()
+            };
             next_table_address = new_table_address as usize;
             e.set_output_address(next_table_address);
             e.set_non_leaf_permission();
@@ -270,11 +288,8 @@ pub fn map_address_stage2(
     if (map_size & PAGE_MASK) != 0 {
         return Err(PageTableError::InvalidAlign);
     }
-    let table_address_ptr = callocate_pages(4, 1 << 14);
-    if table_address_ptr.is_null() {
-        return Err(PageTableError::OutOfMemory);
-    }
-    let table_address = table_address_ptr as usize;
+    let table_address_pages = Pages::new_zeroed(4, 1 << 14)?;
+    let table_address = table_address_pages.as_ptr();
 
     let top_level_stage_2_num_of_entries = 1 << G_STAGE_TOP_VPN_SIZE;
 
@@ -300,7 +315,7 @@ pub fn map_address_stage2(
         &mut physical_address,
         &mut virtual_address,
         &mut map_size,
-        table_address,
+        table_address as usize,
         permission,
         table_level - 1,
         top_level_stage_2_num_of_entries,
@@ -411,10 +426,8 @@ pub fn shadow_map_address_stage2(
     is_executable: bool,
     vhgatp: u64,
 ) -> Result<usize, ShadowPageTableError> {
-    let shadow_page_table_address = callocate_pages(4, 1 << 14);
-    if shadow_page_table_address.is_null() {
-        return Err(ShadowPageTableError::OutOfMemory);
-    }
+    let shadow_page_table_pages = Pages::new_zeroed(4, 1 << 14)?;
+    let shadow_page_table_address = shadow_page_table_pages.as_ptr();
 
     let l1_table_address = ((vhgatp & SATP_PPN_MASK as u64) << 12) as usize;
     let mode = ((vhgatp & SATP_MODE_MASK as u64) >> 60) as usize;

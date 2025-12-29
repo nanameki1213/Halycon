@@ -1,4 +1,5 @@
 #![feature(riscv_ext_intrinsics)]
+#![feature(allocator_api)]
 #![no_std]
 #![no_main]
 
@@ -277,13 +278,16 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let stack_address = 0x0;
     println!("[info] stack_address: {:#X}", stack_address);
 
-    let vmid = vm::create_vm(
+    let vmid = match vm::create_vm(
         virtio_mmios[BOOTLOADER_MMIO_INDEX],
         virtio_mmios[DEVICE_TREE_MMIO_INDEX],
         mmio,
         #[cfg(feature = "nested_support")]
         None,
-    );
+    ) {
+        Ok(vmid) => vmid,
+        Err(err) => panic!("Create VM Error: {}", err),
+    };
     let entry_point: usize;
     let dtb_pointer: usize;
     {

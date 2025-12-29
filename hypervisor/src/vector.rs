@@ -241,7 +241,10 @@ fn instruction_abort_handler(
                     let mut l1_hypervisor = match vms[current_vmid].hypervisor {
                         Some(context) => context,
                         None => {
-                            let vmid = create_l2_vm(current_vmid, vms);
+                            let vmid = match create_l2_vm(current_vmid, vms) {
+                                Ok(vmid) => vmid,
+                                Err(err) => panic!("{}", err),
+                            };
                             HypervisorContext {
                                 csr: HypervisorCsr::new(),
                                 vmid,
@@ -301,7 +304,10 @@ fn instruction_abort_handler(
                 let l1_hypervisor = match vms[current_vmid].hypervisor {
                     Some(hypervisor) => hypervisor,
                     None => {
-                        let vmid = create_l2_vm(current_vmid, vms);
+                        let vmid = match create_l2_vm(current_vmid, vms) {
+                            Ok(vmid) => vmid,
+                            Err(err) => panic!("{}", err),
+                        };
                         HypervisorContext {
                             csr: HypervisorCsr::new(),
                             vmid,
