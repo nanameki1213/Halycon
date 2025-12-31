@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
-use alloc::{string::String, vec};
 use alloc::vec::Vec;
+use alloc::{string::String, vec};
 use block::{BlockDevice, BlockDeviceError, SECTOR_SIZE};
 use core::fmt;
-use allocate_pages::callocate_pages;
+use core::str::FromStr;
 
 const PARTITION_TYPE_FAT32: usize = 0x1c;
 
@@ -183,11 +183,13 @@ impl<T: BlockDevice> Fat32<T> {
         &mut self,
         sector_offset: usize,
         count: usize,
-        buf_address: *mut usize,
+        buf: &mut [u8],
     ) -> Result<(), FatError> {
         let sector = self.volume_start_sector + sector_offset;
+        let buf_ptr = buf.as_mut_ptr() as *mut usize;
+
         self.block_device
-            .read_write_disk(buf_address, sector as u64, count, false)?;
+            .read_write_disk(buf_ptr, sector as u64, count, false)?;
 
         Ok(())
     }
@@ -195,44 +197,40 @@ impl<T: BlockDevice> Fat32<T> {
     fn cluster_to_sector(&self, cluster: usize) -> usize {
         self.bpb.reserved_sectors_count as usize
             + (self.bpb.fat_number as usize * self.bpb.fat_size_32 as usize)
-            + ((cluster - 2) * self.bpb.bytes_per_sector as usize)
+            + ((cluster - 2) * self.bpb.sectors_per_cluster as usize)
     }
 
-    fn get_cluster(&mut self, cluster: usize, buf_address: *mut usize) -> Result<(), FatError> {
+    fn get_cluster(&mut self, cluster: usize, buf: &mut [u8]) -> Result<(), FatError> {
         let sector = self.cluster_to_sector(cluster);
-        self.get_sector(sector, self.bpb.sectors_per_cluster as usize, buf_address)?;
+        self.get_sector(sector, self.bpb.sectors_per_cluster as usize, buf)?;
 
         Ok(())
     }
 
     fn get_next_cluster(&mut self, cluster: usize) -> usize {
-        let fat_offset = self.bpb.reserved_sectors_count as usize;
-        let fat_entry_num = self.bpb.fat_size_32 as usize;
-        let fat_pages_num = 
-        
-        let fat = unsafe {
-            &mut *core::ptr::slice_from_raw_parts_mut(self, len)
-        }
+        self.fat[cluster] as usize
     }
 
     fn list_root_files(&mut self) -> Result<Vec<String>, FatError> {
         let mut file_list = Vec::new();
 
-        const PAGE_SIZE = 0x1000;
+        const PAGE_SIZE: usize = 0x1000;
 
         // get root directory cluster number
-        let bytes_per_cluster = (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
-        let pages_per_cluster = if bytes_per_cluster % PAGE_SIZE == 0 {
-            bytes_per_cluster / PAGE_SIZE
-        } else {
-            bytes_per_cluster / PAGE_SIZE + 1
-        };
-        let root_directory_buf = callocate_pages(pages_per_cluster, PAGE_SIZE);
-        if root_directory_buf.is_null() {
-            // TODO: Error handling
-            panic!("Out of memory");
+        let bytes_per_cluster =
+            (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
+        let mut buf = vec![0u8; bytes_per_cluster];
+        self.get_cluster(self.bpb.root_cluster as usize, &mut buf)?;
+
+        let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
+
+        for entry in dir {
+            if entry.attributes != ATTR_LONG_NAME {
+                // TODO: if file name is broken, should reference copy of fat.
+                let name = str::from_utf8(&entry.name).expect("file name is broken.");
+                file_list.push(String::from_str(name).unwrap());
+            }
         }
-        
 
         Ok(file_list)
     }
