@@ -1,4 +1,5 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+#![allow(dead_code)]
 
 extern crate alloc;
 
@@ -87,6 +88,7 @@ impl BiosParameterBlock {
     }
 }
 
+#[derive(Debug)]
 pub enum FatError {
     DeviceError(BlockDeviceError),
 }
@@ -263,4 +265,79 @@ where
     }
 
     return Err(());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::{Read, Seek, SeekFrom};
+    use std::path::PathBuf;
+    use std::path::Path;
+
+    struct StdFileBlockDevice {
+        file: File,
+    }
+
+    impl StdFileBlockDevice {
+        fn new(image_path: PathBuf) -> Self {
+            let file = File::open(&image_path)
+                .expect("Failed to open disk image");
+
+            Self { file }
+        }
+    }
+
+    impl BlockDevice for StdFileBlockDevice {
+        fn read_write_disk(
+                &mut self,
+                buf_address: *mut usize,
+                sector: u64,
+                count: usize,
+                is_write: bool,
+            ) -> Result<(), BlockDeviceError> {
+            if is_write {
+                return Ok(());
+            }
+
+            Ok(())
+        }
+
+        fn get_capacity(&self) -> usize {
+            0
+        }
+    }
+
+    #[test]
+    fn test_cluster_to_sector() {
+        let mut image_path = Path::new(&env!("CARGO_MANIFEST_DIR"))
+                .ancestors()
+                .nth(2)
+                .unwrap()
+                .to_path_buf();
+        image_path.push("test_disk.img");
+
+        let device = StdFileBlockDevice::new(image_path);
+        let fs = Fat32::new(device, 0).expect("Failed to parse BPB from image");
+
+        // データ領域の開始セクタ = Reserved + (FAT数 * FATサイズ)
+        let data_start_sector = fs.bpb.reserved_sectors_count as usize
+            + (fs.bpb.fat_number as usize * fs.bpb.fat_size_32 as usize);
+
+        let cluster_2_sector = fs.cluster_to_sector(2);
+        assert_eq!(
+            cluster_2_sector,
+            data_start_sector,
+            "Cluster 2 should match data start sector"
+        );
+
+        // クラスタ3 の位置検証
+        let cluster_3_sector = fs.cluster_to_sector(3);
+        let expected_cluster_3 = data_start_sector + fs.bpb.sectors_per_cluster as usize;
+        assert_eq!(
+            cluster_3_sector,
+            expected_cluster_3,
+            "Cluster 3 should be 1 cluster size away from Cluster 2"
+        );
+    }
 }

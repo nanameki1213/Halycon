@@ -6,6 +6,7 @@ use core::fmt;
 
 pub const SECTOR_SIZE: usize = 512;
 
+#[derive(Debug)]
 pub enum BlockDeviceError {
     IOError,
     UnsupportedDevice,

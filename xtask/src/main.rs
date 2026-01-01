@@ -26,6 +26,7 @@ fn try_main() -> Result<(), DynError> {
     match task.as_deref() {
         Some("build") => build()?,
         Some("run") => run()?,
+        Some("test") => test()?,
         _ => print_help(),
     }
     Ok(())
@@ -246,6 +247,83 @@ fn run() -> Result<(), DynError> {
         .stderr(Stdio::inherit())
         .output()
         .expect("Failed to run qemu");
+
+    Ok(())
+}
+
+fn test() -> Result<(), DynError> {
+    let args: Vec<String> = env::args().collect();
+    let mut args_iter = args.iter().skip(2);
+    let mut target_package = None;
+
+    // Parse options
+    while let Some(v) = args_iter.next() {
+        if v == "--package" {
+            if let Some(package) = args_iter.next() {
+                target_package = Some(package);
+            } else {
+                return Err("Error: Package name required after --package".into());
+            }
+        }
+    }
+
+    let should_prepare_disk = match target_package.map(|s| s.as_str()) {
+        Some("fat32") => true,
+        None => true,
+        _ => false,
+    };
+
+    if should_prepare_disk {
+        log::info!("Preparing FAT32 disk image for testing...");
+        create_test_image()?;
+    }
+
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let mut cmd = Command::new(&cargo);
+    
+    cmd.current_dir(project_root());
+    cmd.arg("test");
+
+    if let Some(pkg) = target_package {
+        log::info!("Running tests for package: {}", pkg);
+        cmd.arg("--package").arg(pkg);
+    } else {
+        log::info!("Running tests for all workspace members");
+        cmd.arg("--workspace");
+    }
+
+    let status = cmd.status()?;
+
+    if !status.success() {
+        return Err("Tests failed".into());
+    }
+
+    Ok(())
+}
+
+fn create_test_image() -> Result<(), DynError> {
+    let tmp_dir = project_root().join("target/tmp_fat32_test");
+    if tmp_dir.exists() {
+        fs::remove_dir_all(&tmp_dir)?;
+    }
+    fs::create_dir_all(&tmp_dir)?;
+
+    let mut files_paths = Vec::new();
+
+    for i in 1..5 {
+        let file_name = format!("TEST{}.TXT", i);
+        let file_path = tmp_dir.join(&file_name);
+        let content = format!("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.");
+
+        fs::write(&file_path, content)?;
+        files_paths.push(file_path);
+    }
+
+    let file_refs: Vec<&Path> = files_paths.iter().map(|p| p.as_path()).collect();
+    
+    let output_img = project_root().join("test_disk.img");
+
+    create_disk::create_fat32_disk(&output_img, &file_refs)?;
 
     Ok(())
 }
