@@ -157,21 +157,15 @@ impl<T: BlockDevice> Fat32<T> {
             core::ptr::read_volatile(ptr)
         };
 
-        let fat_start_sector = bpb.reserved_sectors_count as usize;
+        let fat_start_sector = volume_start_sector + bpb.reserved_sectors_count as usize;
         let fat_bytes = bpb.fat_size_32 as usize * bpb.bytes_per_sector as usize;
-
-        let fat_num_of_sectors = if fat_bytes % SECTOR_SIZE == 0 {
-            fat_bytes / SECTOR_SIZE
-        } else {
-            fat_bytes / SECTOR_SIZE + 1
-        };
 
         let mut fat = vec![0u32; fat_bytes / core::mem::size_of::<u32>()];
 
         block_device.read_write_disk(
             fat.as_mut_ptr() as *mut usize,
             fat_start_sector as u64,
-            fat_num_of_sectors,
+            bpb.fat_size_32 as usize,
             false,
         )?;
 
@@ -215,6 +209,21 @@ impl<T: BlockDevice> Fat32<T> {
         self.fat[cluster as usize]
     }
 
+    fn get_directory_entries(
+        &mut self,
+        dir_cluster_number: u32,
+    ) -> Result<Vec<DirEntry>, FatError> {
+        // get root directory cluster number
+        let bytes_per_cluster =
+            (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
+        let mut buf = vec![0u8; bytes_per_cluster];
+        self.get_cluster(dir_cluster_number, &mut buf)?;
+
+        let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
+
+        Ok(dir.to_vec())
+    }
+
     fn get_short_file_name(&self, name: &[u8; 8], ext: &[u8; 3]) -> String {
         // file name
         let name_str = str::from_utf8(name)
@@ -241,15 +250,9 @@ impl<T: BlockDevice> Fat32<T> {
 
         const PAGE_SIZE: usize = 0x1000;
 
-        // get root directory cluster number
-        let bytes_per_cluster =
-            (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
-        let mut buf = vec![0u8; bytes_per_cluster];
-        self.get_cluster(self.bpb.root_cluster, &mut buf)?;
+        let dir_entries = self.get_directory_entries(self.bpb.root_cluster)?;
 
-        let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
-
-        for entry in dir {
+        for entry in dir_entries {
             if entry.attributes != ATTR_LONG_NAME {
                 let name = self.get_short_file_name(&entry.name, &entry.ext);
                 file_list.push(name);
@@ -264,15 +267,9 @@ impl<T: BlockDevice> Fat32<T> {
         dir_cluster_number: u32,
         name: &String,
     ) -> Result<u32, FatError> {
-        // get root directory cluster number
-        let bytes_per_cluster =
-            (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
-        let mut buf = vec![0u8; bytes_per_cluster];
-        self.get_cluster(dir_cluster_number, &mut buf)?;
+        let dir_entries = self.get_directory_entries(dir_cluster_number)?;
 
-        let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
-
-        for entry in dir {
+        for entry in dir_entries {
             let file_name = self.get_short_file_name(&entry.name, &entry.ext);
             if file_name == *name {
                 return Ok((entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32);
@@ -439,12 +436,19 @@ mod tests {
     fn test_read_file() {
         let mut fs = get_volume();
 
+        println!("bpb: {:?}", fs.bpb);
+        println!("fs: {}", fs.volume_start_sector);
+
         let files = fs.list_root_files().expect("Failed to get file list");
 
         let mut buf = [0u8; SECTOR_SIZE * 8];
         fs.read_file(&files[0], buf.as_mut_ptr())
             .expect("Failed to read file");
 
-        assert_eq!(buf, [0u8; SECTOR_SIZE * 8]);
+        let test_str = "The process of analyzing a FAT32 file system using a hex editor requires a deep understanding of how data is structured across sectors and clusters. This specific paragraph is designed to exceed the standard sector size of 512 bytes, ensuring that your read test can verify whether the file system driver or your manual parsing logic correctly handles data that spans across multiple sectors. When you examine this file in a hex dump, you should notice that the text continues past the first 0x200 bytes offset. If the file is stored in cluster 2, for example, you can calculate its physical location by identifying the start of the data region. Remember that in FAT32, the root directory is no longer at a fixed location but is treated as a cluster chain. This provides more flexibility compared to older FAT versions. By reading this entire passage successfully, you confirm that your environment can handle basic file I/O operations and that your offset calculations from the MBR to the BPB, and finally to the data area, are accurate.".as_bytes();
+        let mut test_buf = [0u8; 4096];
+        let len = test_str.len().min(4096);
+        test_buf[..len].copy_from_slice(&test_str[..len]);
+        assert_eq!(buf, test_buf);
     }
 }
