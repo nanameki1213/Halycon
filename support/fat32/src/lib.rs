@@ -98,7 +98,7 @@ impl fmt::Display for FatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DeviceError(err) => write!(f, "block device error: {}", err),
-            Self::NoSuchFileOrDirectory => write!(f, "No such file or directory.")
+            Self::NoSuchFileOrDirectory => write!(f, "No such file or directory."),
         }
     }
 }
@@ -198,21 +198,21 @@ impl<T: BlockDevice> Fat32<T> {
         Ok(())
     }
 
-    fn cluster_to_sector(&self, cluster: usize) -> usize {
+    fn cluster_to_sector(&self, cluster: u32) -> usize {
         self.bpb.reserved_sectors_count as usize
             + (self.bpb.fat_number as usize * self.bpb.fat_size_32 as usize)
-            + ((cluster - 2) * self.bpb.sectors_per_cluster as usize)
+            + ((cluster as usize - 2) * self.bpb.sectors_per_cluster as usize)
     }
 
-    fn get_cluster(&mut self, cluster: usize, buf: &mut [u8]) -> Result<(), FatError> {
+    fn get_cluster(&mut self, cluster: u32, buf: &mut [u8]) -> Result<(), FatError> {
         let sector = self.cluster_to_sector(cluster);
         self.get_sector(sector, self.bpb.sectors_per_cluster as usize, buf)?;
 
         Ok(())
     }
 
-    fn get_next_cluster(&mut self, cluster: usize) -> usize {
-        self.fat[cluster] as usize
+    fn get_next_cluster(&mut self, cluster: u32) -> u32 {
+        self.fat[cluster as usize]
     }
 
     fn get_short_file_name(&self, name: &[u8; 8], ext: &[u8; 3]) -> String {
@@ -245,7 +245,7 @@ impl<T: BlockDevice> Fat32<T> {
         let bytes_per_cluster =
             (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
         let mut buf = vec![0u8; bytes_per_cluster];
-        self.get_cluster(self.bpb.root_cluster as usize, &mut buf)?;
+        self.get_cluster(self.bpb.root_cluster, &mut buf)?;
 
         let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
 
@@ -259,19 +259,45 @@ impl<T: BlockDevice> Fat32<T> {
         Ok(file_list)
     }
 
-    fn get_file_entry_cluster_number(&mut self, name: String) -> Result<usize, FatError> {
-        let files = self.list_root_files()?;
+    fn get_file_entry_cluster_number(
+        &mut self,
+        dir_cluster_number: u32,
+        name: &String,
+    ) -> Result<u32, FatError> {
+        // get root directory cluster number
+        let bytes_per_cluster =
+            (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
+        let mut buf = vec![0u8; bytes_per_cluster];
+        self.get_cluster(dir_cluster_number, &mut buf)?;
 
-        for file_name in files {
-            if file_name == name {
-                
+        let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
+
+        for entry in dir {
+            let file_name = self.get_short_file_name(&entry.name, &entry.ext);
+            if file_name == *name {
+                return Ok((entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32);
             }
         }
 
-        return Err(FatError::NoSuchFileOrDirectory)
+        return Err(FatError::NoSuchFileOrDirectory);
     }
 
-    pub fn read_file(&mut self, name: String, buf_address: *mut u8) -> Result<(), FatError> {
+    pub fn read_file(&mut self, name: &String, mut buf_address: *mut u8) -> Result<(), FatError> {
+        let mut current_cluster_number =
+            self.get_file_entry_cluster_number(self.bpb.root_cluster, name)?;
+        let bytes_per_cluster =
+            (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
+
+        while current_cluster_number < 0x0FFFFFF8 {
+            unsafe {
+                let buf = core::slice::from_raw_parts_mut(buf_address, bytes_per_cluster);
+
+                self.get_cluster(current_cluster_number, buf)?;
+
+                current_cluster_number = self.get_next_cluster(current_cluster_number);
+                buf_address = buf_address.add(bytes_per_cluster);
+            }
+        }
 
         Ok(())
     }
@@ -407,5 +433,18 @@ mod tests {
         assert_eq!(files[1], "TEST2.TXT");
         assert_eq!(files[2], "TEST3.TXT");
         assert_eq!(files[3], "TEST4.TXT");
+    }
+
+    #[test]
+    fn test_read_file() {
+        let mut fs = get_volume();
+
+        let files = fs.list_root_files().expect("Failed to get file list");
+
+        let mut buf = [0u8; SECTOR_SIZE * 8];
+        fs.read_file(&files[0], buf.as_mut_ptr())
+            .expect("Failed to read file");
+
+        assert_eq!(buf, [0u8; SECTOR_SIZE * 8]);
     }
 }
