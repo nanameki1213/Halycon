@@ -228,8 +228,6 @@ fn run() -> Result<(), DynError> {
         "virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0",
         "-drive",
         format!("file={vm_disk_image_path},format=raw,if=none,media=disk,id=drive1").as_str(),
-        "-device",
-        "virtio-blk-device,drive=drive2,bus=virtio-mmio-bus.1",
         "-global",
         "virtio-mmio.force-legacy=false",
         "-D",
