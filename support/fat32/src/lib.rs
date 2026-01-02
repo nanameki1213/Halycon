@@ -91,12 +91,14 @@ impl BiosParameterBlock {
 #[derive(Debug)]
 pub enum FatError {
     DeviceError(BlockDeviceError),
+    NoSuchFileOrDirectory,
 }
 
 impl fmt::Display for FatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DeviceError(err) => write!(f, "block device error: {}", err),
+            Self::NoSuchFileOrDirectory => write!(f, "No such file or directory.")
         }
     }
 }
@@ -255,6 +257,23 @@ impl<T: BlockDevice> Fat32<T> {
         }
 
         Ok(file_list)
+    }
+
+    fn get_file_entry_cluster_number(&mut self, name: String) -> Result<usize, FatError> {
+        let files = self.list_root_files()?;
+
+        for file_name in files {
+            if file_name == name {
+                
+            }
+        }
+
+        return Err(FatError::NoSuchFileOrDirectory)
+    }
+
+    pub fn read_file(&mut self, name: String, buf_address: *mut u8) -> Result<(), FatError> {
+
+        Ok(())
     }
 }
 
