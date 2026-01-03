@@ -9,7 +9,6 @@ mod aplic;
 mod console;
 #[cfg(feature = "nested_support")]
 mod emulate_csr;
-mod loader;
 mod memory;
 mod paging;
 mod plic;
@@ -32,7 +31,7 @@ use crate::mmio::ns16550::NS16550_ADDR;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use arch::riscv::cpu::*;
-use block::virtio_blk;
+use block::virtio_blk::{self, VirtioBlk};
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::ptr::NonNull;
@@ -152,17 +151,25 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[setup] allocator");
 
     let mut virtio_mmios: Vec<VirtioMmio> = Vec::new();
-    for mmio in host_dt.mmio.iter() {
-        let virtio_mmio = VirtioMmio::new(mmio.address);
-        virtio_mmio.init_default_features();
-        virtio_mmios.push(virtio_mmio);
-    }
 
-    const BOOTLOADER_MMIO_INDEX: usize = 7;
-    const DEVICE_TREE_MMIO_INDEX: usize = 6;
-    const PASS_THROUGH_MMIO_INDEX: usize = 5;
+    let host_block_device = {
+        let mut host_block_device: Option<VirtioBlk> = None;
+        // Initialize all virtio mmio device
+        for mmio in host_dt.mmio.iter() {
+            let virtio_mmio = VirtioMmio::new(mmio.address);
+            virtio_mmio.init_default_features();
+            virtio_mmios.push(virtio_mmio);
 
-    init_mmio(virtio_mmios[PASS_THROUGH_MMIO_INDEX]);
+            if mmio.address == 0x10001000 {
+                let block_device = VirtioBlk::new(virtio_mmio)
+                    .expect("Failed to get block device for hypervisor.");
+                host_block_device = Some(block_device);
+            }
+        }
+        host_block_device.expect("No block device for hypervisor.")
+    };
+
+    let fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -278,8 +285,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     println!("[info] stack_address: {:#X}", stack_address);
 
     let vmid = vm::create_vm(
-        virtio_mmios[BOOTLOADER_MMIO_INDEX],
-        virtio_mmios[DEVICE_TREE_MMIO_INDEX],
+        fs,
         mmio,
         #[cfg(feature = "nested_support")]
         None,

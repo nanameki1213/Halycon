@@ -246,11 +246,8 @@ impl<T: BlockDevice> Fat32<T> {
         return name_str;
     }
 
-    #[allow(dead_code)]
-    fn list_root_files(&mut self) -> Result<Vec<String>, FatError> {
+    pub fn list_root_files(&mut self) -> Result<Vec<String>, FatError> {
         let mut file_list = Vec::new();
-
-        const PAGE_SIZE: usize = 0x1000;
 
         let dir_entries = self.get_directory_entries(self.bpb.root_cluster)?;
 

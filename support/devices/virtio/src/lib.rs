@@ -166,6 +166,7 @@ impl VirtQueue {
     }
 }
 
+#[derive(Debug)]
 pub enum VirtQueueError {
     UnsupportedVersion,
     InvalidQueue,
