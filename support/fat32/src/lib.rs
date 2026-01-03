@@ -1,5 +1,4 @@
 #![cfg_attr(not(test), no_std)]
-#![allow(dead_code)]
 
 extern crate alloc;
 
@@ -131,7 +130,9 @@ const ATTR_READ_ONLY: u8 = 0x01;
 const ATTR_HIDDEN: u8 = 0x02;
 const ATTR_SYSTEM: u8 = 0x04;
 const ATTR_VOLUME_ID: u8 = 0x08;
+#[allow(dead_code)]
 const ATTR_DIRECTORY: u8 = 0x10;
+#[allow(dead_code)]
 const ATTR_ARCHIVE: u8 = 0x20;
 const ATTR_LONG_NAME: u8 = ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID;
 
@@ -245,6 +246,7 @@ impl<T: BlockDevice> Fat32<T> {
         return name_str;
     }
 
+    #[allow(dead_code)]
     fn list_root_files(&mut self) -> Result<Vec<String>, FatError> {
         let mut file_list = Vec::new();
 
@@ -262,26 +264,31 @@ impl<T: BlockDevice> Fat32<T> {
         Ok(file_list)
     }
 
-    fn get_file_entry_cluster_number(
+    fn get_directory_entry(
         &mut self,
         dir_cluster_number: u32,
         name: &String,
-    ) -> Result<u32, FatError> {
+    ) -> Result<DirEntry, FatError> {
         let dir_entries = self.get_directory_entries(dir_cluster_number)?;
 
         for entry in dir_entries {
             let file_name = self.get_short_file_name(&entry.name, &entry.ext);
             if file_name == *name {
-                return Ok((entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32);
+                return Ok(entry);
             }
         }
 
         return Err(FatError::NoSuchFileOrDirectory);
     }
 
-    pub fn read_file(&mut self, name: &String, mut buf_address: *mut u8) -> Result<(), FatError> {
+    pub fn read_file(
+        &mut self,
+        name: &String,
+        mut buf_address: *mut u8,
+    ) -> Result<usize, FatError> {
+        let entry = self.get_directory_entry(self.bpb.root_cluster, name)?;
         let mut current_cluster_number =
-            self.get_file_entry_cluster_number(self.bpb.root_cluster, name)?;
+            (entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32;
         let bytes_per_cluster =
             (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
 
@@ -296,7 +303,7 @@ impl<T: BlockDevice> Fat32<T> {
             }
         }
 
-        Ok(())
+        Ok(entry.file_size as usize)
     }
 }
 
