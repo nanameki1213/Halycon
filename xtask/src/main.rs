@@ -70,6 +70,39 @@ fn build() -> Result<(), DynError> {
 
     fs::create_dir_all(&hypervisor_output_directory)?;
 
+    if is_nested {
+        fs::create_dir_all(&l1_hypervisor_output_directory)?;
+        log::info!("build l1 hypervisor");
+        let output_path = l1_hypervisor_output_directory.clone().join("l1_hypervisor");
+        let mut binary_path = project_root().join(format!("target/{}", target));
+        if is_release {
+            binary_path.push("release/l1_hypervisor");
+        } else {
+            binary_path.push("debug/l1_hypervisor");
+        }
+        build_l1_hypervisor(is_release)?;
+        fs::rename(&binary_path, &output_path)?;
+
+        // compile device tree script
+        log::info!("compile device tree script for L1 Hypervisor");
+        let dts_path = script_path.clone().join("virt.dts");
+        let output_path = l1_hypervisor_output_directory.clone().join("virt.dtb");
+        device_tree::compile_dts(&dts_path, &output_path)?;
+
+        // compile boot script
+        log::info!("compile u-boot boot script for L1 Hypervisor");
+        let binary_path = script_path.clone().join("boot_L1hypervisor.script");
+        let output_path = l1_hypervisor_output_directory.clone().join("boot.scr");
+        mkimage::uboot_mkimage(&binary_path, &output_path)?;
+
+        // create image
+        let entries = read_dir_entries(&l1_hypervisor_output_directory)?;
+        let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
+
+        log::info!("create disk");
+        create_disk::create_fat32_disk(&hypervisor_output_directory.clone().join("vm.img"), &files)?;
+    }
+
     // build hypervisor
     log::info!("build hypervisor");
     let output_path = hypervisor_output_directory.clone().join("hypervisor");
@@ -101,40 +134,7 @@ fn build() -> Result<(), DynError> {
 
     log::info!("create disk");
     create_disk::create_fat32_disk(&project_root().join("disk.img"), &files)?;
-
-    if is_nested {
-        fs::create_dir_all(&l1_hypervisor_output_directory)?;
-        log::info!("build l1 hypervisor");
-        let output_path = l1_hypervisor_output_directory.clone().join("l1_hypervisor");
-        let mut binary_path = project_root().join(format!("target/{}", target));
-        if is_release {
-            binary_path.push("release/l1_hypervisor");
-        } else {
-            binary_path.push("debug/l1_hypervisor");
-        }
-        build_l1_hypervisor(is_release)?;
-        fs::rename(&binary_path, &output_path)?;
-
-        // compile device tree script
-        log::info!("compile device tree script for L1 Hypervisor");
-        let dts_path = script_path.clone().join("virt.dts");
-        let output_path = l1_hypervisor_output_directory.clone().join("virt.dtb");
-        device_tree::compile_dts(&dts_path, &output_path)?;
-
-        // compile boot script
-        log::info!("compile u-boot boot script for L1 Hypervisor");
-        let binary_path = script_path.clone().join("boot_L1hypervisor.script");
-        let output_path = l1_hypervisor_output_directory.clone().join("boot.scr");
-        mkimage::uboot_mkimage(&binary_path, &output_path)?;
-
-        // create image
-        let entries = read_dir_entries(&l1_hypervisor_output_directory)?;
-        let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
-
-        log::info!("create disk");
-        create_disk::create_fat32_disk(&project_root().join("vm.img"), &files)?;
-    }
-
+    
     Ok(())
 }
 
@@ -195,7 +195,6 @@ fn run() -> Result<(), DynError> {
     let bios_binary_path = "bin/u-boot".to_string();
     // Disk image path
     let host_disk_image_path = "disk.img".to_string();
-    let vm_disk_image_path = "vm.img".to_string();
 
     // make image for host and vm
 
@@ -221,13 +220,9 @@ fn run() -> Result<(), DynError> {
         "-m",
         memory.as_str(),
         "-device",
-        "virtio-blk-device,drive=drive0",
+        "virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0",
         "-drive",
         format!("file={host_disk_image_path},format=raw,if=none,media=disk,id=drive0").as_str(),
-        "-device",
-        "virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0",
-        "-drive",
-        format!("file={vm_disk_image_path},format=raw,if=none,media=disk,id=drive1").as_str(),
         "-global",
         "virtio-mmio.force-legacy=false",
         "-D",
@@ -278,7 +273,7 @@ fn test() -> Result<(), DynError> {
 
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let mut cmd = Command::new(&cargo);
-    
+
     cmd.current_dir(project_root());
     cmd.arg("test");
 
@@ -311,14 +306,16 @@ fn create_test_image() -> Result<(), DynError> {
     for i in 1..5 {
         let file_name = format!("TEST{}.TXT", i);
         let file_path = tmp_dir.join(&file_name);
-        let content = format!("The process of analyzing a FAT32 file system using a hex editor requires a deep understanding of how data is structured across sectors and clusters. This specific paragraph is designed to exceed the standard sector size of 512 bytes, ensuring that your read test can verify whether the file system driver or your manual parsing logic correctly handles data that spans across multiple sectors. When you examine this file in a hex dump, you should notice that the text continues past the first 0x200 bytes offset. If the file is stored in cluster 2, for example, you can calculate its physical location by identifying the start of the data region. Remember that in FAT32, the root directory is no longer at a fixed location but is treated as a cluster chain. This provides more flexibility compared to older FAT versions. By reading this entire passage successfully, you confirm that your environment can handle basic file I/O operations and that your offset calculations from the MBR to the BPB, and finally to the data area, are accurate.");
+        let content = format!(
+            "The process of analyzing a FAT32 file system using a hex editor requires a deep understanding of how data is structured across sectors and clusters. This specific paragraph is designed to exceed the standard sector size of 512 bytes, ensuring that your read test can verify whether the file system driver or your manual parsing logic correctly handles data that spans across multiple sectors. When you examine this file in a hex dump, you should notice that the text continues past the first 0x200 bytes offset. If the file is stored in cluster 2, for example, you can calculate its physical location by identifying the start of the data region. Remember that in FAT32, the root directory is no longer at a fixed location but is treated as a cluster chain. This provides more flexibility compared to older FAT versions. By reading this entire passage successfully, you confirm that your environment can handle basic file I/O operations and that your offset calculations from the MBR to the BPB, and finally to the data area, are accurate."
+        );
 
         fs::write(&file_path, content)?;
         files_paths.push(file_path);
     }
 
     let file_refs: Vec<&Path> = files_paths.iter().map(|p| p.as_path()).collect();
-    
+
     let output_img = project_root().join("test_disk.img");
 
     create_disk::create_fat32_disk(&output_img, &file_refs)?;
