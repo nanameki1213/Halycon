@@ -63,8 +63,6 @@ const MAX_MMIO_ENTRIES: usize = 64;
 // }
 
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
-static PASS_THROUGH_VIRTIO_MMIO: Once<VirtioMmio> = Once::new();
-static PASS_THROUGH_VIRTIO_BLK_DEVICE: Once<Mutex<virtio_blk::VirtioBlk>> = Once::new();
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
@@ -72,18 +70,6 @@ static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
-}
-
-fn init_mmio(virtio_mmio: VirtioMmio) {
-    println!("version; {}", virtio_mmio.get_virtio_mmio(0));
-    let block_device: virtio_blk::VirtioBlk;
-    match virtio_blk::VirtioBlk::new(virtio_mmio) {
-        Ok(device) => block_device = device,
-        Err(err) => panic!("Block Device: {}", err),
-    }
-    PASS_THROUGH_VIRTIO_MMIO.call_once(|| virtio_mmio);
-
-    PASS_THROUGH_VIRTIO_BLK_DEVICE.call_once(|| Mutex::new(block_device));
 }
 
 struct GlobalAllocator {}
