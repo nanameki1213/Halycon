@@ -1,5 +1,3 @@
-use crate::PASS_THROUGH_VIRTIO_BLK_DEVICE;
-use crate::PASS_THROUGH_VIRTIO_MMIO;
 use crate::paging::resolve_address_stage2;
 use block::BlockDevice;
 use block::virtio_blk;
@@ -9,27 +7,17 @@ use virtio::*;
 
 static VIRTIO_MMIO_REGISTER: Mutex<VirtioMmioRegister> = Mutex::new(VirtioMmioRegister::new());
 
-#[derive(Debug)]
-pub struct Virtio;
+pub trait VirtioDevice<T> {
+    fn handler(&self, request: T, flags: u16, data_address: *mut u8);
+}
 
-impl MmioHandler for Virtio {
+impl<T> MmioHandler for VirtioDevice {
     fn read(&self, offset: usize) -> usize {
-        let virtio_mmio: &VirtioMmio;
-        match PASS_THROUGH_VIRTIO_MMIO.get() {
-            Some(mmio) => virtio_mmio = mmio,
-            None => panic!(),
-        }
-
-        let mut value = virtio_mmio.get_virtio_mmio(offset);
+        let mut value = 0;
 
         match offset {
             VIRTIO_MMIO_VERSION => {
-                virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
-                VIRTIO_MMIO_REGISTER.lock().device_features_low =
-                    virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
-                virtio_mmio.set_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
-                VIRTIO_MMIO_REGISTER.lock().device_features_high =
-                    virtio_mmio.get_virtio_mmio(VIRTIO_MMIO_DEVICE_FEATURES);
+                value = VIRTIO_VERSION;
             }
             VIRTIO_MMIO_QUEUE_READY => {
                 value = VIRTIO_DEFAULT_INDEX;
@@ -72,7 +60,7 @@ impl MmioHandler for Virtio {
                 let data_address = resolve_address_stage2(desc_ring[1].addr as usize).unwrap();
                 let status_address =
                     resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
-                let virtio_blk_req = &mut *(request_address as *mut virtio_blk::VirtioBlkReq);
+                let request = &mut *(request_address as *mut T);
 
                 // println!("\n");
                 // for i in 0..3 {
@@ -80,20 +68,18 @@ impl MmioHandler for Virtio {
                 // }
 
                 // println!("virtio: {}", virtio_blk_req.sector);
-                let mutex = PASS_THROUGH_VIRTIO_BLK_DEVICE
-                    .get()
-                    .expect("PASS_THROUGH_VIRTIO_BLK_DEVICE not initialized");
-                let mut block_device = mutex.lock();
 
-                if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
-                    let count = desc_ring[1].len as usize / block::SECTOR_SIZE;
-                    let _ = block_device.read_write_disk(
-                        data_address as *mut usize,
-                        virtio_blk_req.sector,
-                        count,
-                        false,
-                    );
-                }
+                self.handler(request, desc_ring[1].flags, data_address);
+
+                // if desc_ring[1].flags & VRingDesc::VIRTQ_DESC_F_WRITE as u16 != 0 {
+                //     let count = desc_ring[1].len as usize / block::SECTOR_SIZE;
+                //     let _ = block_device.read_write_disk(
+                //         data_address as *mut usize,
+                //         virtio_blk_req.sector,
+                //         count,
+                //         false,
+                //     );
+                // }
 
                 let device_address =
                     resolve_address_stage2(VIRTIO_MMIO_REGISTER.lock().device_address as usize)
