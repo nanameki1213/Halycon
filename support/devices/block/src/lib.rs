@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod mem_blk;
 pub mod virtio_blk;
 
 use core::fmt;
