@@ -83,7 +83,7 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
                 let device_address =
                     resolve_address_stage2(device.mmio_state().device_address as usize).unwrap();
                 let used_ring = &mut *(device_address as *mut VRingUsed);
-                used_ring.idx += 1;
+                used_ring.idx = used_ring.idx.wrapping_add(1);
             },
             VIRTIO_MMIO_QUEUE_READY => {}
             VIRTIO_MMIO_QUEUE_NUM => {
