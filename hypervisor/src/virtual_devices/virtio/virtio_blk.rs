@@ -1,5 +1,6 @@
 use block::{BlockDevice, virtio_blk::VirtioBlkReq};
-use virtio::{VIRTQ_ENTRY_NUM, VRingDesc, VirtioMmioRegister};
+use virtio::{VRingDesc, VirtioMmioRegister};
+use virtio_core::VIRTQ_ENTRY_NUM;
 
 use crate::paging::resolve_address_stage2;
 

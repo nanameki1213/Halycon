@@ -13,6 +13,7 @@ members = [
   "support/devices/block",
   "support/allocate_pages",
   "support/fat32",
+  "support/virtio_core",
   "xtask",
 ]
 
