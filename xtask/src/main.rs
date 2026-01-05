@@ -42,9 +42,6 @@ fn build() -> Result<(), DynError> {
     let base_output_directory = project_root().join("bin");
     let hypervisor_output_directory = base_output_directory.clone().join("disk");
     let l1_hypervisor_output_directory = base_output_directory.clone().join("l1_disk");
-    // let l1_hypervisor_path = project_root().join("l1_hypervisor");
-    // let hypervisor_image_path = project_root().join("disk.img");
-    // let vm_disk_image_path = project_root().join("vm.img");
     let script_path = project_root().join("scripts");
 
     let args: Vec<String> = env::args().collect();
