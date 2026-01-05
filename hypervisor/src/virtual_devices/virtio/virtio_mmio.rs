@@ -7,7 +7,7 @@ use virtio::*;
 pub trait VirtioDevice {
     fn device_id(&self) -> u32;
 
-    fn notify(&mut self, desc_ring: &[VRingDesc]);
+    fn notify(&mut self, desc_ring: &[VRingDesc; VIRTQ_ENTRY_NUM as usize]);
 
     fn mmio_state(&self) -> &VirtioMmioRegister;
 
@@ -70,12 +70,15 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
 
                 let desc_address =
                     resolve_address_stage2(device.mmio_state().desc_address as usize).unwrap();
-                let desc_ring = &mut *core::ptr::slice_from_raw_parts_mut(
+                let desc_ring_slice = &mut *core::ptr::slice_from_raw_parts_mut(
                     desc_address as *mut VRingDesc,
                     VIRTQ_ENTRY_NUM as usize,
                 );
+                let desc_ring: [VRingDesc; VIRTQ_ENTRY_NUM as usize] = desc_ring_slice
+                    .try_into()
+                    .expect("Failed to convert slice to array.");
 
-                device.notify(desc_ring);
+                device.notify(&desc_ring);
 
                 let device_address =
                     resolve_address_stage2(device.mmio_state().device_address as usize).unwrap();

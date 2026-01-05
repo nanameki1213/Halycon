@@ -1,5 +1,5 @@
 use block::{BlockDevice, virtio_blk::VirtioBlkReq};
-use virtio::{VRingDesc, VirtioMmioRegister};
+use virtio::{VIRTQ_ENTRY_NUM, VRingDesc, VirtioMmioRegister};
 
 use crate::paging::resolve_address_stage2;
 
@@ -25,7 +25,7 @@ impl<T: BlockDevice> VirtioDevice for VirtioBlkDevice<T> {
         2
     }
 
-    fn notify(&mut self, desc_ring: &[VRingDesc]) {
+    fn notify(&mut self, desc_ring: &[VRingDesc; VIRTQ_ENTRY_NUM as usize]) {
         let request_address = resolve_address_stage2(desc_ring[0].addr as usize).unwrap();
         let data_address = resolve_address_stage2(desc_ring[1].addr as usize).unwrap();
         let status_address = resolve_address_stage2(desc_ring[2].addr as usize).unwrap() as *mut u8;
