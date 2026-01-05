@@ -6,7 +6,7 @@ pub struct VirtioBlkConfig {
     pub capacity: u64,
     pub size_max: u32,
     pub seg_max: u32,
-    // TODO: there are more field, buf we aren't supprting now.
+    // TODO: there are more fields, but we aren't supporting them now.
 }
 
 impl VirtioBlkConfig {
