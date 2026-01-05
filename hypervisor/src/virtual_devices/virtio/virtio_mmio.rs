@@ -75,7 +75,7 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
             VIRTIO_MMIO_MAGIC => VIRTIO_MMIO_MAGIC_VALUE,
             VIRTIO_MMIO_VERSION => VIRTIO_VERSION,
             VIRTIO_MMIO_DEVICEID => self.device.device_id() as usize,
-            VIRTIO_MMIO_VENDERID => 0,
+            VIRTIO_MMIO_VENDORID => 0,
             VIRTIO_MMIO_DEVICE_FEATURES => {
                 if register.device_features_sel == 0 {
                     register.device_features_low as usize
