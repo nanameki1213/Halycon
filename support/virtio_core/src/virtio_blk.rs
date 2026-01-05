@@ -30,7 +30,7 @@ impl VirtioBlkConfig {
 
         let mut result_bytes = [0u8; 4];
         for i in 0..4 {
-            if offset + 1 < struct_size {
+            if offset + i < struct_size {
                 result_bytes[i] = bytes[offset + i];
             }
         }
