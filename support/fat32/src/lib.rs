@@ -227,16 +227,10 @@ impl<T: BlockDevice> Fat32<T> {
 
     fn get_short_file_name(&self, name: &[u8; 8], ext: &[u8; 3]) -> String {
         // file name
-        let name_str = str::from_utf8(name)
-            .expect("file name is broken.")
-            .trim_end()
-            .to_string();
+        let name_str = String::from_utf8_lossy(name).trim_end().to_string();
 
         // file extension
-        let ext_str = str::from_utf8(ext)
-            .expect("file extension is broken.")
-            .trim_end()
-            .to_string();
+        let ext_str = String::from_utf8_lossy(ext).trim_end().to_string();
 
         if !ext_str.is_empty() {
             let file_name = [name_str, ext_str].join(".");
