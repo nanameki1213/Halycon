@@ -162,7 +162,7 @@ impl VirtQueue {
     pub fn connect_to_avail_ring(&mut self, desc_idx: u16) {
         let idx = self.vring.avail.idx as usize;
         self.vring.avail.ring[idx % VIRTQ_ENTRY_NUM as usize] = desc_idx;
-        self.vring.avail.idx = idx as u16 + 1;
+        self.vring.avail.idx = idx.wrapping_add(1) as u16;
     }
 }
 
