@@ -11,6 +11,7 @@ use allocate_pages::allocate_pages;
 use arch::riscv::cpu::*;
 use block::BlockDevice;
 use core::arch::riscv64;
+use core::slice;
 use fat32::Fat32;
 use mmio_core::MmioEntry;
 
@@ -149,12 +150,20 @@ pub fn create_vm<T: BlockDevice>(
 
     let bios_file_name = "U-BOOT.BIN".to_string();
     println!("[info] loading {}...", bios_file_name);
-    fs.read_file(&bios_file_name, bootloader_entry_point as *mut u8)
+    let size = fs
+        .get_file_size(&bios_file_name)
+        .expect("Failed to get file size.");
+    let buf = unsafe { slice::from_raw_parts_mut(bootloader_entry_point as *mut u8, size) };
+    fs.read_file(&bios_file_name, buf)
         .expect("Failed to read file");
 
     let dtb_file_name = "VIRT.DTB".to_string();
     println!("[info] loading {}...", dtb_file_name);
-    fs.read_file(&dtb_file_name, dtb_pointer as *mut u8)
+    let size = fs
+        .get_file_size(&dtb_file_name)
+        .expect("Failed to get file size.");
+    let buf = unsafe { slice::from_raw_parts_mut(dtb_pointer as *mut u8, size) };
+    fs.read_file(&dtb_file_name, buf)
         .expect("Failed to read file");
 
     let mut locked_vms = VIRTUAL_MACHINES.lock();

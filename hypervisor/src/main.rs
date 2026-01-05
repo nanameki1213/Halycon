@@ -165,7 +165,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         .get_file_size(&vm_img_file_name)
         .expect("Failed to get file size.");
     let mut buf = vec![0u8; file_size];
-    fs.read_file(&vm_img_file_name, buf.as_mut_ptr())
+    fs.read_file(&vm_img_file_name, &mut buf)
         .expect("Failed to read vm disk image.");
     let mem_block = MemBlk::new(&buf);
 

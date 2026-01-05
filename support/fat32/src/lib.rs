@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), no_std)]
+#![feature(assert_matches)]
 
 extern crate alloc;
 
@@ -91,6 +92,7 @@ impl BiosParameterBlock {
 pub enum FatError {
     DeviceError(BlockDeviceError),
     NoSuchFileOrDirectory,
+    OutOfBuffer,
 }
 
 impl fmt::Display for FatError {
@@ -98,6 +100,7 @@ impl fmt::Display for FatError {
         match self {
             Self::DeviceError(err) => write!(f, "block device error: {}", err),
             Self::NoSuchFileOrDirectory => write!(f, "No such file or directory."),
+            Self::OutOfBuffer => write!(f, "Buffer too small."),
         }
     }
 }
@@ -277,12 +280,12 @@ impl<T: BlockDevice> Fat32<T> {
         Ok(entry.file_size as usize)
     }
 
-    pub fn read_file(
-        &mut self,
-        name: &String,
-        mut buf_address: *mut u8,
-    ) -> Result<usize, FatError> {
+    pub fn read_file(&mut self, name: &String, buf: &mut [u8]) -> Result<usize, FatError> {
         let entry = self.get_directory_entry(self.bpb.root_cluster, name)?;
+        if buf.len() < entry.file_size as usize {
+            return Err(FatError::OutOfBuffer);
+        }
+        let mut buf_address = buf.as_mut_ptr();
         let mut current_cluster_number =
             (entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32;
         let bytes_per_cluster =
@@ -335,6 +338,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::assert_matches::assert_matches;
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom};
     use std::path::Path;
@@ -445,7 +449,7 @@ mod tests {
         let files = fs.list_root_files().expect("Failed to get file list");
 
         let mut buf = [0u8; SECTOR_SIZE * 8];
-        fs.read_file(&files[0], buf.as_mut_ptr())
+        fs.read_file(&files[0], &mut buf)
             .expect("Failed to read file");
 
         let test_str = "The process of analyzing a FAT32 file system using a hex editor requires a deep understanding of how data is structured across sectors and clusters. This specific paragraph is designed to exceed the standard sector size of 512 bytes, ensuring that your read test can verify whether the file system driver or your manual parsing logic correctly handles data that spans across multiple sectors. When you examine this file in a hex dump, you should notice that the text continues past the first 0x200 bytes offset. If the file is stored in cluster 2, for example, you can calculate its physical location by identifying the start of the data region. Remember that in FAT32, the root directory is no longer at a fixed location but is treated as a cluster chain. This provides more flexibility compared to older FAT versions. By reading this entire passage successfully, you confirm that your environment can handle basic file I/O operations and that your offset calculations from the MBR to the BPB, and finally to the data area, are accurate.".as_bytes();
@@ -453,5 +457,21 @@ mod tests {
         let len = test_str.len().min(4096);
         test_buf[..len].copy_from_slice(&test_str[..len]);
         assert_eq!(buf, test_buf);
+    }
+
+    #[test]
+    fn test_out_of_buffer() {
+        let mut fs = get_volume();
+
+        let files = fs.list_root_files().expect("Failed to get file list");
+
+        let size = fs
+            .get_file_size(&files[0])
+            .expect("Failed to get file size");
+        let mut buf = vec![0u8; size - 1];
+        assert_matches!(
+            fs.read_file(&files[0], &mut buf),
+            Err(FatError::OutOfBuffer)
+        )
     }
 }
