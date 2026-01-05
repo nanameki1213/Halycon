@@ -1,8 +1,10 @@
 use core::fmt::Debug;
 
 use crate::paging::resolve_address_stage2;
+use crate::println;
 use mmio_core::MmioHandler;
 use virtio::*;
+use virtio_core::*;
 
 pub trait VirtioDevice {
     fn device_id(&self) -> u32;
@@ -12,6 +14,46 @@ pub trait VirtioDevice {
     fn mmio_state(&self) -> &VirtioMmioRegister;
 
     fn mmio_state_mut(&mut self) -> &mut VirtioMmioRegister;
+
+    fn read_config(&self, offset: usize) -> u32;
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VirtioMmioRegister {
+    pub queue_size: u32,
+    pub queue_sel: u32,
+    pub queue_ready: u32,
+    pub desc_address: u64,
+    pub driver_address: u64,
+    pub device_address: u64,
+    pub status: u32,
+    pub device_features_low: u32,
+    pub device_features_high: u32,
+    pub device_features_sel: u32,
+    pub driver_features_low: u32,
+    pub driver_features_high: u32,
+    pub driver_features_sel: u32,
+}
+
+impl VirtioMmioRegister {
+    pub const fn new() -> Self {
+        VirtioMmioRegister {
+            queue_size: 0,
+            queue_sel: 0,
+            queue_ready: 0,
+            desc_address: 0,
+            driver_address: 0,
+            device_address: 0,
+            status: 0,
+            device_features_low: 0,
+            device_features_high: 1, // A driver MUST accept VIRTIO_F_VERSION_1 if it is offered.
+            device_features_sel: 0,
+            driver_features_low: 0,
+            driver_features_high: 0,
+            driver_features_sel: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -27,38 +69,38 @@ impl<D: VirtioDevice> VirtioMmioTransport<D> {
 
 impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
     fn read(&self, offset: usize) -> usize {
-        let mut value = 0;
         let register = self.device.mmio_state();
 
-        match offset {
-            VIRTIO_MMIO_VERSION => {
-                value = VIRTIO_VERSION;
-            }
-            VIRTIO_MMIO_DEVICEID => {
-                value = self.device.device_id() as usize;
-            }
-            VIRTIO_MMIO_QUEUE_READY => {
-                value = VIRTIO_DEFAULT_INDEX as usize;
-            }
-            VIRTIO_MMIO_STATUS => {
-                value = register.status as usize;
-            }
+        const VIRTIO_MMIO_END_OFFSET: usize = VIRTIO_MMIO_SIZE - 4;
+
+        let value = match offset {
+            VIRTIO_MMIO_MAGIC => VIRTIO_MMIO_MAGIC_VALUE,
+            VIRTIO_MMIO_VERSION => VIRTIO_VERSION,
+            VIRTIO_MMIO_DEVICEID => self.device.device_id() as usize,
+            VIRTIO_MMIO_VENDORID => 0,
             VIRTIO_MMIO_DEVICE_FEATURES => {
                 if register.device_features_sel == 0 {
-                    value = register.device_features_low as usize;
+                    register.device_features_low as usize
                 } else {
-                    value = register.device_features_high as usize;
+                    register.device_features_high as usize
                 }
             }
-            _ => {}
-        }
+            VIRTIO_MMIO_QUEUE_SIZE_MAX => VIRTQ_ENTRY_NUM as usize,
+            VIRTIO_MMIO_QUEUE_READY => register.queue_ready as usize,
+            VIRTIO_MMIO_STATUS => register.status as usize,
+            VIRTIO_MMIO_CONFIG..=VIRTIO_MMIO_END_OFFSET => {
+                let config_offset = offset - VIRTIO_MMIO_CONFIG;
+                self.device.read_config(config_offset) as usize
+            }
+            _ => 0,
+        };
 
-        // println!("read: {:#X}, {:#X}", offset, value);
+        println!("read: {:#X}, {:#X}", offset, value);
         value as usize
     }
 
     fn write(&mut self, offset: usize, value: usize) {
-        // println!("write: {:#X}, {:#X}", offset, value as u32);
+        println!("write: {:#X}, {:#X}", offset, value as u32);
 
         match offset {
             VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {
@@ -86,8 +128,8 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
                 used_ring.idx = used_ring.idx.wrapping_add(1);
             },
             VIRTIO_MMIO_QUEUE_READY => {}
-            VIRTIO_MMIO_QUEUE_NUM => {
-                self.device.mmio_state_mut().queue_num = value as u32;
+            VIRTIO_MMIO_QUEUE_SIZE => {
+                self.device.mmio_state_mut().queue_size = value as u32;
             }
             VIRTIO_MMIO_QUEUE_SEL => {
                 self.device.mmio_state_mut().queue_sel = value as u32;

@@ -53,6 +53,6 @@ impl BlockDevice for MemBlk {
     }
 
     fn get_capacity(&self) -> usize {
-        self.data.len()
+        self.data.len() / SECTOR_SIZE
     }
 }

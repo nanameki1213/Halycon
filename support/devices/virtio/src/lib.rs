@@ -5,45 +5,11 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use core::{fmt, usize};
+use virtio_core::*;
 
 // analyze dtb and get mmio address
 pub const VIRTIO_MMIO_DEFAULT_ADDRESS: usize = 0x10001000;
 pub const VIRTIO_DEFAULT_INDEX: u32 = 0;
-
-pub const VIRTIO_VERSION: usize = 0x2;
-pub const VIRTQ_ENTRY_NUM: u16 = 64;
-
-pub const VIRTIO_MMIO_MAGIC: usize = 0x00;
-pub const VIRTIO_MMIO_VERSION: usize = 0x04;
-pub const VIRTIO_MMIO_DEVICEID: usize = 0x08;
-pub const VIRTIO_MMIO_VENDERID: usize = 0x0c;
-pub const VIRTIO_MMIO_DEVICE_FEATURES: usize = 0x10;
-pub const VIRTIO_MMIO_DEVICE_FEATURES_SEL: usize = 0x14;
-pub const VIRTIO_MMIO_DRIVER_FEATURES: usize = 0x20;
-pub const VIRTIO_MMIO_DRIVER_FEATURES_SEL: usize = 0x24;
-pub const VIRTIO_MMIO_QUEUE_SEL: usize = 0x30;
-pub const VIRTIO_MMIO_QUEUE_MAX: usize = 0x34;
-pub const VIRTIO_MMIO_QUEUE_NUM: usize = 0x38;
-pub const VIRTIO_MMIO_QUEUE_READY: usize = 0x44;
-pub const VIRTIO_MMIO_QUEUE_NOTIFY: usize = 0x50;
-pub const VIRTIO_MMIO_INTR_STATUS: usize = 0x60;
-pub const VIRTIO_MMIO_INTR_ACK: usize = 0x64;
-pub const VIRTIO_MMIO_STATUS: usize = 0x70;
-pub const VIRTIO_MMIO_DESC_LOW: usize = 0x80;
-pub const VIRTIO_MMIO_DESC_HIGH: usize = 0x84;
-pub const VIRTIO_MMIO_DRIVER_LOW: usize = 0x90;
-pub const VIRTIO_MMIO_DRIVER_HIGH: usize = 0x94;
-pub const VIRTIO_MMIO_DEVICE_LOW: usize = 0xa0;
-pub const VIRTIO_MMIO_DEVICE_HIGH: usize = 0xa4;
-pub const VIRTIO_MMIO_CONFIG_GENERATION: usize = 0xfc;
-pub const VIRTIO_MMIO_CONFIG: usize = 0x100;
-
-pub const VIRTIO_MMIO_STATUS_ACKNOWLEDGE: usize = 1 << 0;
-pub const VIRTIO_MMIO_STATUS_DRIVER: usize = 1 << 1;
-pub const VIRTIO_MMIO_STATUS_DRIVER_OK: usize = 1 << 2;
-pub const VIRTIO_MMIO_STATUS_FEATURES_OK: usize = 1 << 3;
-pub const VIRTIO_MMIO_STATUS_DEVICE_NEEDS_RESET: usize = 1 << 6;
-pub const VIRTIO_MMIO_STATUS_FAILED: usize = 1 << 7;
 
 // virtio feature bits
 pub const VIRTIO_F_INDIRECT_DESC: u64 = 1 << 28;
@@ -278,15 +244,15 @@ impl VirtioMmio {
             // u-boot is already using the queue 0, so we overriding.
             // return Err(VirtQueueError::AlreadyInUse);
         }
-        // 3. Read maxium queue size (number of elements) from QueueNumMax
-        let max_size = self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX);
+        // 3. Read maximum queue size (number of elements) from QueueSizeMax
+        let max_size = self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_SIZE_MAX);
         if max_size == 0 {
             return Err(VirtQueueError::InvalidQueue);
         }
         // 4. Allocate and zero the queue memory
         let vq: Box<VirtQueue> = Box::new(VirtQueue::new());
-        // 5. Notify the device about the queue size by writing the size to QueueNum
-        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_NUM, VIRTQ_ENTRY_NUM as u32);
+        // Notify the device about the queue size by writing the size to QueueSize
+        self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_SIZE, VIRTQ_ENTRY_NUM as u32);
         // 6. Write physical addresses of the queue's Descriptor Area, Driver Area and Device Area
         let desc_address = vq.vring.desc.as_ptr() as u64;
         let avail_address = (&(vq.vring.avail) as *const VringAvail) as u64;
@@ -328,43 +294,6 @@ impl VirtioMmio {
 
     pub fn is_queue_available(&self, index: u32) -> bool {
         self.set_virtio_mmio(VIRTIO_MMIO_QUEUE_SEL, index);
-        self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_MAX) != 0
-    }
-}
-
-// Virtio MMIO によって設定されたQueue情報
-#[repr(C)]
-#[derive(Debug)]
-pub struct VirtioMmioRegister {
-    pub queue_num: u32,
-    pub queue_sel: u32,
-    pub desc_address: u64,
-    pub driver_address: u64,
-    pub device_address: u64,
-    pub status: u32,
-    pub device_features_low: u32,
-    pub device_features_high: u32,
-    pub device_features_sel: u32,
-    pub driver_features_low: u32,
-    pub driver_features_high: u32,
-    pub driver_features_sel: u32,
-}
-
-impl VirtioMmioRegister {
-    pub const fn new() -> Self {
-        VirtioMmioRegister {
-            queue_num: 0,
-            queue_sel: 0,
-            desc_address: 0,
-            driver_address: 0,
-            device_address: 0,
-            status: 0,
-            device_features_low: 0,
-            device_features_high: 0,
-            device_features_sel: 0,
-            driver_features_low: 0,
-            driver_features_high: 0,
-            driver_features_sel: 0,
-        }
+        self.get_virtio_mmio(VIRTIO_MMIO_QUEUE_SIZE_MAX) != 0
     }
 }
