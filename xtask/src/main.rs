@@ -100,7 +100,10 @@ fn build() -> Result<(), DynError> {
         let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
 
         log::info!("create disk");
-        create_disk::create_fat32_disk(&hypervisor_output_directory.clone().join("vm.img"), &files)?;
+        create_disk::create_fat32_disk(
+            &hypervisor_output_directory.clone().join("vm.img"),
+            &files,
+        )?;
     }
 
     // build hypervisor
@@ -134,7 +137,7 @@ fn build() -> Result<(), DynError> {
 
     log::info!("create disk");
     create_disk::create_fat32_disk(&project_root().join("disk.img"), &files)?;
-    
+
     Ok(())
 }
 
