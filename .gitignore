@@ -29,3 +29,5 @@ trace.str
 trace.log
 trace-events
 logfile.log
+
+*.img

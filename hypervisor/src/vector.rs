@@ -125,8 +125,8 @@ pub fn exception_handler() {
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     if is_data_abort(scause) {
         // data abort
-        let vm = &locked_vm[*locked_current_vmid];
-        let mmio_list = &vm.mmio;
+        let vm = &mut locked_vm[*locked_current_vmid];
+        let mmio_list = &mut vm.mmio;
         data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
         // instruction abort
@@ -156,8 +156,8 @@ pub fn exception_handler() {
     set_sepc(sepc);
 }
 
-fn write_access(virtual_address: usize, value: u64, mmios: &Vec<MmioEntry>) {
-    for mmio in mmios.iter() {
+fn write_access(virtual_address: usize, value: u64, mmios: &mut Vec<MmioEntry>) {
+    for mmio in mmios.iter_mut() {
         if (mmio.address..=mmio.address + mmio.size).contains(&virtual_address) {
             let offset = virtual_address - mmio.address;
             mmio.handler.write(offset, value as usize);
@@ -187,7 +187,7 @@ fn read_access(
     panic!();
 }
 
-fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &Vec<MmioEntry>) {
+fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &mut Vec<MmioEntry>) {
     let instruction = instruction::Instruction::new(get_htinst() as u32);
     match scause {
         E_STORE_AMO_GUEST_PAGE_FAULT => {

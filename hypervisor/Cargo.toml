@@ -15,6 +15,7 @@ virtio = { version = "0.1.0", path = "../support/devices/virtio" }
 block = { version = "0.1.0", path = "../support/devices/block" }
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 allocate_pages = { version = "0.1.0", path = "../support/allocate_pages" }
+fat32 = { version = "0.1.0", path = "../support/fat32" }
 
 [features]
 nested_support = []

@@ -8,7 +8,7 @@ impl MmioHandler for Ns16550 {
         ns16550_get_by_offset(offset) as usize
     }
 
-    fn write(&self, offset: usize, value: usize) {
+    fn write(&mut self, offset: usize, value: usize) {
         ns16550_set_by_offset(offset, value as u8);
     }
 }

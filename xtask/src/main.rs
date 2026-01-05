@@ -1,12 +1,20 @@
+pub mod tasks;
+
+use simple_logger::SimpleLogger;
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
+use tasks::create_disk;
+use tasks::device_tree;
+use tasks::mkimage;
 
 type DynError = Box<dyn std::error::Error>;
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     if let Err(e) = try_main() {
         eprintln!("{}", e);
         std::process::exit(-1);
@@ -18,6 +26,7 @@ fn try_main() -> Result<(), DynError> {
     match task.as_deref() {
         Some("build") => build()?,
         Some("run") => run()?,
+        Some("test") => test()?,
         _ => print_help(),
     }
     Ok(())
@@ -28,18 +37,15 @@ fn build() -> Result<(), DynError> {
     // Default settings
     let mut is_release = false;
     let mut is_nested = false;
-    let mut hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
-    let mut l1_hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
-    let mut hypervisor_output_directory = project_root().join("bin/disk");
-    let mut l1_hypervisor_output_directory = project_root().join("bin/L1disk");
 
     // Path
-    let hypervisor_path = project_root().join("hypervisor");
-    let l1_hypervisor_path = project_root().join("l1_hypervisor");
+    let base_output_directory = project_root().join("bin");
+    let hypervisor_output_directory = base_output_directory.clone().join("disk");
+    let l1_hypervisor_output_directory = base_output_directory.clone().join("l1_disk");
+    let script_path = project_root().join("scripts");
 
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
-
     // Parse options
     while let Some(v) = args_iter.next() {
         if v == "-f" || v == "--features" {
@@ -59,53 +65,123 @@ fn build() -> Result<(), DynError> {
         }
     }
 
-    let mut hypervisor_binary_path = project_root();
-    let mut l1_hypervisor_binary_path = project_root();
+    fs::create_dir_all(&hypervisor_output_directory)?;
 
-    hypervisor_binary_path.push("target");
-    hypervisor_binary_path.push(target);
-    l1_hypervisor_binary_path.push("target");
-    l1_hypervisor_binary_path.push(target);
+    if is_nested {
+        fs::create_dir_all(&l1_hypervisor_output_directory)?;
+        log::info!("build l1 hypervisor");
+        let output_path = l1_hypervisor_output_directory.clone().join("l1_hypervisor");
+        let mut binary_path = project_root().join(format!("target/{}", target));
+        if is_release {
+            binary_path.push("release/l1_hypervisor");
+        } else {
+            binary_path.push("debug/l1_hypervisor");
+        }
+        build_l1_hypervisor(is_release)?;
+        fs::rename(&binary_path, &output_path)?;
 
-    if is_release {
-        hypervisor_binary_path.push("release");
-        l1_hypervisor_binary_path.push("release");
-        hypervisor_cargo_args.push("--release".to_string());
-        l1_hypervisor_cargo_args.push("--release".to_string());
-    } else {
-        hypervisor_binary_path.push("debug");
-        l1_hypervisor_binary_path.push("debug");
+        // compile device tree script
+        log::info!("compile device tree script for L1 Hypervisor");
+        let dts_path = script_path.clone().join("virt.dts");
+        let output_path = l1_hypervisor_output_directory.clone().join("virt.dtb");
+        device_tree::compile_dts(&dts_path, &output_path)?;
+
+        // compile boot script
+        log::info!("compile u-boot boot script for L1 Hypervisor");
+        let binary_path = script_path.clone().join("boot_L1hypervisor.script");
+        let output_path = l1_hypervisor_output_directory.clone().join("boot.scr");
+        mkimage::uboot_mkimage(&binary_path, &output_path)?;
+
+        // create image
+        let entries = read_dir_entries(&l1_hypervisor_output_directory)?;
+        let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
+
+        log::info!("create disk");
+        create_disk::create_fat32_disk(
+            &hypervisor_output_directory.clone().join("vm.img"),
+            &files,
+        )?;
     }
 
-    hypervisor_binary_path.push("hypervisor");
-    l1_hypervisor_binary_path.push("l1_hypervisor");
+    // build hypervisor
+    log::info!("build hypervisor");
+    let output_path = hypervisor_output_directory.clone().join("hypervisor");
+    let mut binary_path = project_root().join(format!("target/{}", target));
+    if is_release {
+        binary_path.push("release/hypervisor");
+    } else {
+        binary_path.push("debug/hypervisor");
+    }
+    build_hypervisor(is_nested, is_release)?;
+    fs::rename(&binary_path, &output_path)?;
 
-    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    // compile device tree script
+    log::info!("compile device tree script");
+    let dts_path = script_path.clone().join("virt.dts");
+    let output_path = hypervisor_output_directory.clone().join("virt.dtb");
+    device_tree::compile_dts(&dts_path, &output_path)?;
+
+    // compile boot script
+    log::info!("compile u-boot boot script");
+    let binary_path = script_path.clone().join("boot.script");
+    let output_path = hypervisor_output_directory.clone().join("boot.scr");
+    mkimage::uboot_mkimage(&binary_path, &output_path)?;
+
+    // create image
+    // make list of file in `hypervisor_output_directory`
+    let entries = read_dir_entries(&hypervisor_output_directory)?;
+    let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
+
+    log::info!("create disk");
+    create_disk::create_fat32_disk(&project_root().join("disk.img"), &files)?;
+
+    Ok(())
+}
+
+fn build_hypervisor(is_nested: bool, is_release: bool) -> Result<(), DynError> {
+    let hypervisor_path = project_root().join("hypervisor");
+    let mut hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
+
+    if is_release {
+        hypervisor_cargo_args.push("--release".to_string());
+    }
     if is_nested {
         hypervisor_cargo_args.push("--features".to_string());
         hypervisor_cargo_args.push("nested_support".to_string());
-        let _ = Command::new(&cargo)
-            .current_dir(l1_hypervisor_path)
-            .args(&l1_hypervisor_cargo_args)
-            .status()?;
-
-        fs::create_dir_all(&l1_hypervisor_output_directory)?;
-        l1_hypervisor_output_directory.push("hypervisor");
-
-        fs::rename(l1_hypervisor_binary_path, l1_hypervisor_output_directory)?;
     }
 
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let _ = Command::new(&cargo)
         .current_dir(hypervisor_path)
         .args(hypervisor_cargo_args)
         .status()?;
 
-    fs::create_dir_all(&hypervisor_output_directory)?;
-    hypervisor_output_directory.push("hypervisor");
+    Ok(())
+}
 
-    fs::rename(hypervisor_binary_path, hypervisor_output_directory)?;
+fn build_l1_hypervisor(is_release: bool) -> Result<(), DynError> {
+    let l1_hypervisor_path = project_root().join("l1_hypervisor");
+    let mut l1_hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
+
+    if is_release {
+        l1_hypervisor_cargo_args.push("--release".to_string());
+    }
+
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let _ = Command::new(&cargo)
+        .current_dir(l1_hypervisor_path)
+        .args(l1_hypervisor_cargo_args)
+        .status()?;
 
     Ok(())
+}
+
+fn read_dir_entries(path: &Path) -> Result<Vec<PathBuf>, DynError> {
+    let entries = fs::read_dir(path)?
+        .map(|res| res.map(|e| e.path()))
+        .collect::<Result<Vec<_>, std::io::Error>>()?;
+
+    Ok(entries)
 }
 
 fn run() -> Result<(), DynError> {
@@ -115,12 +191,12 @@ fn run() -> Result<(), DynError> {
     let smp = "1".to_string();
     let memory = "2G".to_string();
 
-    // Path
-    let hypervisor_directory = "bin/disk".to_string();
-    let l1_hypervisor_directory = "bin/L1disk".to_string();
-    let bios_binary_path = "bin/disk/u-boot".to_string();
-    let vm_bios_binary_path = "bin/u-boot.bin".to_string();
-    let vm_fdt_binary_path = "bin/virt.dtb".to_string();
+    // BIOS path
+    let bios_binary_path = "bin/u-boot".to_string();
+    // Disk image path
+    let host_disk_image_path = "disk.img".to_string();
+
+    // make image for host and vm
 
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
@@ -144,22 +220,9 @@ fn run() -> Result<(), DynError> {
         "-m",
         memory.as_str(),
         "-device",
-        "virtio-blk-device,drive=drive0",
+        "virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0",
         "-drive",
-        format!("file=fat:rw:{hypervisor_directory},format=raw,if=none,media=disk,id=drive0")
-            .as_str(),
-        "-device",
-        "virtio-blk-device,drive=drive1,bus=virtio-mmio-bus.0",
-        "-drive",
-        format!("file={vm_bios_binary_path},format=raw,if=none,id=drive1").as_str(),
-        "-device",
-        "virtio-blk-device,drive=drive2,bus=virtio-mmio-bus.1",
-        "-drive",
-        format!("file={vm_fdt_binary_path},format=raw,if=none,id=drive2").as_str(),
-        "-device",
-        "virtio-blk-device,drive=drive3,bus=virtio-mmio-bus.2",
-        "-drive",
-        format!("file=fat:rw:{l1_hypervisor_directory},format=raw,if=none,id=drive3").as_str(),
+        format!("file={host_disk_image_path},format=raw,if=none,media=disk,id=drive0").as_str(),
         "-global",
         "virtio-mmio.force-legacy=false",
         "-D",
@@ -177,6 +240,85 @@ fn run() -> Result<(), DynError> {
         .stderr(Stdio::inherit())
         .output()
         .expect("Failed to run qemu");
+
+    Ok(())
+}
+
+fn test() -> Result<(), DynError> {
+    let args: Vec<String> = env::args().collect();
+    let mut args_iter = args.iter().skip(2);
+    let mut target_package = None;
+
+    // Parse options
+    while let Some(v) = args_iter.next() {
+        if v == "--package" {
+            if let Some(package) = args_iter.next() {
+                target_package = Some(package);
+            } else {
+                return Err("Error: Package name required after --package".into());
+            }
+        }
+    }
+
+    let should_prepare_disk = match target_package.map(|s| s.as_str()) {
+        Some("fat32") => true,
+        None => true,
+        _ => false,
+    };
+
+    if should_prepare_disk {
+        log::info!("Preparing FAT32 disk image for testing...");
+        create_test_image()?;
+    }
+
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let mut cmd = Command::new(&cargo);
+
+    cmd.current_dir(project_root());
+    cmd.arg("test");
+
+    if let Some(pkg) = target_package {
+        log::info!("Running tests for package: {}", pkg);
+        cmd.arg("--package").arg(pkg);
+    } else {
+        log::info!("Running tests for all workspace members");
+        cmd.arg("--workspace");
+    }
+
+    let status = cmd.status()?;
+
+    if !status.success() {
+        return Err("Tests failed".into());
+    }
+
+    Ok(())
+}
+
+fn create_test_image() -> Result<(), DynError> {
+    let tmp_dir = project_root().join("target/tmp_fat32_test");
+    if tmp_dir.exists() {
+        fs::remove_dir_all(&tmp_dir)?;
+    }
+    fs::create_dir_all(&tmp_dir)?;
+
+    let mut files_paths = Vec::new();
+
+    for i in 1..5 {
+        let file_name = format!("TEST{}.TXT", i);
+        let file_path = tmp_dir.join(&file_name);
+        let content = format!(
+            "The process of analyzing a FAT32 file system using a hex editor requires a deep understanding of how data is structured across sectors and clusters. This specific paragraph is designed to exceed the standard sector size of 512 bytes, ensuring that your read test can verify whether the file system driver or your manual parsing logic correctly handles data that spans across multiple sectors. When you examine this file in a hex dump, you should notice that the text continues past the first 0x200 bytes offset. If the file is stored in cluster 2, for example, you can calculate its physical location by identifying the start of the data region. Remember that in FAT32, the root directory is no longer at a fixed location but is treated as a cluster chain. This provides more flexibility compared to older FAT versions. By reading this entire passage successfully, you confirm that your environment can handle basic file I/O operations and that your offset calculations from the MBR to the BPB, and finally to the data area, are accurate."
+        );
+
+        fs::write(&file_path, content)?;
+        files_paths.push(file_path);
+    }
+
+    let file_refs: Vec<&Path> = files_paths.iter().map(|p| p.as_path()).collect();
+
+    let output_img = project_root().join("test_disk.img");
+
+    create_disk::create_fat32_disk(&output_img, &file_refs)?;
 
     Ok(())
 }

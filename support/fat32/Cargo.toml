@@ -1,0 +1,8 @@
+[package]
+name = "fat32"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+block = { version = "0.1.0", path = "../devices/block" }
+log = "0.4.29"

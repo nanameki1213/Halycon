@@ -115,7 +115,7 @@ impl BlockDevice for VirtioBlk {
         // }
 
         self.queue.connect_to_avail_ring(0);
-        self.queue.last_used_index += 1;
+        self.queue.last_used_index = self.queue.last_used_index.wrapping_add(1);
 
         self.mmio.notify_to_device(VIRTIO_DEFAULT_INDEX);
 

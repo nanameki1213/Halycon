@@ -7,7 +7,7 @@ use core::fmt::Debug;
 
 pub trait MmioHandler: Send + Debug {
     fn read(&self, offset: usize) -> usize;
-    fn write(&self, offset: usize, value: usize);
+    fn write(&mut self, offset: usize, value: usize);
 }
 
 #[derive(Debug)]

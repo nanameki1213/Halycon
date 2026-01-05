@@ -3,15 +3,17 @@ extern crate alloc;
 use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
-use crate::loader;
-use allocate_pages::allocate_pages;
 use crate::paging;
 use crate::println;
+use alloc::string::ToString;
 use alloc::vec::Vec;
+use allocate_pages::allocate_pages;
 use arch::riscv::cpu::*;
+use block::BlockDevice;
 use core::arch::riscv64;
+use core::slice;
+use fat32::Fat32;
 use mmio_core::MmioEntry;
-use virtio::VirtioMmio;
 
 #[cfg(feature = "nested_support")]
 #[derive(Clone, Copy, Debug)]
@@ -84,9 +86,8 @@ impl VM {
     }
 }
 
-pub fn create_vm(
-    bootloader: VirtioMmio,
-    device_tree: VirtioMmio,
+pub fn create_vm<T: BlockDevice>(
+    mut fs: Fat32<T>,
     mmio: Vec<MmioEntry>,
     #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
 ) -> usize {
@@ -129,18 +130,41 @@ pub fn create_vm(
         ram_physical_base_address as usize
     );
 
+    let files = fs
+        .list_root_files()
+        .expect("Failed to get list of root directory files.");
+    println!("files:");
+    for file in files {
+        println!("{:?}", file);
+    }
+
     let virtual_entry_point = 0x80200000;
     let bootloader_entry_point = paging::resolve_address_stage2(virtual_entry_point).unwrap();
     println!(
         "[info] vm entry point physical address: {:#X}",
         bootloader_entry_point
     );
-    println!("[info] loading u-boot...");
-    let size = loader::load_bootloader(bootloader_entry_point, bootloader);
-    let dtb_pointer = ram_physical_base_address as usize + size;
-    println!("[info] dtb virtual address: {:#X}", RAM_VIRTUAL_BASE + size);
-    println!("[info] dtb physical address: {:#X}", dtb_pointer);
-    loader::load_dtb(dtb_pointer, device_tree);
+
+    let virtual_dtb_pointer = RAM_VIRTUAL_BASE;
+    let dtb_pointer = paging::resolve_address_stage2(virtual_dtb_pointer).unwrap();
+
+    let bios_file_name = "U-BOOT.BIN".to_string();
+    println!("[info] loading {}...", bios_file_name);
+    let size = fs
+        .get_file_size(&bios_file_name)
+        .expect("Failed to get file size.");
+    let buf = unsafe { slice::from_raw_parts_mut(bootloader_entry_point as *mut u8, size) };
+    fs.read_file(&bios_file_name, buf)
+        .expect("Failed to read file");
+
+    let dtb_file_name = "VIRT.DTB".to_string();
+    println!("[info] loading {}...", dtb_file_name);
+    let size = fs
+        .get_file_size(&dtb_file_name)
+        .expect("Failed to get file size.");
+    let buf = unsafe { slice::from_raw_parts_mut(dtb_pointer as *mut u8, size) };
+    fs.read_file(&dtb_file_name, buf)
+        .expect("Failed to read file");
 
     let mut locked_vms = VIRTUAL_MACHINES.lock();
     let vmid = locked_vms.len();
@@ -151,7 +175,7 @@ pub fn create_vm(
         ram_physical_base_address as usize,
         RAM_SIZE,
         virtual_entry_point,
-        RAM_VIRTUAL_BASE + size,
+        virtual_dtb_pointer,
         mmio,
         #[cfg(feature = "nested_support")]
         parent_vmid,

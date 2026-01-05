@@ -1,11 +1,13 @@
 #![no_std]
 
+pub mod mem_blk;
 pub mod virtio_blk;
 
 use core::fmt;
 
 pub const SECTOR_SIZE: usize = 512;
 
+#[derive(Debug)]
 pub enum BlockDeviceError {
     IOError,
     UnsupportedDevice,
