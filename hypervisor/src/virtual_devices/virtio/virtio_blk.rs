@@ -21,7 +21,9 @@ impl<D: BlockDevice> VirtioBlkDevice<D> {
 }
 
 impl<T: BlockDevice> VirtioDevice for VirtioBlkDevice<T> {
-    fn device_id(&self) -> u32 {}
+    fn device_id(&self) -> u32 {
+        2
+    }
 
     fn notify(&mut self, desc_ring: &[VRingDesc]) {
         let request_address = resolve_address_stage2(desc_ring[0].addr as usize).unwrap();
