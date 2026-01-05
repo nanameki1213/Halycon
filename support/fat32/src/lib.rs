@@ -258,6 +258,9 @@ impl<T: BlockDevice> Fat32<T> {
         let dir_entries = self.get_directory_entries(self.bpb.root_cluster)?;
 
         for entry in dir_entries {
+            if entry.name[0] == 0x0 {
+                break;
+            }
             if entry.attributes != ATTR_LONG_NAME {
                 let name = self.get_short_file_name(&entry.name, &entry.ext);
                 file_list.push(name);
