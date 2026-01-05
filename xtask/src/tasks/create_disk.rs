@@ -10,8 +10,33 @@ type DynError = Box<dyn std::error::Error>;
 const SECTOR_SIZE: usize = 512;
 const PARTITION_TYPE_FAT32: u8 = 0x1c;
 
+fn calculate_required_disk_size(files_path: &[&Path]) -> Result<usize, DynError> {
+    let mut total_files_size: u64 = 0;
+    for path in files_path {
+        total_files_size += fs_err::metadata(path)?.len();
+    }
+
+    let partition_start_lba = 2048;
+    let metadata_margin = 32 * 1024 * 1024;
+    let required_size =
+        (partition_start_lba as u64 * SECTOR_SIZE as u64) + total_files_size + metadata_margin;
+
+    let alignment = 4 * 1024 * 1024;
+    let disk_size = ((required_size + alignment - 1) / alignment) * alignment;
+
+    let num_sectors = disk_size / SECTOR_SIZE as u64;
+
+    log::info!(
+        "Calculated disk size: {} bytes ({} MiB)",
+        disk_size,
+        disk_size / 1024 / 1024
+    );
+
+    Ok(disk_size as usize)
+}
+
 pub fn create_fat32_disk(image_path: &Path, files_path: &[&Path]) -> Result<(), DynError> {
-    let disk_size = 1024 * 1024 * 128; // 128MiB
+    let disk_size = calculate_required_disk_size(files_path)?;
     let num_sectors = disk_size / SECTOR_SIZE;
 
     let partition_start_lba = 2048;
