@@ -2,10 +2,7 @@ use core::fmt::Debug;
 
 use crate::paging::resolve_address_stage2;
 use mmio_core::MmioHandler;
-use spin::Mutex;
 use virtio::*;
-
-static VIRTIO_MMIO_REGISTER: Mutex<VirtioMmioRegister> = Mutex::new(VirtioMmioRegister::new());
 
 pub trait VirtioDevice {
     fn device_id(&self) -> u32;

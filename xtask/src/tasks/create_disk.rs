@@ -24,8 +24,6 @@ fn calculate_required_disk_size(files_path: &[&Path]) -> Result<usize, DynError>
     let alignment = 4 * 1024 * 1024;
     let disk_size = ((required_size + alignment - 1) / alignment) * alignment;
 
-    let num_sectors = disk_size / SECTOR_SIZE as u64;
-
     log::info!(
         "Calculated disk size: {} bytes ({} MiB)",
         disk_size,
