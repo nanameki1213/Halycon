@@ -40,6 +40,7 @@ use core::arch::asm;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
+use log::{Level, Metadata, Record};
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
 use spin::Mutex;
@@ -47,6 +48,22 @@ use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
 use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
 use vm::VM;
+
+struct SimpleLogger;
+
+impl log::Log for SimpleLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Trace
+    }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            println!("{} - {}", record.level(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
+}
 
 // guest device
 use mmio_core::MmioEntry;
@@ -65,6 +82,7 @@ const MAX_MMIO_ENTRIES: usize = 64;
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
+static LOGGER: SimpleLogger = SimpleLogger;
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
@@ -109,6 +127,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     if argc < 1 {
         panic!("dtb pointer not configured.");
     }
+
+    let _ = log::set_logger(&LOGGER).map(|()| log::set_max_level(log::LevelFilter::Trace));
 
     let fdt_pointer: usize = unsafe {
         match hex_ptr_to_usize(*argv) {
