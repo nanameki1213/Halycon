@@ -6,7 +6,7 @@ pub fn uboot_mkimage(src: &Path, dst: &Path) -> Result<(), DynError> {
     let mkimage_path = project_root().join("u-boot/u-boot/tools/mkimage");
 
     // TODO: When dst path is pointing directory, return error.
-    Command::new(&mkimage_path)
+    let status = Command::new(&mkimage_path)
         .args([
             "-c",
             "none",
@@ -19,6 +19,10 @@ pub fn uboot_mkimage(src: &Path, dst: &Path) -> Result<(), DynError> {
             dst.to_str().unwrap(),
         ])
         .status()?;
+
+    if !status.success() {
+        return Err("Failed to make boot script.".into());
+    }
 
     Ok(())
 }
