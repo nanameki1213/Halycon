@@ -278,6 +278,11 @@ impl<T: BlockDevice> Fat32<T> {
         return Err(FatError::NoSuchFileOrDirectory);
     }
 
+    pub fn get_file_size(&mut self, name: &String) -> Result<usize, FatError> {
+        let entry = self.get_directory_entry(self.bpb.root_cluster, name)?;
+        Ok(entry.file_size as usize)
+    }
+
     pub fn read_file(
         &mut self,
         name: &String,
