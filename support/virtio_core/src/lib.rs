@@ -1,7 +1,11 @@
 #![no_std]
 
+pub mod virtio_blk;
+
 pub const VIRTIO_VERSION: usize = 0x2;
 pub const VIRTQ_ENTRY_NUM: u16 = 64;
+
+pub const VIRTIO_MMIO_SIZE: usize = 0x1000;
 
 pub const VIRTIO_MMIO_MAGIC_VALUE: usize = 0x74726976;
 

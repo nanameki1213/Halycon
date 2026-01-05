@@ -1,22 +1,29 @@
 use block::{BlockDevice, virtio_blk::VirtioBlkReq};
-use virtio::{VRingDesc, VirtioMmioRegister};
-use virtio_core::VIRTQ_ENTRY_NUM;
+use virtio::VRingDesc;
+use virtio_core::{VIRTQ_ENTRY_NUM, virtio_blk::VirtioBlkConfig};
 
 use crate::paging::resolve_address_stage2;
 
-use super::virtio_mmio::VirtioDevice;
+use super::virtio_mmio::{VirtioDevice, VirtioMmioRegister};
 
 #[derive(Debug)]
 pub struct VirtioBlkDevice<D: BlockDevice> {
     block_device: D,
     mmio_state: VirtioMmioRegister,
+    config: VirtioBlkConfig,
 }
 
 impl<D: BlockDevice> VirtioBlkDevice<D> {
     pub fn new(block_device: D) -> Self {
+        let capacity = block_device.get_capacity();
+
+        let mut config = VirtioBlkConfig::new();
+        config.capacity = capacity as u64;
+
         VirtioBlkDevice {
             block_device,
             mmio_state: VirtioMmioRegister::new(),
+            config,
         }
     }
 }
@@ -47,11 +54,15 @@ impl<T: BlockDevice> VirtioDevice for VirtioBlkDevice<T> {
         }
     }
 
-    fn mmio_state(&self) -> &virtio::VirtioMmioRegister {
+    fn mmio_state(&self) -> &VirtioMmioRegister {
         &self.mmio_state
     }
 
-    fn mmio_state_mut(&mut self) -> &mut virtio::VirtioMmioRegister {
+    fn mmio_state_mut(&mut self) -> &mut VirtioMmioRegister {
         &mut self.mmio_state
+    }
+
+    fn read_config(&self, offset: usize) -> u32 {
+        self.config.read_as_bytes(offset)
     }
 }

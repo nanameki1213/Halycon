@@ -14,6 +14,46 @@ pub trait VirtioDevice {
     fn mmio_state(&self) -> &VirtioMmioRegister;
 
     fn mmio_state_mut(&mut self) -> &mut VirtioMmioRegister;
+
+    fn read_config(&self, offset: usize) -> u32;
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VirtioMmioRegister {
+    pub queue_size: u32,
+    pub queue_sel: u32,
+    pub queue_ready: u32,
+    pub desc_address: u64,
+    pub driver_address: u64,
+    pub device_address: u64,
+    pub status: u32,
+    pub device_features_low: u32,
+    pub device_features_high: u32,
+    pub device_features_sel: u32,
+    pub driver_features_low: u32,
+    pub driver_features_high: u32,
+    pub driver_features_sel: u32,
+}
+
+impl VirtioMmioRegister {
+    pub const fn new() -> Self {
+        VirtioMmioRegister {
+            queue_size: 0,
+            queue_sel: 0,
+            queue_ready: 0,
+            desc_address: 0,
+            driver_address: 0,
+            device_address: 0,
+            status: 0,
+            device_features_low: 0,
+            device_features_high: 1, // A driver MUST accept VIRTIO_F_VERSION_1 if it is offered.
+            device_features_sel: 0,
+            driver_features_low: 0,
+            driver_features_high: 0,
+            driver_features_sel: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -46,6 +86,10 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
             VIRTIO_MMIO_QUEUE_SIZE_MAX => VIRTQ_ENTRY_NUM as usize,
             VIRTIO_MMIO_QUEUE_READY => register.queue_ready as usize,
             VIRTIO_MMIO_STATUS => register.status as usize,
+            VIRTIO_MMIO_CONFIG..=VIRTIO_MMIO_SIZE => {
+                let config_offset = offset - VIRTIO_MMIO_CONFIG;
+                self.device.read_config(config_offset) as usize
+            }
             _ => 0,
         };
 
