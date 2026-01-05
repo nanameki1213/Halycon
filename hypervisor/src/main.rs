@@ -25,13 +25,16 @@ mod mmio {
     pub mod ns16550;
 }
 
+use crate::alloc::string::ToString;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 use crate::mmio::ns16550::NS16550_ADDR;
 use alloc::boxed::Box;
+use alloc::vec;
 use alloc::vec::Vec;
 use arch::riscv::cpu::*;
-use block::virtio_blk::{self, VirtioBlk};
+use block::mem_blk::MemBlk;
+use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::ptr::NonNull;
@@ -39,7 +42,7 @@ use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
-use spin::{Mutex, Once};
+use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
 use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
@@ -155,7 +158,16 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         host_block_device.expect("No block device for hypervisor.")
     };
 
-    let fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
+    let mut fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
+
+    let vm_img_file_name = "VM.IMG".to_string();
+    let file_size = fs
+        .get_file_size(&vm_img_file_name)
+        .expect("Failed to get file size.");
+    let mut buf = vec![0u8; file_size];
+    fs.read_file(&vm_img_file_name, buf.as_mut_ptr())
+        .expect("Failed to read vm disk image.");
+    let mem_block = MemBlk::new(&buf);
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -262,7 +274,11 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let virtio_entry = MmioEntry::new(
         VIRTIO_MMIO_DEFAULT_ADDRESS,
         0x1000,
-        Box::new(virtual_devices::virtio::Virtio),
+        Box::new(
+            virtual_devices::virtio::virtio_mmio::VirtioMmioTransport::new(
+                virtual_devices::virtio::virtio_blk::VirtioBlkDevice::new(mem_block),
+            ),
+        ),
     );
     mmio.push(virtio_entry);
 

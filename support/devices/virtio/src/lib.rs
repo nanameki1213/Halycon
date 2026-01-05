@@ -334,6 +334,7 @@ impl VirtioMmio {
 
 // Virtio MMIO によって設定されたQueue情報
 #[repr(C)]
+#[derive(Debug)]
 pub struct VirtioMmioRegister {
     pub queue_num: u32,
     pub queue_sel: u32,
