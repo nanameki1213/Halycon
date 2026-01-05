@@ -223,9 +223,18 @@ impl<T: BlockDevice> Fat32<T> {
         let mut buf = vec![0u8; bytes_per_cluster];
         self.get_cluster(dir_cluster_number, &mut buf)?;
 
-        let (_, dir, _) = unsafe { buf.align_to_mut::<DirEntry>() };
+        let entry_size = core::mem::size_of::<DirEntry>();
+        let num_entries = buf.len();
 
-        Ok(dir.to_vec())
+        let mut dir_entries = Vec::with_capacity(num_entries);
+        for i in 0..num_entries {
+            unsafe {
+                let ptr = buf.as_ptr().add(i * entry_size) as *const DirEntry;
+                dir_entries.push(ptr.read_unaligned());
+            }
+        }
+
+        Ok(dir_entries)
     }
 
     fn get_short_file_name(&self, name: &[u8; 8], ext: &[u8; 3]) -> String {
