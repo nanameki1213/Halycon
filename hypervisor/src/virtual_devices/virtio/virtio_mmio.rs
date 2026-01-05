@@ -71,6 +71,8 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
     fn read(&self, offset: usize) -> usize {
         let register = self.device.mmio_state();
 
+        const VIRTIO_MMIO_END_OFFSET: usize = VIRTIO_MMIO_SIZE - 4;
+
         let value = match offset {
             VIRTIO_MMIO_MAGIC => VIRTIO_MMIO_MAGIC_VALUE,
             VIRTIO_MMIO_VERSION => VIRTIO_VERSION,
@@ -86,7 +88,7 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
             VIRTIO_MMIO_QUEUE_SIZE_MAX => VIRTQ_ENTRY_NUM as usize,
             VIRTIO_MMIO_QUEUE_READY => register.queue_ready as usize,
             VIRTIO_MMIO_STATUS => register.status as usize,
-            VIRTIO_MMIO_CONFIG..=VIRTIO_MMIO_SIZE => {
+            VIRTIO_MMIO_CONFIG..=VIRTIO_MMIO_END_OFFSET => {
                 let config_offset = offset - VIRTIO_MMIO_CONFIG;
                 self.device.read_config(config_offset) as usize
             }
