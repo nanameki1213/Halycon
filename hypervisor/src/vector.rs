@@ -87,7 +87,10 @@ pub fn machine_handler() {
 
 #[unsafe(no_mangle)]
 pub fn exception_handler() {
-    let mut locked_vm = VIRTUAL_MACHINES.lock();
+    let mut locked_vm = match VIRTUAL_MACHINES.try_lock() {
+        Some(vms) => vms,
+        None => panic!("VIRTUAL_MACHINES is locked."),
+    };
     let mut locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
@@ -104,18 +107,23 @@ pub fn exception_handler() {
             *locked_current_vmid = parent_vmid;
 
             println!("↓L2 VM ↑L1 VMM");
-            println!("vscause: {:#x}", get_vscause());
-            println!("vsepc: {:#x}", get_vsepc());
-            println!("vstval: {:#x}", get_vstval());
+            println!("scause: {:#x}", get_scause());
+            println!("vstvec: {:#x}", get_vstvec());
+            println!("stval: {:#x}", get_stval());
+
+            drop(locked_current_vmid);
+            drop(locked_vm);
 
             if is_data_abort(scause) {
                 // Assert Page Fault to L1 Hypervisor
-                assert_l1_hypervisor(get_vscause(), get_vsepc(), get_vstval());
+                assert_l1_hypervisor(get_scause(), get_vstvec(), get_stval());
                 // TODO: Consider that L1 changed page table.
             } else if is_instruction_abort(scause) {
-                assert_l1_hypervisor(get_vscause(), get_vsepc(), get_vstval());
+                assert_l1_hypervisor(get_scause(), get_vstvec(), get_stval());
             }
+
             // don't return to here.
+            panic!();
         }
         None => {
             // L1 VM
@@ -130,7 +138,7 @@ pub fn exception_handler() {
         data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
         // instruction abort
-        instruction_abort_handler(scause, contexts, locked_current_vmid, &mut *locked_vm);
+        instruction_abort_handler(scause, contexts, locked_current_vmid, locked_vm);
     } else {
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
@@ -210,9 +218,10 @@ fn instruction_abort_handler(
     scause: usize,
     registers: &mut [u64],
     mut mutex_vmid: MutexGuard<'_, usize>,
-    vms: &mut Vec<VM>,
+    mut mutex_vms: MutexGuard<'_, Vec<VM>>,
 ) {
     let current_vmid = *mutex_vmid;
+    let vms = &mut *mutex_vms;
     match scause {
         E_ILLEGAL_INSTRUCTION => {
             println!("[info] E_ILLEGAL_INSTRUCTION: {:#x}", get_stval());
@@ -249,8 +258,8 @@ fn instruction_abort_handler(
                         }
                     };
                     let write_value = match access_type {
-                        CsrAccessInstructionType::CSRRS => registers[rs1],
-                        CsrAccessInstructionType::CSRRW => {
+                        CsrAccessInstructionType::CSRRW => registers[rs1],
+                        CsrAccessInstructionType::CSRRS => {
                             let reg_value = registers[rs1];
                             let csr_value = l1_hypervisor.csr.get_csr(csr_address);
                             csr_value | reg_value
@@ -337,6 +346,9 @@ fn instruction_abort_handler(
 
                 println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
 
+                drop(mutex_vmid);
+                drop(mutex_vms);
+
                 unsafe extern "C" {
                     fn vm_entry();
                 }
@@ -380,9 +392,9 @@ fn instruction_abort_handler(
 
 #[cfg(feature = "nested_support")]
 fn assert_l1_hypervisor(scause: u64, sepc: u64, stval: u64) {
-    set_scause(scause);
+    set_vscause(scause);
     set_sepc(sepc);
-    set_stval(stval);
+    set_vstval(stval);
 
     unsafe extern "C" {
         fn vm_entry();
