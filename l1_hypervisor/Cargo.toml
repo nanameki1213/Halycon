@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 allocator.workspace = true
 arch = { version = "0.1.0", path = "../arch" }
+block = { version = "0.1.0", path = "../support/devices/block" }
+fat32 = { version = "0.1.0", path = "../support/fat32" }
 fdt.workspace = true
 spin = "0.10.0"
 string_utils.workspace = true
+virtio = { version = "0.1.0", path = "../support/devices/virtio" }

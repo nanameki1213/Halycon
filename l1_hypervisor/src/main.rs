@@ -1,17 +1,24 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 mod console;
 mod memory;
 mod paging;
 
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use arch::riscv::cpu::*;
 use arch::riscv::sbi;
+use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
+use core::slice;
 use fdt::{DeviceTreeInfo, MemoryEntry};
 use spin::Mutex;
 use string_utils::hex_ptr_to_usize;
+use virtio::VirtioMmio;
 
 use crate::memory::allocate_pages;
 
@@ -77,6 +84,27 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
         .init(free_ptr, memory.size - (free_ptr - memory.address));
     println!("[setup] allocator");
 
+    let mut virtio_mmios: Vec<VirtioMmio> = Vec::new();
+
+    let host_block_device = {
+        let mut host_block_device: Option<VirtioBlk> = None;
+        // Initialize all virtio mmio device
+        for mmio in host_dt.mmio.iter() {
+            let virtio_mmio = VirtioMmio::new(mmio.address);
+            virtio_mmio.init_default_features();
+            virtio_mmios.push(virtio_mmio);
+
+            if mmio.address == 0x10001000 {
+                let block_device = VirtioBlk::new(virtio_mmio)
+                    .expect("Failed to get block device for hypervisor.");
+                host_block_device = Some(block_device);
+            }
+        }
+        host_block_device.expect("No block device for hypervisor.")
+    };
+
+    let mut fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
+
     let mut hedeleg = get_hedeleg();
     hedeleg |= (1 << 2) as u64; // Illegal instruction
     set_hedeleg(hedeleg);
@@ -133,14 +161,34 @@ extern "C" fn main(argc: usize, argv: *const *const u8) {
     let stack_pointer = stack_memory as usize + stack_size;
 
     let virtual_entry_point = 0x80200000;
-    let physical_entry_point = 0x0;
+    let physical_entry_point = paging::resolve_address_stage2(virtual_entry_point).unwrap();
     println!(
         "[info] vm entry point physical address: {:#X}",
         physical_entry_point
     );
+    let virtual_dtb_pointer = RAM_VIRTUAL_BASE;
+    let dtb_pointer = paging::resolve_address_stage2(virtual_dtb_pointer).unwrap();
+
+    let bios_file_name = "U-BOOT.BIN".to_string();
+    println!("[info] loading {}...", bios_file_name);
+    let size = fs
+        .get_file_size(&bios_file_name)
+        .expect("Failed to get file size.");
+    let buf = unsafe { slice::from_raw_parts_mut(physical_entry_point as *mut u8, size) };
+    fs.read_file(&bios_file_name, buf)
+        .expect("Failed to read file.");
+
+    let dtb_file_name = "VIRT.DTB".to_string();
+    println!("[info] loading {}...", dtb_file_name);
+    let size = fs
+        .get_file_size(&dtb_file_name)
+        .expect("Failed to get file size.");
+    let buf = unsafe { slice::from_raw_parts_mut(dtb_pointer as *mut u8, size) };
+    fs.read_file(&dtb_file_name, buf)
+        .expect("Failed to read file");
 
     println!("switch to guest");
-    hs_to_vs(virtual_entry_point, stack_pointer, 0x0)
+    hs_to_vs(virtual_entry_point, stack_pointer, virtual_dtb_pointer)
 }
 
 pub fn halt_loop() -> ! {
