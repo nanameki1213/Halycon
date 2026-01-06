@@ -493,6 +493,11 @@ pub fn get_vstval() -> u64 {
     vstval
 }
 
+#[inline(always)]
+pub fn set_vstval(vstval: u64) {
+    unsafe { asm!("csrw vstval, {}", in(reg) vstval) };
+}
+
 // cause
 
 #[inline(always)]
