@@ -319,7 +319,8 @@ impl<T: BlockDevice> Fat32<T> {
 
         let start_sector = self.cluster_to_sector(run_start);
 
-        let out = &mut buf[*written..*written + sectors_to_read * bytes_per_sector];
+        let out =
+            &mut buf[*written..(*written + sectors_to_read * bytes_per_sector).min(buf.len())];
         self.get_sector(start_sector, sectors_to_read, out)?;
 
         *written += want;
