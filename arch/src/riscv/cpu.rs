@@ -218,6 +218,18 @@ pub fn set_hstatus(hstatus: u64) {
     unsafe { asm!("csrw hstatus, {}", in(reg) hstatus ) };
 }
 
+#[inline(always)]
+pub fn get_vsstatus() -> u64 {
+    let vsstatus: u64;
+    unsafe { asm!("csrr {}, vsstatus", out(reg) vsstatus ) };
+    vsstatus
+}
+
+#[inline(always)]
+pub fn set_vsstatus(vsstatus: u64) {
+    unsafe { asm!("csrw vsstatus, {}", in(reg) vsstatus ) };
+}
+
 // ie
 
 #[inline(always)]
