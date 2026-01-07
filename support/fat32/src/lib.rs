@@ -292,26 +292,72 @@ impl<T: BlockDevice> Fat32<T> {
         Ok(entry.file_size as usize)
     }
 
-    pub fn read_file(&mut self, name: &String, buf: &mut [u8]) -> Result<usize, FatError> {
-        let entry = self.get_directory_entry(self.bpb.root_cluster, name)?;
-        if buf.len() < entry.file_size as usize {
-            return Err(FatError::OutOfBuffer);
+    fn flush_run(
+        &mut self,
+        file_size: usize,
+        run_start: u32,
+        run_len_clusters: usize,
+        buf: &mut [u8],
+        written: &mut usize,
+    ) -> Result<(), FatError> {
+        if run_len_clusters == 0 {
+            return Ok(());
         }
-        let mut buf_address = buf.as_mut_ptr();
-        let mut current_cluster_number =
-            (entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32;
+        let remaining = file_size - *written;
+        if remaining == 0 {
+            return Ok(());
+        }
+
         let bytes_per_cluster =
             (self.bpb.sectors_per_cluster as u16 * self.bpb.bytes_per_sector) as usize;
+        let bytes_per_sector = self.bpb.bytes_per_sector as usize;
 
-        while current_cluster_number < 0x0FFFFFF8 {
-            unsafe {
-                let buf = core::slice::from_raw_parts_mut(buf_address, bytes_per_cluster);
+        let run_bytes = run_len_clusters * bytes_per_cluster;
+        let want = remaining.min(run_bytes);
 
-                self.get_cluster(current_cluster_number, buf)?;
+        let sectors_to_read = (want + bytes_per_sector - 1) / bytes_per_sector;
 
-                current_cluster_number = self.get_next_cluster(current_cluster_number);
-                buf_address = buf_address.add(bytes_per_cluster);
+        let start_sector = self.cluster_to_sector(run_start);
+
+        let buf_len = buf.len();
+        let out =
+            &mut buf[*written..(*written + sectors_to_read * bytes_per_sector).min(buf_len)];
+        self.get_sector(start_sector, sectors_to_read, out)?;
+
+        *written += want;
+        Ok(())
+    }
+
+    pub fn read_file(&mut self, name: &String, buf: &mut [u8]) -> Result<usize, FatError> {
+        let entry = self.get_directory_entry(self.bpb.root_cluster, name)?;
+        let file_size = entry.file_size as usize;
+        if buf.len() < file_size {
+            return Err(FatError::OutOfBuffer);
+        }
+        let mut current_cluster_number =
+            (entry.first_cluster_high as u32) << 16 | entry.first_cluster_low as u32;
+
+        let mut run_start = current_cluster_number;
+        let mut run_len_clusters = 1usize;
+
+        let mut written = 0usize;
+
+        while current_cluster_number < 0x0FFFFFF8 && written < file_size {
+            let next_cluster_number = self.get_next_cluster(current_cluster_number);
+            let next_is_data = next_cluster_number >= 2 && next_cluster_number < 0x0FFFFFF8;
+            if next_is_data && next_cluster_number == current_cluster_number + 1 {
+                run_len_clusters += 1;
+            } else {
+                self.flush_run(file_size, run_start, run_len_clusters, buf, &mut written)?;
+
+                run_start = next_cluster_number;
+                run_len_clusters = 1;
             }
+            current_cluster_number = next_cluster_number;
+        }
+
+        if run_start < 0x0FFFFFF8 && written < file_size {
+            self.flush_run(file_size, run_start, run_len_clusters, buf, &mut written)?;
         }
 
         Ok(entry.file_size as usize)
