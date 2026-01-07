@@ -5,7 +5,7 @@ use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
-use crate::vm::VM;
+use crate::vm::{Csr, VM};
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
@@ -99,27 +99,24 @@ pub fn exception_handler() {
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
-            // Switch Hypervisor Context from L2 to L1
-            let l1_hypervisor_csr = HOST_HYPERVISOR_CSR.lock();
-            load_hypervisor_context(*l1_hypervisor_csr);
+            // Switch Hypervisor Context from L1 to L0
+            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
 
-            // Change Current VMID from L1 VM to L2 VM
-            *locked_current_vmid = parent_vmid;
+            // Change Current VMID from L2 VM to L1 VM
+            switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
 
             println!("↓L2 VM ↑L1 VMM");
-            println!("scause: {:#x}", get_scause());
-            println!("vstvec: {:#x}", get_vstvec());
-            println!("stval: {:#x}", get_stval());
+            let csr = locked_vm[parent_vmid].vcsr;
 
             drop(locked_current_vmid);
             drop(locked_vm);
 
             if is_data_abort(scause) {
                 // Assert Page Fault to L1 Hypervisor
-                assert_l1_hypervisor(get_scause(), get_vstvec(), get_stval());
+                assert_l1_hypervisor(get_scause(), get_sepc(), get_stval(), csr.stvec);
                 // TODO: Consider that L1 changed page table.
             } else if is_instruction_abort(scause) {
-                assert_l1_hypervisor(get_scause(), get_vstvec(), get_stval());
+                assert_l1_hypervisor(get_scause(), get_sepc(), get_stval(), csr.stvec);
             }
 
             // don't return to here.
@@ -339,7 +336,7 @@ fn instruction_abort_handler(
                 set_hgatp(hgatp as u64);
 
                 // Change Current VMID from L1 VM to L2 VM
-                *mutex_vmid = l2_vmid;
+                switch_vm_context(l2_vmid, &mut mutex_vmid, &mut mutex_vms);
 
                 // Set L2 VM entry point
                 set_sepc(get_vsepc());
@@ -390,11 +387,32 @@ fn instruction_abort_handler(
     };
 }
 
+fn switch_vm_context(
+    vmid: usize,
+    mutex_vmid: &mut MutexGuard<'_, usize>,
+    mutex_vms: &mut MutexGuard<'_, Vec<VM>>,
+) {
+    let current_vm = &mut (*mutex_vms)[**mutex_vmid];
+
+    let csr = Csr {
+        stvec: get_vstvec(),
+        sepc: get_vsepc(),
+        sstatus: get_vsstatus(),
+        scause: get_vscause(),
+        stval: get_vstval(),
+        satp: get_vsatp(),
+    };
+    current_vm.vcsr = csr;
+
+    **mutex_vmid = vmid;
+}
+
 #[cfg(feature = "nested_support")]
-fn assert_l1_hypervisor(scause: u64, sepc: u64, stval: u64) {
-    set_vscause(scause);
+fn assert_l1_hypervisor(vscause: u64, vsepc: u64, vstval: u64, sepc: u64) {
+    set_vscause(vscause);
+    set_vsepc(vsepc);
+    set_vstval(vstval);
     set_sepc(sepc);
-    set_vstval(stval);
 
     unsafe extern "C" {
         fn vm_entry();

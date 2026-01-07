@@ -32,6 +32,29 @@ impl HypervisorContext {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Csr {
+    pub stvec: u64,
+    pub sepc: u64,
+    pub sstatus: u64,
+    pub scause: u64,
+    pub stval: u64,
+    pub satp: u64,
+}
+
+impl Csr {
+    pub const fn new() -> Self {
+        Csr {
+            stvec: 0,
+            sepc: 0,
+            sstatus: 0,
+            scause: 0,
+            stval: 0,
+            satp: 0,
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct VM {
@@ -43,6 +66,7 @@ pub struct VM {
     pub entry_point: usize,
     pub dtb_pointer: usize,
     pub mmio: Vec<MmioEntry>,
+    pub vcsr: Csr,
     #[cfg(feature = "nested_support")]
     pub parent_vmid: Option<usize>,
     #[cfg(feature = "nested_support")]
@@ -70,6 +94,7 @@ impl VM {
             entry_point,
             dtb_pointer,
             mmio,
+            vcsr: Csr::new(),
             #[cfg(feature = "nested_support")]
             parent_vmid,
             #[cfg(feature = "nested_support")]
