@@ -86,7 +86,7 @@ pub fn machine_handler() {
 }
 
 #[unsafe(no_mangle)]
-pub fn exception_handler() {
+pub fn exception_handler(sp: usize) {
     let mut locked_vm = match VIRTUAL_MACHINES.try_lock() {
         Some(vms) => vms,
         None => panic!("VIRTUAL_MACHINES is locked."),
@@ -94,7 +94,6 @@ pub fn exception_handler() {
     let mut locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
-    let sp = get_sscratch() as usize;
 
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
