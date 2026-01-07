@@ -112,10 +112,10 @@ pub fn exception_handler(sp: usize) {
 
             if is_data_abort(scause) {
                 // Assert Page Fault to L1 Hypervisor
-                assert_l1_hypervisor(get_scause(), get_sepc(), get_stval(), csr.stvec);
+                assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
                 // TODO: Consider that L1 changed page table.
             } else if is_instruction_abort(scause) {
-                assert_l1_hypervisor(get_scause(), get_sepc(), get_stval(), csr.stvec);
+                assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
             }
 
             // don't return to here.
@@ -134,7 +134,7 @@ pub fn exception_handler(sp: usize) {
         data_abort_handler(scause, contexts, mmio_list);
     } else if is_instruction_abort(scause) {
         // instruction abort
-        instruction_abort_handler(scause, contexts, locked_current_vmid, locked_vm);
+        instruction_abort_handler(sp, scause, contexts, locked_current_vmid, locked_vm);
     } else {
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
@@ -211,6 +211,7 @@ fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &mut Vec<Mmio
 }
 
 fn instruction_abort_handler(
+    sp: usize,
     scause: usize,
     registers: &mut [u64],
     mut mutex_vmid: MutexGuard<'_, usize>,
@@ -346,10 +347,10 @@ fn instruction_abort_handler(
                 drop(mutex_vms);
 
                 unsafe extern "C" {
-                    fn vm_entry();
+                    fn vm_entry(sp: usize);
                 }
                 unsafe {
-                    vm_entry();
+                    vm_entry(sp);
                 }
                 // don't return to here
             }
@@ -407,17 +408,17 @@ fn switch_vm_context(
 }
 
 #[cfg(feature = "nested_support")]
-fn assert_l1_hypervisor(vscause: u64, vsepc: u64, vstval: u64, sepc: u64) {
+fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: u64) {
     set_vscause(vscause);
     set_vsepc(vsepc);
     set_vstval(vstval);
     set_sepc(sepc);
 
     unsafe extern "C" {
-        fn vm_entry();
+        fn vm_entry(sp: usize);
     }
     unsafe {
-        vm_entry();
+        vm_entry(sp);
     }
     // don't return to here
 }

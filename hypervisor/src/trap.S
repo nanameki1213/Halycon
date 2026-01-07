@@ -37,7 +37,7 @@
 .endm
 
 .macro VM_ENTRY
-  mv x31, sp
+  mv x31, a0
   ld x0, 0*8(x31)
   ld x1, 1*8(x31)
   ld x2, 2*8(x31)
@@ -191,4 +191,5 @@ supervisor_exception_handler:
   VM_EXIT
   mv a0, sp
   call exception_handler
+  mv a0, sp
   VM_ENTRY
