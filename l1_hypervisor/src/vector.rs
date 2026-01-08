@@ -195,23 +195,3 @@ fn instruction_abort_handler(scause: usize, registers: &mut [u64]) {
         }
     };
 }
-
-// fn switch_vm_context(
-//     vmid: usize,
-//     mutex_vmid: &mut MutexGuard<'_, usize>,
-//     mutex_vms: &mut MutexGuard<'_, Vec<VM>>,
-// ) {
-//     let current_vm = &mut (*mutex_vms)[**mutex_vmid];
-//
-//     let csr = Csr {
-//         stvec: get_vstvec(),
-//         sepc: get_vsepc(),
-//         sstatus: get_vsstatus(),
-//         scause: get_vscause(),
-//         stval: get_vstval(),
-//         satp: get_vsatp(),
-//     };
-//     current_vm.vcsr = csr;
-//
-//     **mutex_vmid = vmid;
-// }
