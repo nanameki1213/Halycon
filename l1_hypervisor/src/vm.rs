@@ -88,7 +88,7 @@ pub fn create_vm<T: BlockDevice>(mut fs: Fat32<T>, mmio: Vec<MmioEntry>) -> usiz
 
     let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
     if ram_physical_base_address.is_null() {
-        println!("Out of memory");
+        panic!("Out of memory");
     }
 
     let table_address = paging::map_address_stage2(
