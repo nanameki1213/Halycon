@@ -18,7 +18,7 @@ cd tools
 ### ゲスト用のu-bootのビルド
 ```
 cd u-boot
-# エラーになる場合は必要なパッケージをダウンロードしてください
+# ビルドに失敗する場合は、riscv64-linux-gnu-gcc, make, gcc, bc, bison, flex, libssl-dev, python3, pkg-config, device-tree-compiler などのビルド用パッケージがインストールされているか確認してください
 ./build.sh
 ```
 u-boot/u-boot.binを、Halycon/bin/配下にコピーする
