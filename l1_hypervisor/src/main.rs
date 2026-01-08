@@ -172,14 +172,6 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     hstatus |= HSTATUS_VSTR as u64;
     set_hstatus(hstatus);
 
-    // 仮想マシンの領域のPMPを設定する;
-    // let top_address = 0xF0000000 as usize;
-    // let bottom_address = 0x80000000 as usize;
-    // set_pmp(top_address, bottom_address, true, true, true);
-    // println!("[setup] pmp: {:#X} ~ {:#X}", bottom_address, top_address);
-
-    // plic::init_plic();
-
     mmio::ns16550::ns16500_intr_receive_enable();
 
     unsafe extern "C" {
