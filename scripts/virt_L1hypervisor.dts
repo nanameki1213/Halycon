@@ -1,0 +1,75 @@
+/dts-v1/;
+
+/ {
+  #address-cells = <0x2>;
+  #size-cells = <0x2>;
+  compatible = "riscv-virtio";
+  model = "riscv-virtio,qemu";
+
+  memory@80000000 {
+    device_type = "memory";
+    reg = <0x0 0x80000000 0x0 0x8000000>;
+  };
+
+  cpus {
+    #address-cells = <0x1>;
+    #size-cells = <0x0>;
+    timebase-frequency = <0x989680>;
+
+		cpu@0 {
+			phandle = <0x1>;
+			device_type = "cpu";
+			reg = <0x0>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,cbop-block-size = <0x40>;
+			riscv,cboz-block-size = <0x40>;
+			riscv,cbom-block-size = <0x40>;
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c";
+			riscv,isa-base = "rv64i";
+			riscv,isa = "rv64imafdc";
+			mmu-type = "riscv,sv57";
+
+			interrupt-controller {
+				#interrupt-cells = <0x1>;
+				interrupt-controller;
+				compatible = "riscv,cpu-intc";
+				phandle = <0x2>;
+			};
+		};
+
+		cpu-map {
+
+			cluster0 {
+
+				core0 {
+					cpu = <0x1>;
+				};
+			};
+		};
+  };
+
+  chosen {
+    stdout-path="/serial@10000000:384000";
+    rng-seed = <0x40ec3684 0xfe54b5f 0x457abc31 0xacc6a4e2 0x9e0fb76 0xe0bdaeb8 0x906fbca9 0xaeb7c9b8 >;
+    bootargs = "earlycon=serial@10000000:384000 console=ttyAMA0";
+    kaslr-seed = <0x3928fc27 0x9caa495e >;
+  };
+
+  serial@10000000 {
+		clock-frequency = <0x384000>;
+		reg = <0x0 0x10000000 0x0 0x100>;
+		compatible = "ns16550a";
+  };
+
+  virtio_mmio@10001000 {
+    reg = <0x0 0x10001000 0x0 0x1000>;
+    compatible = "virtio,mmio";
+  };
+
+  timer {
+    compatible = "riscv,timer";
+    interrupts = <0x5>;
+    interrupt-parent = <0x2>;
+  };
+};

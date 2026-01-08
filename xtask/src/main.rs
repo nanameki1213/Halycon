@@ -82,7 +82,7 @@ fn build() -> Result<(), DynError> {
 
         // compile device tree script
         log::info!("compile device tree script for L1 Hypervisor");
-        let dts_path = script_path.clone().join("virt.dts");
+        let dts_path = script_path.clone().join("virt_L1hypervisor.dts");
         let output_path = l1_hypervisor_output_directory.clone().join("virt.dtb");
         device_tree::compile_dts(&dts_path, &output_path)?;
 
