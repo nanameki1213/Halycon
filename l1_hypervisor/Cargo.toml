@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+allocate_pages = { version = "0.1.0", path = "../support/allocate_pages" }
 allocator.workspace = true
 arch = { version = "0.1.0", path = "../arch" }
+block = { version = "0.1.0", path = "../support/devices/block" }
+fat32 = { version = "0.1.0", path = "../support/fat32" }
 fdt.workspace = true
+lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
+mmio_core = { version = "0.1.0", path = "../support/mmio_core" }
 spin = "0.10.0"
 string_utils.workspace = true
+virtio = { version = "0.1.0", path = "../support/devices/virtio" }

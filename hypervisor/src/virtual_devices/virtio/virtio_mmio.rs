@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use crate::paging::resolve_address_stage2;
-use crate::println;
+// use crate::println;
 use mmio_core::MmioHandler;
 use virtio::*;
 use virtio_core::*;
@@ -95,12 +95,12 @@ impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
             _ => 0,
         };
 
-        println!("read: {:#X}, {:#X}", offset, value);
+        // println!("read: {:#X}, {:#X}", offset, value);
         value as usize
     }
 
     fn write(&mut self, offset: usize, value: usize) {
-        println!("write: {:#X}, {:#X}", offset, value as u32);
+        // println!("write: {:#X}, {:#X}", offset, value as u32);
 
         match offset {
             VIRTIO_MMIO_QUEUE_NOTIFY => unsafe {

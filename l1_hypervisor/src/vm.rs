@@ -1,8 +1,6 @@
 extern crate alloc;
 
 use crate::VIRTUAL_MACHINES;
-#[cfg(feature = "nested_support")]
-use crate::emulate_csr::HypervisorCsr;
 use crate::paging;
 use crate::println;
 use alloc::string::ToString;
@@ -10,27 +8,9 @@ use alloc::vec::Vec;
 use allocate_pages::allocate_pages;
 use arch::riscv::cpu::*;
 use block::BlockDevice;
-use core::arch::riscv64;
 use core::slice;
 use fat32::Fat32;
 use mmio_core::MmioEntry;
-
-#[cfg(feature = "nested_support")]
-#[derive(Clone, Copy, Debug)]
-pub struct HypervisorContext {
-    pub csr: HypervisorCsr,
-    pub vmid: usize,
-}
-
-#[cfg(feature = "nested_support")]
-impl HypervisorContext {
-    pub const fn new() -> Self {
-        HypervisorContext {
-            csr: HypervisorCsr::new(),
-            vmid: 0,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Csr {
@@ -67,10 +47,6 @@ pub struct VM {
     pub dtb_pointer: usize,
     pub mmio: Vec<MmioEntry>,
     pub vcsr: Csr,
-    #[cfg(feature = "nested_support")]
-    pub parent_vmid: Option<usize>,
-    #[cfg(feature = "nested_support")]
-    pub hypervisor: Option<HypervisorContext>,
 }
 
 impl VM {
@@ -83,7 +59,6 @@ impl VM {
         entry_point: usize,
         dtb_pointer: usize,
         mmio: Vec<MmioEntry>,
-        #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
     ) -> Self {
         VM {
             vmid,
@@ -95,10 +70,6 @@ impl VM {
             dtb_pointer,
             mmio,
             vcsr: Csr::new(),
-            #[cfg(feature = "nested_support")]
-            parent_vmid,
-            #[cfg(feature = "nested_support")]
-            hypervisor: None,
         }
     }
 
@@ -111,17 +82,13 @@ impl VM {
     }
 }
 
-pub fn create_vm<T: BlockDevice>(
-    mut fs: Fat32<T>,
-    mmio: Vec<MmioEntry>,
-    #[cfg(feature = "nested_support")] parent_vmid: Option<usize>,
-) -> usize {
+pub fn create_vm<T: BlockDevice>(mut fs: Fat32<T>, mmio: Vec<MmioEntry>) -> usize {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
-    const RAM_SIZE: usize = 0x20000000;
+    const RAM_SIZE: usize = 0x8000000;
 
     let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
     if ram_physical_base_address.is_null() {
-        println!("Out of memory");
+        panic!("Out of memory");
     }
 
     let table_address = paging::map_address_stage2(
@@ -143,11 +110,6 @@ pub fn create_vm<T: BlockDevice>(
     };
     hgatp |= (table_address >> 12) & SATP_PPN_MASK;
     set_hgatp(hgatp as u64);
-    unsafe {
-        riscv64::hfence_gvma_all();
-        riscv64::hfence_vvma_all();
-        riscv64::sfence_vma_all();
-    }
 
     println!("[info] vm virtual address: {:#X}", RAM_VIRTUAL_BASE);
     println!(
@@ -202,19 +164,8 @@ pub fn create_vm<T: BlockDevice>(
         virtual_entry_point,
         virtual_dtb_pointer,
         mmio,
-        #[cfg(feature = "nested_support")]
-        parent_vmid,
     );
     locked_vms.push(vm);
 
     vmid
-}
-
-#[cfg(feature = "nested_support")]
-pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
-    let new_vmid = vms.len();
-    let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
-    vms.push(l2_vm);
-
-    new_vmid
 }

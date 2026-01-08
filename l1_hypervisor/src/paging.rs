@@ -2,8 +2,8 @@
 
 use core::borrow::BorrowMut;
 
-use crate::memory::callocate_pages;
 use crate::println;
+use allocate_pages::callocate_pages;
 use arch::riscv::cpu::*;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
