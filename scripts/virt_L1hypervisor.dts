@@ -62,11 +62,6 @@
 		compatible = "ns16550a";
   };
 
-  virtio_mmio@10001000 {
-    reg = <0x0 0x10001000 0x0 0x1000>;
-    compatible = "virtio,mmio";
-  };
-
   timer {
     compatible = "riscv,timer";
     interrupts = <0x5>;
