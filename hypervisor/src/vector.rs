@@ -104,8 +104,14 @@ pub fn exception_handler(sp: usize) {
             // Change Current VMID from L2 VM to L1 VM
             switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
 
-            println!("↓L2 VM ↑L1 VMM");
+            // println!("↓L2 VM ↑L1 VMM");
             let csr = locked_vm[parent_vmid].vcsr;
+            if let Some(hypervisor) = locked_vm[parent_vmid].hypervisor.as_mut() {
+                hypervisor.csr.htinst = get_htinst();
+                hypervisor.csr.htval = get_htval();
+            } else {
+                panic!("No L1 Hypervisor.");
+            }
 
             drop(locked_current_vmid);
             drop(locked_vm);
@@ -302,7 +308,7 @@ fn instruction_abort_handler(
             }
             #[cfg(feature = "nested_support")]
             if instruction.is_sret() {
-                println!("↓L1 VM ↑L2 VM");
+                // println!("↓L1 VM ↑L2 VM");
                 // L1 Hypervisor trying to context switching to L2 VM
                 let l1_hypervisor = match vms[current_vmid].hypervisor {
                     Some(hypervisor) => hypervisor,
@@ -335,13 +341,13 @@ fn instruction_abort_handler(
                 hgatp |= (table_address >> 12) & SATP_PPN_MASK;
                 set_hgatp(hgatp as u64);
 
-                // Change Current VMID from L1 VM to L2 VM
-                switch_vm_context(l2_vmid, &mut mutex_vmid, &mut mutex_vms);
-
                 // Set L2 VM entry point
                 set_sepc(get_vsepc());
 
-                println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
+                // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
+
+                // Change Current VMID from L1 VM to L2 VM
+                switch_vm_context(l2_vmid, &mut mutex_vmid, &mut mutex_vms);
 
                 drop(mutex_vmid);
                 drop(mutex_vms);
@@ -403,6 +409,15 @@ fn switch_vm_context(
         satp: get_vsatp(),
     };
     current_vm.vcsr = csr;
+
+    let next_csr = (*mutex_vms)[vmid].vcsr;
+
+    set_vstvec(next_csr.stvec);
+    set_vsepc(next_csr.sepc);
+    set_vsstatus(next_csr.sstatus);
+    set_vscause(next_csr.scause);
+    set_vstval(next_csr.stval);
+    set_vsatp(next_csr.satp);
 
     **mutex_vmid = vmid;
 }
