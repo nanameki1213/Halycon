@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::mmio::ns16550::putc;
+use crate::print;
 use crate::println;
 
 pub const SBI_EXT_BASE: usize = 0x10;
@@ -42,7 +43,12 @@ pub fn virtual_sbi(
         },
         SBI_EXT_0_1_CONSOLE_PUTCHAR => {
             if fid == 0 {
-                putc(_arg0 as u8);
+                if let Some(ch) = char::from_u32(_arg0 as u32) {
+                    putc(_arg0 as u8);
+                    if ch == '\n' {
+                        print!("[L1 VM] ");
+                    }
+                }
                 Sbiret { error: 0, value: 0 }
             } else {
                 println!("fid: {}", fid);
