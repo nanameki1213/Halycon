@@ -10,16 +10,16 @@ impl MmioHandler for Ns16550 {
     }
 
     fn write(&mut self, offset: usize, value: usize) {
+        ns16550_set_by_offset(offset, value as u8);
         match offset {
             0x0 => {
                 if let Some(ch) = char::from_u32(value as u32) {
-                    ns16550_set_by_offset(offset, value as u8);
                     if ch == '\n' {
                         print!("[L1 VM] ");
                     }
                 }
             }
-            _ => ns16550_set_by_offset(offset, value as u8),
+            _ => {}
         }
     }
 }

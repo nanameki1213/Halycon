@@ -43,8 +43,8 @@ pub fn virtual_sbi(
         },
         SBI_EXT_0_1_CONSOLE_PUTCHAR => {
             if fid == 0 {
+                putc(_arg0 as u8);
                 if let Some(ch) = char::from_u32(_arg0 as u32) {
-                    putc(_arg0 as u8);
                     if ch == '\n' {
                         print!("[L1 VM] ");
                     }
