@@ -11,13 +11,10 @@ use core::arch::global_asm;
 use mmio_core::MmioEntry;
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
-pub const E_INSTRUCTION_GUEST_PAGE_FAULT: usize = 20;
 pub const E_LOAD_GUEST_PAGE_FAULT: usize = 21;
 pub const E_VIRTUAL_INSTRUCTION: usize = 22;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
-
-pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
 
 global_asm!(include_str!("./trap.S"));
 
