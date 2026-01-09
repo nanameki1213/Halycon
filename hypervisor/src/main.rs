@@ -78,6 +78,9 @@ macro_rules! bitmask {
 const MAX_MEMORY_ENTRIES: usize = 32;
 const MAX_MMIO_ENTRIES: usize = 64;
 
+const SHMEM_VIRTUAL_ADDRESS: usize = 0xb0000000;
+const SHMEM_SIZE: usize = 0x4000000;
+
 // fn intr_disable() {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }

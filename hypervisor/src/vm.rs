@@ -1,9 +1,13 @@
 extern crate alloc;
 
+use crate::SHMEM_SIZE;
+use crate::SHMEM_VIRTUAL_ADDRESS;
 use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 use crate::paging;
+use crate::paging::PAGE_SIZE;
+use crate::paging::add_mapping_stage2;
 use crate::println;
 use alloc::string::ToString;
 use alloc::vec::Vec;
@@ -143,6 +147,23 @@ pub fn create_vm<T: BlockDevice>(
     };
     hgatp |= (table_address >> 12) & SATP_PPN_MASK;
     set_hgatp(hgatp as u64);
+
+    let shmem_address = allocate_pages(SHMEM_SIZE / PAGE_SIZE, PAGE_SIZE);
+    if shmem_address.is_null() {
+        panic!("Out of memory for share memory.");
+    }
+    add_mapping_stage2(
+        shmem_address as usize,
+        SHMEM_VIRTUAL_ADDRESS,
+        SHMEM_SIZE,
+        table_address,
+        paging::DEFAULT_TABLE_LEVEL,
+        true,
+        true,
+        true,
+    )
+    .expect("Failed to mapping");
+
     unsafe {
         riscv64::hfence_gvma_all();
         riscv64::hfence_vvma_all();
