@@ -1,3 +1,4 @@
+use crate::print;
 use mmio_core::MmioHandler;
 
 #[derive(Debug)]
@@ -10,6 +11,16 @@ impl MmioHandler for Ns16550 {
 
     fn write(&mut self, offset: usize, value: usize) {
         ns16550_set_by_offset(offset, value as u8);
+        match offset {
+            0x0 => {
+                if let Some(ch) = char::from_u32(value as u32) {
+                    if ch == '\n' {
+                        print!("[L2 VM] ");
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 
