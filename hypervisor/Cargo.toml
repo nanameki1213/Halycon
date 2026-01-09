@@ -18,6 +18,7 @@ allocate_pages = { version = "0.1.0", path = "../support/allocate_pages" }
 fat32 = { version = "0.1.0", path = "../support/fat32" }
 virtio_core = { version = "0.1.0", path = "../support/virtio_core" }
 log = { version = "0.4.29", features = ["max_level_trace"] }
+shmem = { version = "0.1.0", path = "../support/shmem" }
 
 [features]
 nested_support = []

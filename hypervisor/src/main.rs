@@ -37,13 +37,15 @@ use block::mem_blk::MemBlk;
 use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
+use core::marker::PhantomData;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
 use log::{Level, Metadata, Record};
 use memory::set_pmp_all_physical_address;
 use mmio::ns16550::Uart;
-use spin::Mutex;
+use shmem::ShmRing;
+use spin::{Mutex, Once};
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
 use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
@@ -85,15 +87,68 @@ const SHMEM_SIZE: usize = 0x4000000;
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
+#[derive(Clone, Copy)]
+pub struct ShmRingHandle {
+    ptr: NonNull<ShmRing>,
+    _p: PhantomData<&'static ShmRing>,
+}
+
+unsafe impl Send for ShmRingHandle {}
+unsafe impl Sync for ShmRingHandle {}
+
+impl ShmRingHandle {
+    pub unsafe fn from_base(base: usize) -> Self {
+        assert!(
+            base % align_of::<ShmRing>() == 0,
+            "ShmRing alignment mismatch"
+        );
+        let ptr = NonNull::new(base as *mut ShmRing).expect("null shm base");
+        Self {
+            ptr,
+            _p: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn ring(&self) -> &ShmRing {
+        unsafe { self.ptr.as_ref() }
+    }
+
+    #[inline]
+    pub fn ring_mut(&mut self) -> &mut ShmRing {
+        unsafe { self.ptr.as_mut() }
+    }
+}
+
 static LOGGER: SimpleLogger = SimpleLogger;
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
+static SHM_RING: Once<Mutex<ShmRingHandle>> = Once::new();
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
+}
+
+pub fn init_shm_ring(base: usize) {
+    SHM_RING.call_once(|| {
+        let h = unsafe { ShmRingHandle::from_base(base) };
+        Mutex::new(h)
+    });
+}
+
+pub fn with_shm_ring<R>(f: impl FnOnce(&ShmRing) -> R) -> R {
+    let m = SHM_RING.get().expect("call init_shm_ring() first");
+    let h = *m.lock();
+    f(h.ring())
+}
+
+pub fn with_shm_ring_mut<R>(f: impl FnOnce(&mut ShmRing) -> R) -> R {
+    let m = SHM_RING.get().expect("call init_shm_ring() first");
+    let mut h = *m.lock();
+    f(h.ring_mut())
 }
 
 struct GlobalAllocator {}

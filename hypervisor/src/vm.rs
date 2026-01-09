@@ -5,6 +5,7 @@ use crate::SHMEM_VIRTUAL_ADDRESS;
 use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
+use crate::init_shm_ring;
 use crate::paging;
 use crate::paging::PAGE_SIZE;
 use crate::paging::add_mapping_stage2;
@@ -163,6 +164,7 @@ pub fn create_vm<T: BlockDevice>(
         true,
     )
     .expect("Failed to mapping");
+    init_shm_ring(shmem_address as usize);
 
     unsafe {
         riscv64::hfence_gvma_all();
