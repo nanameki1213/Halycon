@@ -1,3 +1,5 @@
+#![no_std]
+
 use core::cell::UnsafeCell;
 use core::cmp::min;
 use core::sync::atomic::{AtomicU32, Ordering};
