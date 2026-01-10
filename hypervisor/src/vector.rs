@@ -118,7 +118,7 @@ pub fn exception_handler(sp: usize) {
 
                         let mut cnt = BUFFER_COUNT.lock();
                         *cnt += 1;
-                        let do_flush = *cnt > 256 || byte == b'\n';
+                        let do_flush = *cnt > 16 || byte == b'\n';
                         if do_flush {
                             *cnt = 0;
                         }

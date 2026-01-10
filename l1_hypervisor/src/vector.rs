@@ -61,8 +61,8 @@ pub fn exception_handler(sp: usize) {
     } else if scause == I_VIRTUAL_SUPERVISOR_SOFTWARE {
         let buf = with_shm_ring(|r| {
             let mut buf = [0u8; 256];
-            let _ = r.pop(&mut buf);
-            buf
+            let n = r.pop(&mut buf);
+            buf[0..n].to_vec()
         });
         let vm = &mut locked_vm[*locked_current_vmid];
         let mmio_list = &mut vm.mmio;
