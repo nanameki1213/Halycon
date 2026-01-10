@@ -64,7 +64,7 @@ impl Instruction {
         ((self.0 & Self::FUNCT12_MASK) >> Self::FUNCT12_OFFSET) as usize
     }
 
-    pub fn get_compression(&mut self) -> usize {
+    pub fn get_compression(&self) -> usize {
         ((self.0 & Self::COMPRESSION_MASK) >> Self::COMPRESSION_OFFSET) as usize
     }
 
@@ -96,7 +96,7 @@ impl Instruction {
             && self.get_funct7() == Self::FUNCT7_SRET
     }
 
-    pub fn is_compression_instruction(&mut self) -> bool {
+    pub fn is_compression_instruction(&self) -> bool {
         let compression = self.get_compression();
         compression == Self::COMPRESSED_INSTRUCTION
     }
