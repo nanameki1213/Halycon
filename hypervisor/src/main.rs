@@ -125,6 +125,7 @@ static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap
 static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 static SHM_RING: Once<Mutex<ShmRingHandle>> = Once::new();
+static BUFFER_COUNT: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 

@@ -1,3 +1,4 @@
+use crate::BUFFER_COUNT;
 use crate::CURRENT_VMID;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
@@ -6,6 +7,7 @@ use crate::plic;
 use crate::println;
 use crate::sbi;
 use crate::vm::{Csr, VM};
+use crate::with_shm_ring_mut;
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
@@ -29,6 +31,9 @@ pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
+pub const I_VIRTUAL_SUPERVISOR_SOFTWARE: usize = 2 | INTERRUPT_ID;
+
+const TARGET_ADDRESS: usize = 0x10000000;
 
 global_asm!(include_str!("./trap.S"));
 
@@ -94,10 +99,63 @@ pub fn exception_handler(sp: usize) {
     let mut locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
+    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
 
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
+            if is_data_abort(scause) {
+                let instruction = instruction::Instruction::new(get_htinst() as u32);
+                if scause == E_STORE_AMO_GUEST_PAGE_FAULT {
+                    let stval = get_stval() as usize;
+                    if stval == TARGET_ADDRESS {
+                        let rs2 = instruction.get_rs2();
+                        let byte = contexts[rs2] as u8;
+
+                        with_shm_ring_mut(|r| {
+                            r.push(&[byte]);
+                        });
+
+                        let mut cnt = BUFFER_COUNT.lock();
+                        *cnt += 1;
+                        let do_flush = *cnt > 256 || byte == b'\n';
+                        if do_flush {
+                            *cnt = 0;
+                        }
+                        drop(cnt);
+
+                        if do_flush {
+                            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
+                            switch_vm_context(
+                                parent_vmid,
+                                &mut locked_current_vmid,
+                                &mut locked_vm,
+                            );
+
+                            let csr = locked_vm[parent_vmid].vcsr;
+
+                            drop(locked_current_vmid);
+                            drop(locked_vm);
+
+                            assert_l1_hypervisor(
+                                sp,
+                                I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
+                                get_sepc(),
+                                TARGET_ADDRESS as u64,
+                                csr.stvec,
+                            );
+                        }
+
+                        let inst_len = if instruction.is_compression_instruction() {
+                            2
+                        } else {
+                            4
+                        };
+                        set_sepc(get_sepc() + inst_len);
+                        return;
+                    }
+                }
+            }
             // Switch Hypervisor Context from L1 to L0
             load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
 
@@ -122,17 +180,20 @@ pub fn exception_handler(sp: usize) {
                 // TODO: Consider that L1 changed page table.
             } else if is_instruction_abort(scause) {
                 assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
-            }
+            } else {
+                println!("Exception from S-Mode has occured!");
+                println!("[info] scause: {:#X}", get_scause());
+                println!("[info] stval: {:#X}", get_stval());
 
+                panic!();
+            }
             // don't return to here.
-            panic!();
         }
         None => {
             // L1 VM
         }
     }
 
-    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     if is_data_abort(scause) {
         // data abort
         let vm = &mut locked_vm[*locked_current_vmid];
@@ -423,7 +484,7 @@ fn switch_vm_context(
 }
 
 #[cfg(feature = "nested_support")]
-fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: u64) {
+fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: u64) -> ! {
     set_vscause(vscause);
     set_vsepc(vsepc);
     set_vstval(vstval);
@@ -436,6 +497,7 @@ fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: 
         vm_entry(sp);
     }
     // don't return to here
+    unreachable!()
 }
 
 #[cfg(feature = "nested_support")]

@@ -53,6 +53,7 @@ const MAX_MEMORY_ENTRIES: usize = 32;
 const MAX_MMIO_ENTRIES: usize = 64;
 
 const SHMEM_ADDRESS: usize = 0xb0000000;
+#[allow(dead_code)]
 const SHMEM_SIZE: usize = 0x4000000;
 
 // fn intr_disable() {
@@ -269,6 +270,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         entry_point = vm.get_entry_point() as usize;
         dtb_pointer = vm.get_dtb_pointer();
     }
+
+    init_shm_ring(SHMEM_ADDRESS);
 
     println!("switch to guest");
     hs_to_vs(entry_point, stack_pointer, dtb_pointer)
