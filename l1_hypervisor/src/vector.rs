@@ -1,11 +1,9 @@
 use crate::CURRENT_VMID;
 use crate::VIRTUAL_MACHINES;
 use crate::paging;
-use crate::print;
 use crate::println;
 use crate::sbi;
 use crate::with_shm_ring;
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
@@ -61,12 +59,16 @@ pub fn exception_handler(sp: usize) {
         // instruction abort
         instruction_abort_handler(scause, contexts);
     } else if scause == I_VIRTUAL_SUPERVISOR_SOFTWARE {
-        let str = with_shm_ring(|r| {
+        let buf = with_shm_ring(|r| {
             let mut buf = [0u8; 256];
-            let n = r.pop(&mut buf);
-            String::from_utf8(buf[0..n].to_vec()).expect("Failed to convert utf8 to String")
+            let _ = r.pop(&mut buf);
+            buf
         });
-        print!("{}", str);
+        let vm = &mut locked_vm[*locked_current_vmid];
+        let mmio_list = &mut vm.mmio;
+        for byte in buf {
+            write_access(get_stval() as usize, byte as u64, mmio_list);
+        }
     } else {
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
