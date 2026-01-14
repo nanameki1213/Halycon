@@ -96,7 +96,6 @@ pub fn exception_handler(sp: usize) {
     let locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
-    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
 
     #[cfg(feature = "nested_acceleration")]
     if scause == I_SUPERVISOR_TIMER {
@@ -104,15 +103,12 @@ pub fn exception_handler(sp: usize) {
         return;
     }
 
+    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
             reflect_to_l1(sp, locked_current_vmid, locked_vm, parent_vmid);
-            if cfg!(feature = "nested_acceleration") {
-                return;
-            } else {
-                unreachable!()
-            }
+            return;
         }
         None => {
             // L1 VM

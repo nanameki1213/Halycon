@@ -1,11 +1,5 @@
 #![allow(dead_code)]
 
-use core::sync::atomic::Ordering;
-
-use crate::CNT_FLUSH_NOTIFY;
-use crate::CNT_L2_PF_UART;
-use crate::CNT_REFLECT_L1_TO_L2;
-use crate::CNT_REFLECT_L2_TO_L1;
 use crate::mmio::ns16550::putc;
 use crate::print;
 use crate::println;
@@ -55,15 +49,7 @@ pub fn virtual_sbi(
             SBI_FID_PROBE_SBI_EXT => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_MACHINE_VENDOR_ID => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_MACHINE_ARCHITECTURE_ID => Sbiret { error: 0, value: 0 },
-            SBI_FID_GET_MACHINE_IMPLEMENTATION_ID => {
-                CNT_L2_PF_UART.store(0, Ordering::Release);
-                CNT_REFLECT_L2_TO_L1.store(0, Ordering::Release);
-                CNT_REFLECT_L1_TO_L2.store(0, Ordering::Release);
-                CNT_FLUSH_NOTIFY.store(0, Ordering::Release);
-                println!("\nstart measure.");
-
-                Sbiret { error: 0, value: 0 }
-            }
+            SBI_FID_GET_MACHINE_IMPLEMENTATION_ID => Sbiret { error: 0, value: 0 },
             _ => {
                 println!("SBI_EXT_BASE: fid: {}", fid);
                 panic!("unrecognized fid");
@@ -92,23 +78,7 @@ pub fn virtual_sbi(
                 panic!("unrecognized fid");
             }
         }
-        SBI_EXT_SRST => {
-            println!("End of measure.");
-            println!("cnt_l2_pf_uart: {}", CNT_L2_PF_UART.load(Ordering::Acquire));
-            println!(
-                "cnt_reflect_l2_to_l1: {}",
-                CNT_REFLECT_L2_TO_L1.load(Ordering::Acquire)
-            );
-            println!(
-                "cnt_reflect_l1_to_l2: {}",
-                CNT_REFLECT_L1_TO_L2.load(Ordering::Acquire)
-            );
-            println!(
-                "cnt_flush_notify: {}",
-                CNT_FLUSH_NOTIFY.load(Ordering::Acquire)
-            );
-            panic!();
-        }
+        SBI_EXT_SRST => Sbiret { error: 0, value: 0 },
         _ => {
             println!("eid: {}", ext);
             panic!("unrecognized eid")

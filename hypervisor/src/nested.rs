@@ -3,21 +3,22 @@ use crate::println;
 use crate::vector::E_STORE_AMO_GUEST_PAGE_FAULT;
 use crate::vm::VM;
 use crate::vm::switch_vm_context;
-use crate::{CNT_L2_PF_UART, CNT_REFLECT_L1_TO_L2, CNT_REFLECT_L2_TO_L1};
+use crate::{
+    CNT_EXIT_MMIO_L1, CNT_FLUSH_NOTIFY, CNT_L2_PF_MMIO, CNT_REFLECT_L1_TO_L2, CNT_REFLECT_L2_TO_L1,
+};
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::CsrAccessInstructionType;
+use arch::riscv::instruction::Instruction;
 use core::sync::atomic::Ordering;
 use spin::MutexGuard;
 #[cfg(feature = "nested_acceleration")]
 use {
     crate::BUFFER_COUNT,
-    crate::CNT_FLUSH_NOTIFY,
     crate::shmem_handle::*,
     crate::timer::{TIMER_FRQ, disable_timer_intr, start_timer},
     crate::vector::I_VIRTUAL_SUPERVISOR_SOFTWARE,
-    arch::riscv::instruction,
 };
 use {
     crate::HOST_HYPERVISOR_CSR, crate::emulate_csr::HypervisorCsr, crate::emulate_csr::emulate_csr,
@@ -27,6 +28,10 @@ use {
 const TARGET_ADDRESS: usize = 0x10000000;
 #[cfg(feature = "nested_acceleration")]
 const FLUSH_INTERVAL: usize = 5;
+
+const MEASURE_NOTIFY_ADDRESS: usize = 0xd000_0000;
+const MEASURE_RESET: usize = 0;
+const MEASURE_SHOW: usize = 1;
 
 pub fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: u64) -> ! {
     set_vscause(vscause);
@@ -175,7 +180,7 @@ pub fn reflect_to_l1(
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
         && get_stval() as usize == TARGET_ADDRESS
     {
-        CNT_L2_PF_UART.fetch_add(1, Ordering::Release);
+        CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
     }
 
     // return to L2
@@ -184,7 +189,7 @@ pub fn reflect_to_l1(
         && get_stval() as usize == TARGET_ADDRESS
     {
         let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
-        let instruction = instruction::Instruction::new(get_htinst() as u32);
+        let instruction = Instruction::new(get_htinst() as u32);
         let rs2 = instruction.get_rs2();
         let byte = contexts[rs2] as u8;
 
@@ -233,6 +238,69 @@ pub fn reflect_to_l1(
         return;
     }
 
+    if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT {
+        match get_stval() as usize {
+            MEASURE_NOTIFY_ADDRESS => {
+                let mut instruction = Instruction::new(get_htinst() as u32);
+                let contexts =
+                    unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
+                let rs2 = instruction.get_rs2();
+                let value = contexts[rs2];
+
+                match value as usize {
+                    MEASURE_RESET => {
+                        CNT_L2_PF_MMIO.store(0, Ordering::Release);
+                        CNT_REFLECT_L2_TO_L1.store(0, Ordering::Release);
+                        CNT_EXIT_MMIO_L1.store(0, Ordering::Release);
+                        CNT_REFLECT_L1_TO_L2.store(0, Ordering::Release);
+                        CNT_FLUSH_NOTIFY.store(0, Ordering::Release);
+                        println!("\nstart measure.");
+                    }
+                    MEASURE_SHOW => {
+                        println!("End of measure.");
+                        println!("cnt_l2_pf_mmio: {}", CNT_L2_PF_MMIO.load(Ordering::Acquire));
+                        println!(
+                            "cnt_reflect_l2_to_l1: {}",
+                            CNT_REFLECT_L2_TO_L1.load(Ordering::Acquire)
+                        );
+                        println!(
+                            "cnt_exit_mmio_l1: {}",
+                            CNT_EXIT_MMIO_L1.load(Ordering::Acquire)
+                        );
+                        println!(
+                            "cnt_reflect_l1_to_l2: {}",
+                            CNT_REFLECT_L1_TO_L2.load(Ordering::Acquire)
+                        );
+                        println!(
+                            "cnt_flush_notify: {}",
+                            CNT_FLUSH_NOTIFY.load(Ordering::Acquire)
+                        );
+                    }
+                    _ => {}
+                }
+
+                // next instruction
+                let mut sepc = get_sepc();
+                let instruction_size = if instruction.is_valid_instruction() {
+                    if instruction.is_compression_instruction() {
+                        2
+                    } else {
+                        4
+                    }
+                } else {
+                    4
+                };
+                sepc += instruction_size;
+                set_sepc(sepc);
+                return;
+            }
+            TARGET_ADDRESS => {
+                CNT_REFLECT_L2_TO_L1.fetch_add(1, Ordering::Release);
+            }
+            _ => {}
+        }
+    }
+
     // assert to L1
     load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
     switch_vm_context(parent_vmid, &mut mutex_vmid, &mut mutex_vms);
@@ -249,12 +317,6 @@ pub fn reflect_to_l1(
 
     drop(mutex_vmid);
     drop(mutex_vms);
-
-    if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
-        && get_stval() as usize == TARGET_ADDRESS
-    {
-        CNT_REFLECT_L2_TO_L1.fetch_add(1, Ordering::Release);
-    }
 
     assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
     // don't return to here.
@@ -303,7 +365,8 @@ pub fn l1_to_l2(
     set_sepc(get_vsepc());
 
     let csr = mutex_vms[current_vmid].vcsr;
-    if csr.stval as usize == TARGET_ADDRESS {
+    if csr.scause as usize == E_STORE_AMO_GUEST_PAGE_FAULT && csr.stval as usize == TARGET_ADDRESS {
+        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
         CNT_REFLECT_L1_TO_L2.fetch_add(1, Ordering::Release);
     }
 
