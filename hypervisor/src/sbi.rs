@@ -52,7 +52,7 @@ pub fn virtual_sbi(
             },
             SBI_FID_GET_SBI_IMPLEMENTATION_ID => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_SBI_IMPLEMENTATION_VERSION => Sbiret { error: 0, value: 2 },
-            SBI_FID_PROBE_SBI_EXT => Sbiret { error: 0, value: 1 },
+            SBI_FID_PROBE_SBI_EXT => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_MACHINE_VENDOR_ID => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_MACHINE_ARCHITECTURE_ID => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_MACHINE_IMPLEMENTATION_ID => {
