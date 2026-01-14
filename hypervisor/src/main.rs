@@ -104,6 +104,8 @@ use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::ptr::NonNull;
+#[cfg(feature = "nested_support")]
+use core::sync::atomic::AtomicU64;
 use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
 use log::{Level, Metadata, Record};
@@ -160,6 +162,11 @@ static SHM_RING: Once<Mutex<shmem_handle::ShmRingHandle>> = Once::new();
 static BUFFER_COUNT: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
+
+static CNT_L2_PF_UART: AtomicU64 = AtomicU64::new(0);
+static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
+static CNT_REFLECT_L1_TO_L2: AtomicU64 = AtomicU64::new(0);
+static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
