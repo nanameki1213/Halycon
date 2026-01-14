@@ -1,18 +1,22 @@
 use crate::paging;
 use crate::println;
+use crate::vector::E_STORE_AMO_GUEST_PAGE_FAULT;
 use crate::vm::VM;
 use crate::vm::switch_vm_context;
+use crate::{CNT_L2_PF_UART, CNT_REFLECT_L1_TO_L2, CNT_REFLECT_L2_TO_L1};
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::CsrAccessInstructionType;
+use core::sync::atomic::Ordering;
 use spin::MutexGuard;
 #[cfg(feature = "nested_acceleration")]
 use {
     crate::BUFFER_COUNT,
+    crate::CNT_FLUSH_NOTIFY,
     crate::shmem_handle::*,
     crate::timer::{TIMER_FRQ, disable_timer_intr, start_timer},
-    crate::vector::{E_STORE_AMO_GUEST_PAGE_FAULT, I_VIRTUAL_SUPERVISOR_SOFTWARE},
+    crate::vector::I_VIRTUAL_SUPERVISOR_SOFTWARE,
     arch::riscv::instruction,
 };
 use {
@@ -20,7 +24,6 @@ use {
     crate::vm::HypervisorContext,
 };
 
-#[cfg(feature = "nested_acceleration")]
 const TARGET_ADDRESS: usize = 0x10000000;
 #[cfg(feature = "nested_acceleration")]
 const FLUSH_INTERVAL: usize = 5;
@@ -169,6 +172,12 @@ pub fn reflect_to_l1(
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
     parent_vmid: usize,
 ) {
+    if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
+        && get_stval() as usize == TARGET_ADDRESS
+    {
+        CNT_L2_PF_UART.fetch_add(1, Ordering::Release);
+    }
+
     // return to L2
     #[cfg(feature = "nested_acceleration")]
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
@@ -206,6 +215,8 @@ pub fn reflect_to_l1(
             drop(mutex_vmid);
             drop(mutex_vms);
 
+            CNT_FLUSH_NOTIFY.fetch_add(1, Ordering::Release);
+
             assert_l1_hypervisor(
                 sp,
                 I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
@@ -238,6 +249,12 @@ pub fn reflect_to_l1(
 
     drop(mutex_vmid);
     drop(mutex_vms);
+
+    if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
+        && get_stval() as usize == TARGET_ADDRESS
+    {
+        CNT_REFLECT_L2_TO_L1.fetch_add(1, Ordering::Release);
+    }
 
     assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
     // don't return to here.
@@ -284,6 +301,11 @@ pub fn l1_to_l2(
 
     // Set L2 VM entry point
     set_sepc(get_vsepc());
+
+    let csr = mutex_vms[current_vmid].vcsr;
+    if csr.stval as usize == TARGET_ADDRESS {
+        CNT_REFLECT_L1_TO_L2.fetch_add(1, Ordering::Release);
+    }
 
     // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
 
