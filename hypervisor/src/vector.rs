@@ -30,10 +30,13 @@ pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
-pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
+
 pub const I_VIRTUAL_SUPERVISOR_SOFTWARE: usize = 2 | INTERRUPT_ID;
+pub const I_SUPERVISOR_TIMER: usize = 5 | INTERRUPT_ID;
+pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
 const TARGET_ADDRESS: usize = 0x10000000;
+const FLUSH_INTERVAL: usize = 300;
 
 global_asm!(include_str!("./trap.S"));
 
@@ -99,67 +102,75 @@ pub fn exception_handler(sp: usize) {
     let mut locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
+    let stval = get_stval() as usize;
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
+
+    if scause == I_SUPERVISOR_TIMER {
+        if let Some(parent_vmid) = locked_vm[*locked_current_vmid].parent_vmid {
+            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
+            switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
+        }
+
+        
+    }
 
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
-            if is_data_abort(scause) {
+            // return to L2
+            if scause == E_STORE_AMO_GUEST_PAGE_FAULT && stval == TARGET_ADDRESS {
                 let instruction = instruction::Instruction::new(get_htinst() as u32);
-                if scause == E_STORE_AMO_GUEST_PAGE_FAULT {
-                    let stval = get_stval() as usize;
-                    if stval == TARGET_ADDRESS {
-                        let rs2 = instruction.get_rs2();
-                        let byte = contexts[rs2] as u8;
+                let rs2 = instruction.get_rs2();
+                let byte = contexts[rs2] as u8;
 
-                        with_shm_ring_mut(|r| {
-                            r.push(&[byte]);
-                        });
+                with_shm_ring_mut(|r| {
+                    r.push(&[byte]);
+                });
 
-                        let mut cnt = BUFFER_COUNT.lock();
-                        *cnt += 1;
-                        let do_flush = *cnt > 16 || byte == b'\n';
-                        if do_flush {
-                            *cnt = 0;
-                        }
-                        drop(cnt);
-
-                        if do_flush {
-                            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
-                            switch_vm_context(
-                                parent_vmid,
-                                &mut locked_current_vmid,
-                                &mut locked_vm,
-                            );
-
-                            let csr = locked_vm[parent_vmid].vcsr;
-
-                            drop(locked_current_vmid);
-                            drop(locked_vm);
-
-                            assert_l1_hypervisor(
-                                sp,
-                                I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
-                                get_sepc(),
-                                TARGET_ADDRESS as u64,
-                                csr.stvec,
-                            );
-                        }
-
-                        let inst_len = if instruction.is_compression_instruction() {
-                            2
-                        } else {
-                            4
-                        };
-                        set_sepc(get_sepc() + inst_len);
-                        return;
-                    }
+                let mut cnt = BUFFER_COUNT.lock();
+                *cnt += 1;
+                let do_flush = *cnt > 16 || byte == b'\n';
+                if do_flush {
+                    *cnt = 0;
                 }
-            }
-            // Switch Hypervisor Context from L1 to L0
-            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
+                drop(cnt);
 
-            // Change Current VMID from L2 VM to L1 VM
+                if do_flush {
+                    load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
+                    switch_vm_context(
+                        parent_vmid,
+                        &mut locked_current_vmid,
+                        &mut locked_vm,
+                    );
+
+                    let csr = locked_vm[parent_vmid].vcsr;
+
+                    drop(locked_current_vmid);
+                    drop(locked_vm);
+
+                    assert_l1_hypervisor(
+                        sp,
+                        I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
+                        get_sepc(),
+                        TARGET_ADDRESS as u64,
+                        csr.stvec,
+                    );
+                }
+
+                start_timer((FLUSH_INTERVAL * 10000) as u64);
+
+                let inst_len = if instruction.is_compression_instruction() {
+                    2
+                } else {
+                    4
+                };
+                set_sepc(get_sepc() + inst_len);
+
+                return;
+            }
+
+            // assert to L1
+            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
             switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
 
             // println!("↓L2 VM ↑L1 VMM");
@@ -170,6 +181,8 @@ pub fn exception_handler(sp: usize) {
             } else {
                 panic!("No L1 Hypervisor.");
             }
+
+            let csr = locked_vm[parent_vmid].vcsr;
 
             drop(locked_current_vmid);
             drop(locked_vm);
