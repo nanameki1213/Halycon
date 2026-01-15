@@ -6,8 +6,8 @@ use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
+use crate::timer::TIMER_FRQ;
 use crate::timer::disable_timer_intr;
-use crate::timer::enable_timer_intr;
 use crate::timer::start_timer;
 use crate::vm::{Csr, VM};
 use crate::with_shm_ring_mut;
@@ -115,7 +115,7 @@ pub fn exception_handler(sp: usize) {
             switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
         } else {
             // print!(".");
-            start_timer(FLUSH_INTERVAL as u64 * 10000);
+            start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
             return;
         }
         let csr = locked_vm[*locked_current_vmid].vcsr;
@@ -177,7 +177,7 @@ pub fn exception_handler(sp: usize) {
                     );
                 }
 
-                start_timer((FLUSH_INTERVAL * 10000) as u64);
+                start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
 
                 set_sepc(get_sepc() + inst_len);
 
@@ -189,7 +189,6 @@ pub fn exception_handler(sp: usize) {
             switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
 
             // println!("↓L2 VM ↑L1 VMM");
-            let csr = locked_vm[parent_vmid].vcsr;
             if let Some(hypervisor) = locked_vm[parent_vmid].hypervisor.as_mut() {
                 hypervisor.csr.htinst = get_htinst();
                 hypervisor.csr.htval = get_htval();
