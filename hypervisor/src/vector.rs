@@ -4,8 +4,12 @@ use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
 use crate::paging;
 use crate::plic;
+use crate::print;
 use crate::println;
 use crate::sbi;
+use crate::timer::disable_timer_intr;
+use crate::timer::enable_timer_intr;
+use crate::timer::start_timer;
 use crate::vm::{Csr, VM};
 use crate::with_shm_ring_mut;
 use alloc::vec::Vec;
@@ -36,7 +40,7 @@ pub const I_SUPERVISOR_TIMER: usize = 5 | INTERRUPT_ID;
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
 const TARGET_ADDRESS: usize = 0x10000000;
-const FLUSH_INTERVAL: usize = 300;
+const FLUSH_INTERVAL: usize = 100;
 
 global_asm!(include_str!("./trap.S"));
 
@@ -107,11 +111,26 @@ pub fn exception_handler(sp: usize) {
 
     if scause == I_SUPERVISOR_TIMER {
         if let Some(parent_vmid) = locked_vm[*locked_current_vmid].parent_vmid {
+            disable_timer_intr();
             load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
             switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
+        } else {
+            print!(".");
+            start_timer(FLUSH_INTERVAL as u64 * 10000);
+            return;
         }
+        let csr = locked_vm[*locked_current_vmid].vcsr;
 
-        
+        drop(locked_current_vmid);
+        drop(locked_vm);
+
+        assert_l1_hypervisor(
+            sp,
+            I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
+            get_sepc(),
+            TARGET_ADDRESS as u64,
+            csr.stvec,
+        );
     }
 
     #[cfg(feature = "nested_support")]
@@ -135,13 +154,15 @@ pub fn exception_handler(sp: usize) {
                 }
                 drop(cnt);
 
+                let inst_len = if instruction.is_compression_instruction() {
+                    2
+                } else {
+                    4
+                };
+
                 if do_flush {
                     load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
-                    switch_vm_context(
-                        parent_vmid,
-                        &mut locked_current_vmid,
-                        &mut locked_vm,
-                    );
+                    switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
 
                     let csr = locked_vm[parent_vmid].vcsr;
 
@@ -151,7 +172,7 @@ pub fn exception_handler(sp: usize) {
                     assert_l1_hypervisor(
                         sp,
                         I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
-                        get_sepc(),
+                        get_sepc() + inst_len,
                         TARGET_ADDRESS as u64,
                         csr.stvec,
                     );
@@ -159,11 +180,6 @@ pub fn exception_handler(sp: usize) {
 
                 start_timer((FLUSH_INTERVAL * 10000) as u64);
 
-                let inst_len = if instruction.is_compression_instruction() {
-                    2
-                } else {
-                    4
-                };
                 set_sepc(get_sepc() + inst_len);
 
                 return;

@@ -69,6 +69,7 @@ pub fn exception_handler(sp: usize) {
         for byte in buf {
             write_access(get_stval() as usize, byte as u64, mmio_list);
         }
+        return;
     } else {
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
