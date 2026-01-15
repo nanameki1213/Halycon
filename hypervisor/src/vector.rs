@@ -4,7 +4,6 @@ use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
 use crate::paging;
 use crate::plic;
-use crate::print;
 use crate::println;
 use crate::sbi;
 use crate::timer::disable_timer_intr;
@@ -40,7 +39,7 @@ pub const I_SUPERVISOR_TIMER: usize = 5 | INTERRUPT_ID;
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
 
 const TARGET_ADDRESS: usize = 0x10000000;
-const FLUSH_INTERVAL: usize = 100;
+const FLUSH_INTERVAL: usize = 5;
 
 global_asm!(include_str!("./trap.S"));
 
@@ -115,7 +114,7 @@ pub fn exception_handler(sp: usize) {
             load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
             switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
         } else {
-            print!(".");
+            // print!(".");
             start_timer(FLUSH_INTERVAL as u64 * 10000);
             return;
         }
