@@ -13,6 +13,7 @@ mod memory;
 mod paging;
 mod plic;
 mod sbi;
+mod timer;
 mod vector;
 mod vm;
 mod virtual_devices {
@@ -285,6 +286,7 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     mideleg |= MIE_MEIE as u64;
     mideleg |= MIE_VSEIE as u64;
     mideleg |= XIE_SEIE as u64;
+    mideleg |= XIE_STIE as u64;
     set_mideleg(mideleg);
     println!("[setup] mideleg: {:#X}", mideleg);
 
@@ -308,6 +310,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let mut hie = get_hie();
     hie |= XIE_SEIE as u64;
     set_hie(hie);
+
+    let mut menvcfg = get_menvcfg();
+    menvcfg |= MENVCFG_STCE as u64;
+    set_menvcfg(menvcfg);
 
     let mut mstatus = get_mstatus();
     mstatus |= MSTATUS_SIE as u64;

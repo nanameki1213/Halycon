@@ -58,6 +58,10 @@ pub const PMP_A_FIELD_NAPOT: usize = 3;
 
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
+// Sstc
+
+pub const MENVCFG_STCE: usize = 1 << 63;
+
 // CSRs address
 pub mod csr_address {
     // Machine
@@ -733,6 +737,11 @@ pub fn get_time() -> u64 {
     let time: u64;
     unsafe { asm!("csrr {}, time", out(reg) time ) };
     time
+}
+
+#[inline(always)]
+pub fn set_stimecmp(stimecmp: u64) {
+    unsafe { asm!("csrw stimecmp, {}", in(reg) stimecmp ) };
 }
 
 // aia
