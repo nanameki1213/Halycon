@@ -4,7 +4,7 @@ use crate::vector::E_STORE_AMO_GUEST_PAGE_FAULT;
 use crate::vm::VM;
 use crate::vm::switch_vm_context;
 use crate::{
-    CNT_EXIT_MMIO_L1, CNT_FLUSH_NOTIFY, CNT_L2_PF_MMIO, CNT_REFLECT_L1_TO_L2, CNT_REFLECT_L2_TO_L1,
+    CNT_ENTRY_TO_L2, CNT_EXIT_MMIO_L1, CNT_FLUSH_NOTIFY, CNT_L2_PF_MMIO, CNT_REFLECT_L2_TO_L1,
 };
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
@@ -154,6 +154,7 @@ pub fn timer_flush_to_l1(
         switch_vm_context(parent_vmid, &mut mutex_vmid, &mut mutex_vms);
     } else {
         // print!(".");
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
         start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
         return;
     }
@@ -161,6 +162,8 @@ pub fn timer_flush_to_l1(
 
     drop(mutex_vmid);
     drop(mutex_vms);
+
+    CNT_FLUSH_NOTIFY.fetch_add(1, Ordering::Release);
 
     assert_l1_hypervisor(
         sp,
@@ -231,6 +234,8 @@ pub fn reflect_to_l1(
             );
         }
 
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+
         start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
 
         set_sepc(get_sepc() + inst_len);
@@ -252,7 +257,7 @@ pub fn reflect_to_l1(
                         CNT_L2_PF_MMIO.store(0, Ordering::Release);
                         CNT_REFLECT_L2_TO_L1.store(0, Ordering::Release);
                         CNT_EXIT_MMIO_L1.store(0, Ordering::Release);
-                        CNT_REFLECT_L1_TO_L2.store(0, Ordering::Release);
+                        CNT_ENTRY_TO_L2.store(0, Ordering::Release);
                         CNT_FLUSH_NOTIFY.store(0, Ordering::Release);
                         println!("\nstart measure.");
                     }
@@ -268,8 +273,8 @@ pub fn reflect_to_l1(
                             CNT_EXIT_MMIO_L1.load(Ordering::Acquire)
                         );
                         println!(
-                            "cnt_reflect_l1_to_l2: {}",
-                            CNT_REFLECT_L1_TO_L2.load(Ordering::Acquire)
+                            "cnt_entry_to_l2: {}",
+                            CNT_ENTRY_TO_L2.load(Ordering::Acquire)
                         );
                         println!(
                             "cnt_flush_notify: {}",
@@ -367,7 +372,14 @@ pub fn l1_to_l2(
     let csr = mutex_vms[current_vmid].vcsr;
     if csr.scause as usize == E_STORE_AMO_GUEST_PAGE_FAULT && csr.stval as usize == TARGET_ADDRESS {
         CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
-        CNT_REFLECT_L1_TO_L2.fetch_add(1, Ordering::Release);
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+    }
+
+    #[cfg(feature = "nested_acceleration")]
+    if csr.scause as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE && csr.stval as usize == TARGET_ADDRESS
+    {
+        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
     }
 
     // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);

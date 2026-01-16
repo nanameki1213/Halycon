@@ -165,7 +165,7 @@ static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new
 static CNT_L2_PF_MMIO: AtomicU64 = AtomicU64::new(0);
 static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
 static CNT_EXIT_MMIO_L1: AtomicU64 = AtomicU64::new(0);
-static CNT_REFLECT_L1_TO_L2: AtomicU64 = AtomicU64::new(0);
+static CNT_ENTRY_TO_L2: AtomicU64 = AtomicU64::new(0);
 static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
