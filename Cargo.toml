@@ -14,6 +14,7 @@ members = [
   "support/allocate_pages",
   "support/fat32",
   "support/virtio_core",
+  "support/shmem",
   "xtask",
 ]
 

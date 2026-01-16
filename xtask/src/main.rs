@@ -36,7 +36,7 @@ fn build() -> Result<(), DynError> {
     let target = "riscv64gc-unknown-none-elf";
     // Default settings
     let mut is_release = false;
-    let mut is_nested = false;
+    let mut cargo_features: Vec<String> = Vec::new();
 
     // Path
     let base_output_directory = project_root().join("bin");
@@ -46,14 +46,17 @@ fn build() -> Result<(), DynError> {
 
     let args: Vec<String> = env::args().collect();
     let mut args_iter = args.iter().skip(2);
+
     // Parse options
     while let Some(v) = args_iter.next() {
         if v == "-f" || v == "--features" {
             if let Some(feature_list) = args_iter.next() {
                 for feature in feature_list.split(',') {
-                    let feature_name = feature.trim().to_string();
-                    if feature_name == "nested" {
-                        is_nested = true;
+                    let feature_name = feature.trim();
+                    match feature_name {
+                        "nested" => cargo_features.push("nested_support".to_string()),
+                        "nested_acel" => cargo_features.push("nested_acceleration".to_string()),
+                        _ => cargo_features.push(feature_name.to_string()),
                     }
                 }
             }
@@ -67,7 +70,11 @@ fn build() -> Result<(), DynError> {
 
     fs::create_dir_all(&hypervisor_output_directory)?;
 
-    if is_nested {
+    let need_l1_build = cargo_features
+        .iter()
+        .any(|f| f == "nested_support" || f == "nested_acceleration");
+
+    if need_l1_build {
         fs::create_dir_all(&l1_hypervisor_output_directory)?;
         log::info!("build l1 hypervisor");
         let output_path = l1_hypervisor_output_directory.clone().join("hypervisor");
@@ -112,7 +119,9 @@ fn build() -> Result<(), DynError> {
     } else {
         binary_path.push("debug/hypervisor");
     }
-    build_hypervisor(is_nested, is_release)?;
+
+    build_hypervisor(&cargo_features, is_release)?;
+
     fs::rename(&binary_path, &output_path)?;
 
     // compile device tree script
@@ -138,16 +147,17 @@ fn build() -> Result<(), DynError> {
     Ok(())
 }
 
-fn build_hypervisor(is_nested: bool, is_release: bool) -> Result<(), DynError> {
+fn build_hypervisor(features: &[String], is_release: bool) -> Result<(), DynError> {
     let hypervisor_path = project_root().join("hypervisor");
     let mut hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
 
     if is_release {
         hypervisor_cargo_args.push("--release".to_string());
     }
-    if is_nested {
+
+    if !features.is_empty() {
         hypervisor_cargo_args.push("--features".to_string());
-        hypervisor_cargo_args.push("nested_support".to_string());
+        hypervisor_cargo_args.push(features.join(","));
     }
 
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
@@ -339,10 +349,11 @@ Command List:
   build
   run
 
-  -f, --features [nested]
-                           select options with comma split
+  -f, --features [nested, nested_acel, ...]
+                            select options with comma split
 Examples:
-  cargo xtask build             Build Halycon with default option.
-  cargo xtask build -f nested   Build Halycon with nested support hypervisor and l1_hypervisor."
+  cargo xtask build              Build Halycon with default option.
+  cargo xtask build -f nested    Build Halycon with nested_support.
+  cargo xtask build -f nested_acel    Build Halycon with nested_acceleration."
     )
 }
