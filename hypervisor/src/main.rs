@@ -50,7 +50,7 @@ pub mod shmem_handle {
     impl ShmRingHandle {
         pub unsafe fn from_base(base: usize) -> Self {
             assert!(
-                base % align_of::<ShmRing>() == 0,
+                base % core::mem::align_of::<ShmRing>() == 0,
                 "ShmRing alignment mismatch"
             );
             let ptr = core::ptr::NonNull::new(base as *mut ShmRing).expect("null shm base");

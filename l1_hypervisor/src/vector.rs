@@ -66,8 +66,9 @@ pub fn exception_handler(sp: usize) {
         });
         let vm = &mut locked_vm[*locked_current_vmid];
         let mmio_list = &mut vm.mmio;
+        let stval = get_stval() as usize;
         for byte in buf {
-            write_access(get_stval() as usize, byte as u64, mmio_list);
+            write_access(stval, byte as u64, mmio_list);
         }
         return;
     } else {
