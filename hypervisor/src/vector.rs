@@ -1,29 +1,21 @@
-use crate::BUFFER_COUNT;
 use crate::CURRENT_VMID;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
+#[cfg(feature = "nested_acceleration")]
+use crate::nested::timer_flush_to_l1;
+#[cfg(feature = "nested_support")]
+use crate::nested::{hypervisor_csr_access, l1_to_l2, reflect_to_l1};
 use crate::paging;
 use crate::plic;
 use crate::println;
 use crate::sbi;
-use crate::timer::TIMER_FRQ;
-use crate::timer::disable_timer_intr;
-use crate::timer::start_timer;
-use crate::vm::{Csr, VM};
-use crate::with_shm_ring_mut;
+use crate::vm::VM;
 use alloc::vec::Vec;
-use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
-use arch::riscv::instruction::CsrAccessInstructionType;
 use arch::riscv::{cpu::*, instruction, instruction::Instruction};
 use core::arch::global_asm;
 use mmio_core::MmioEntry;
 use spin::MutexGuard;
-#[cfg(feature = "nested_support")]
-use {
-    crate::HOST_HYPERVISOR_CSR, crate::emulate_csr::HypervisorCsr, crate::emulate_csr::emulate_csr,
-    crate::vm::HypervisorContext, crate::vm::create_l2_vm,
-};
 
 pub const E_ILLEGAL_INSTRUCTION: usize = 2;
 pub const E_INSTRUCTION_GUEST_PAGE_FAULT: usize = 20;
@@ -34,12 +26,11 @@ pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
 
+#[cfg(feature = "nested_acceleration")]
 pub const I_VIRTUAL_SUPERVISOR_SOFTWARE: usize = 2 | INTERRUPT_ID;
+#[cfg(feature = "nested_acceleration")]
 pub const I_SUPERVISOR_TIMER: usize = 5 | INTERRUPT_ID;
 pub const I_MACHINE_EXTERNAL: usize = 11 | INTERRUPT_ID;
-
-const TARGET_ADDRESS: usize = 0x10000000;
-const FLUSH_INTERVAL: usize = 5;
 
 global_asm!(include_str!("./trap.S"));
 
@@ -52,11 +43,11 @@ pub fn setup_vector() {
     unsafe { set_stvec((&supervisor_vector_table as *const _ as usize) as u64) }
 }
 
-fn is_data_abort(scause: usize) -> bool {
+pub fn is_data_abort(scause: usize) -> bool {
     scause == E_STORE_AMO_GUEST_PAGE_FAULT || scause == E_LOAD_GUEST_PAGE_FAULT
 }
 
-fn is_instruction_abort(scause: usize) -> bool {
+pub fn is_instruction_abort(scause: usize) -> bool {
     scause == E_ILLEGAL_INSTRUCTION
         || scause == E_VIRTUAL_INSTRUCTION
         || scause == E_ENVIRONMENT_CALL_FROM_VS_MODE
@@ -102,119 +93,26 @@ pub fn exception_handler(sp: usize) {
         Some(vms) => vms,
         None => panic!("VIRTUAL_MACHINES is locked."),
     };
-    let mut locked_current_vmid = CURRENT_VMID.lock();
+    let locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
-    let stval = get_stval() as usize;
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
 
+    #[cfg(feature = "nested_acceleration")]
     if scause == I_SUPERVISOR_TIMER {
-        if let Some(parent_vmid) = locked_vm[*locked_current_vmid].parent_vmid {
-            disable_timer_intr();
-            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
-            switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
-        } else {
-            // print!(".");
-            start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
-            return;
-        }
-        let csr = locked_vm[*locked_current_vmid].vcsr;
-
-        drop(locked_current_vmid);
-        drop(locked_vm);
-
-        assert_l1_hypervisor(
-            sp,
-            I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
-            get_sepc(),
-            TARGET_ADDRESS as u64,
-            csr.stvec,
-        );
+        timer_flush_to_l1(sp, locked_current_vmid, locked_vm);
+        return;
     }
 
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
-            // return to L2
-            if scause == E_STORE_AMO_GUEST_PAGE_FAULT && stval == TARGET_ADDRESS {
-                let instruction = instruction::Instruction::new(get_htinst() as u32);
-                let rs2 = instruction.get_rs2();
-                let byte = contexts[rs2] as u8;
-
-                with_shm_ring_mut(|r| {
-                    r.push(&[byte]);
-                });
-
-                let mut cnt = BUFFER_COUNT.lock();
-                *cnt += 1;
-                let do_flush = *cnt > 16 || byte == b'\n';
-                if do_flush {
-                    *cnt = 0;
-                }
-                drop(cnt);
-
-                let inst_len = if instruction.is_compression_instruction() {
-                    2
-                } else {
-                    4
-                };
-
-                if do_flush {
-                    load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
-                    switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
-
-                    let csr = locked_vm[parent_vmid].vcsr;
-
-                    drop(locked_current_vmid);
-                    drop(locked_vm);
-
-                    assert_l1_hypervisor(
-                        sp,
-                        I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
-                        get_sepc() + inst_len,
-                        TARGET_ADDRESS as u64,
-                        csr.stvec,
-                    );
-                }
-
-                start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
-
-                set_sepc(get_sepc() + inst_len);
-
+            reflect_to_l1(sp, locked_current_vmid, locked_vm, parent_vmid);
+            if cfg!(feature = "nested_acceleration") {
                 return;
-            }
-
-            // assert to L1
-            load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
-            switch_vm_context(parent_vmid, &mut locked_current_vmid, &mut locked_vm);
-
-            // println!("↓L2 VM ↑L1 VMM");
-            if let Some(hypervisor) = locked_vm[parent_vmid].hypervisor.as_mut() {
-                hypervisor.csr.htinst = get_htinst();
-                hypervisor.csr.htval = get_htval();
             } else {
-                panic!("No L1 Hypervisor.");
+                unreachable!()
             }
-
-            let csr = locked_vm[parent_vmid].vcsr;
-
-            drop(locked_current_vmid);
-            drop(locked_vm);
-
-            if is_data_abort(scause) {
-                // Assert Page Fault to L1 Hypervisor
-                assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
-                // TODO: Consider that L1 changed page table.
-            } else if is_instruction_abort(scause) {
-                assert_l1_hypervisor(sp, get_scause(), get_sepc(), get_stval(), csr.stvec);
-            } else {
-                println!("Exception from S-Mode has occured!");
-                println!("[info] scause: {:#X}", get_scause());
-                println!("[info] stval: {:#X}", get_stval());
-
-                panic!();
-            }
-            // don't return to here.
         }
         None => {
             // L1 VM
@@ -308,7 +206,7 @@ fn instruction_abort_handler(
     sp: usize,
     scause: usize,
     registers: &mut [u64],
-    mut mutex_vmid: MutexGuard<'_, usize>,
+    mutex_vmid: MutexGuard<'_, usize>,
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
 ) {
     let current_vmid = *mutex_vmid;
@@ -336,52 +234,15 @@ fn instruction_abort_handler(
 
                 #[cfg(feature = "nested_support")]
                 if csr_address::is_hypervisor_csr(csr_address) {
-                    // Access to a Hypervisor CSR from an L1 implies that
-                    // a hypervisor is running within the L1 VM.
-                    let mut l1_hypervisor = match vms[current_vmid].hypervisor {
-                        Some(context) => context,
-                        None => {
-                            let vmid = create_l2_vm(current_vmid, vms);
-                            HypervisorContext {
-                                csr: HypervisorCsr::new(),
-                                vmid,
-                            }
-                        }
-                    };
-                    let write_value = match access_type {
-                        CsrAccessInstructionType::CSRRW => registers[rs1],
-                        CsrAccessInstructionType::CSRRS => {
-                            let reg_value = registers[rs1];
-                            let csr_value = l1_hypervisor.csr.get_csr(csr_address);
-                            csr_value | reg_value
-                        }
-                    };
-
-                    emulate_csr(&mut l1_hypervisor, csr_address, rd, write_value, registers);
-
-                    if csr_address == CSR_HGATP_ADDRESS {
-                        let l2_vmid = l1_hypervisor.vmid;
-                        match paging::shadow_map_address_stage2(
-                            true,
-                            true,
-                            true,
-                            l1_hypervisor.csr.hgatp,
-                        ) {
-                            Ok(table_address) => {
-                                vms[l2_vmid].page_table_address = table_address;
-                            }
-                            Err(err) => {
-                                println!(
-                                    "Error: Failed to create shadow page table for L2 VM: {}",
-                                    err
-                                );
-                                return;
-                            }
-                        }
-                    }
-
-                    vms[current_vmid].hypervisor = Some(l1_hypervisor);
-
+                    hypervisor_csr_access(
+                        registers,
+                        current_vmid,
+                        vms,
+                        csr_address,
+                        access_type,
+                        rs1,
+                        rd,
+                    );
                     return;
                 }
 
@@ -396,57 +257,8 @@ fn instruction_abort_handler(
             }
             #[cfg(feature = "nested_support")]
             if instruction.is_sret() {
-                // println!("↓L1 VM ↑L2 VM");
-                // L1 Hypervisor trying to context switching to L2 VM
-                let l1_hypervisor = match vms[current_vmid].hypervisor {
-                    Some(hypervisor) => hypervisor,
-                    None => {
-                        let vmid = create_l2_vm(current_vmid, vms);
-                        HypervisorContext {
-                            csr: HypervisorCsr::new(),
-                            vmid,
-                        }
-                    }
-                };
-                let l2_vmid = l1_hypervisor.vmid;
-                if l1_hypervisor.csr.hstatus as usize & HSTATUS_SPV == 0 {
-                    // L1 Hypervisor must be set this bit
-                    panic!("Invalid SRET");
-                }
-
-                // Switch Hypervisor Context from L0 to L1
-                store_l0_hypervisor_context();
-                load_hypervisor_context(l1_hypervisor.csr);
-
-                // Switch Page Table from L1 VM to L2 VM
-                let table_address = vms[l1_hypervisor.vmid].page_table_address;
-                let mut hgatp = match paging::DEFAULT_TABLE_LEVEL {
-                    3 => 0b1000 << 60,
-                    4 => 0b1001 << 60,
-                    5 => 0b1010 << 60,
-                    _ => unreachable!(),
-                };
-                hgatp |= (table_address >> 12) & SATP_PPN_MASK;
-                set_hgatp(hgatp as u64);
-
-                // Set L2 VM entry point
-                set_sepc(get_vsepc());
-
-                // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
-
-                // Change Current VMID from L1 VM to L2 VM
-                switch_vm_context(l2_vmid, &mut mutex_vmid, &mut mutex_vms);
-
-                drop(mutex_vmid);
-                drop(mutex_vms);
-
-                unsafe extern "C" {
-                    fn vm_entry(sp: usize);
-                }
-                unsafe {
-                    vm_entry(sp);
-                }
-                // don't return to here
+                l1_to_l2(sp, mutex_vmid, mutex_vms);
+                unreachable!()
             }
 
             println!("[info] VIRTUAL INSTRUCTION: {:#x}", get_stval());
@@ -479,86 +291,4 @@ fn instruction_abort_handler(
             panic!();
         }
     };
-}
-
-fn switch_vm_context(
-    vmid: usize,
-    mutex_vmid: &mut MutexGuard<'_, usize>,
-    mutex_vms: &mut MutexGuard<'_, Vec<VM>>,
-) {
-    let current_vm = &mut (*mutex_vms)[**mutex_vmid];
-
-    let csr = Csr {
-        stvec: get_vstvec(),
-        sepc: get_vsepc(),
-        sstatus: get_vsstatus(),
-        scause: get_vscause(),
-        stval: get_vstval(),
-        satp: get_vsatp(),
-    };
-    current_vm.vcsr = csr;
-
-    let next_csr = (*mutex_vms)[vmid].vcsr;
-
-    set_vstvec(next_csr.stvec);
-    set_vsepc(next_csr.sepc);
-    set_vsstatus(next_csr.sstatus);
-    set_vscause(next_csr.scause);
-    set_vstval(next_csr.stval);
-    set_vsatp(next_csr.satp);
-
-    **mutex_vmid = vmid;
-}
-
-#[cfg(feature = "nested_support")]
-fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: u64) -> ! {
-    set_vscause(vscause);
-    set_vsepc(vsepc);
-    set_vstval(vstval);
-    set_sepc(sepc);
-
-    unsafe extern "C" {
-        fn vm_entry(sp: usize);
-    }
-    unsafe {
-        vm_entry(sp);
-    }
-    // don't return to here
-    unreachable!()
-}
-
-#[cfg(feature = "nested_support")]
-fn store_l0_hypervisor_context() {
-    let mut locked_csr = HOST_HYPERVISOR_CSR.lock();
-    let host_csr = HypervisorCsr {
-        hstatus: get_hstatus(),
-        hedeleg: get_hedeleg(),
-        hideleg: get_hideleg(),
-        hie: get_hie(),
-        hcounteren: get_hcounteren(),
-        hgeie: get_hgeie(),
-        htval: get_htval(),
-        hip: get_hip(),
-        hvip: get_hvip(),
-        htinst: get_htinst(),
-        henvcfg: get_henvcfg(),
-        hgatp: get_hgatp(),
-    };
-    *locked_csr = host_csr;
-}
-
-#[cfg(feature = "nested_support")]
-fn load_hypervisor_context(csr: HypervisorCsr) {
-    set_hstatus(csr.hstatus);
-    set_hedeleg(csr.hedeleg);
-    set_hideleg(csr.hideleg);
-    set_hie(csr.hie);
-    set_hcounteren(csr.hcounteren);
-    set_hgeie(csr.hgeie);
-    set_htval(csr.htval);
-    set_hip(csr.hip);
-    set_hvip(csr.hvip);
-    set_htinst(csr.htinst);
-    set_henvcfg(csr.henvcfg);
-    set_hgatp(csr.hgatp);
 }
