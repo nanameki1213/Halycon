@@ -22,3 +22,4 @@ shmem = { version = "0.1.0", path = "../support/shmem" }
 
 [features]
 nested_support = []
+nested_acceleration = ["nested_support"]

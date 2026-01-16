@@ -1,14 +1,9 @@
 extern crate alloc;
 
-use crate::SHMEM_SIZE;
-use crate::SHMEM_VIRTUAL_ADDRESS;
 use crate::VIRTUAL_MACHINES;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
-use crate::init_shm_ring;
 use crate::paging;
-use crate::paging::PAGE_SIZE;
-use crate::paging::add_mapping_stage2;
 use crate::println;
 use alloc::string::ToString;
 use alloc::vec::Vec;
@@ -149,22 +144,27 @@ pub fn create_vm<T: BlockDevice>(
     hgatp |= (table_address >> 12) & SATP_PPN_MASK;
     set_hgatp(hgatp as u64);
 
-    let shmem_address = allocate_pages(SHMEM_SIZE / PAGE_SIZE, PAGE_SIZE);
-    if shmem_address.is_null() {
-        panic!("Out of memory for share memory.");
+    #[cfg(feature = "nested_acceleration")]
+    {
+        use crate::shmem_handle::*;
+
+        let shmem_address = allocate_pages(SHMEM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
+        if shmem_address.is_null() {
+            panic!("Out of memory for share memory.");
+        }
+        paging::add_mapping_stage2(
+            shmem_address as usize,
+            SHMEM_VIRTUAL_ADDRESS,
+            SHMEM_SIZE,
+            table_address,
+            paging::DEFAULT_TABLE_LEVEL,
+            true,
+            true,
+            true,
+        )
+        .expect("Failed to mapping");
+        init_shm_ring(shmem_address as usize);
     }
-    add_mapping_stage2(
-        shmem_address as usize,
-        SHMEM_VIRTUAL_ADDRESS,
-        SHMEM_SIZE,
-        table_address,
-        paging::DEFAULT_TABLE_LEVEL,
-        true,
-        true,
-        true,
-    )
-    .expect("Failed to mapping");
-    init_shm_ring(shmem_address as usize);
 
     unsafe {
         riscv64::hfence_gvma_all();
@@ -233,11 +233,27 @@ pub fn create_vm<T: BlockDevice>(
     vmid
 }
 
-#[cfg(feature = "nested_support")]
-pub fn create_l2_vm(parent_vmid: usize, vms: &mut Vec<VM>) -> usize {
-    let new_vmid = vms.len();
-    let l2_vm = VM::new(new_vmid, 0, 0, 0, 0, 0, 0, Vec::new(), Some(parent_vmid));
-    vms.push(l2_vm);
+pub fn switch_vm_context(vmid: usize, current_vmid: &mut usize, vms: &mut Vec<VM>) {
+    let current_vm = &mut vms[*current_vmid];
 
-    new_vmid
+    let csr = Csr {
+        stvec: get_vstvec(),
+        sepc: get_vsepc(),
+        sstatus: get_vsstatus(),
+        scause: get_vscause(),
+        stval: get_vstval(),
+        satp: get_vsatp(),
+    };
+    current_vm.vcsr = csr;
+
+    let next_csr = vms[vmid].vcsr;
+
+    set_vstvec(next_csr.stvec);
+    set_vsepc(next_csr.sepc);
+    set_vsstatus(next_csr.sstatus);
+    set_vscause(next_csr.scause);
+    set_vstval(next_csr.stval);
+    set_vsatp(next_csr.satp);
+
+    *current_vmid = vmid;
 }
