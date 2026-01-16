@@ -131,7 +131,7 @@ pub fn exception_handler(sp: usize) {
         panic!();
     }
 
-    let mut instruction = Instruction::new(get_htinst() as u32);
+    let instruction = Instruction::new(get_htinst() as u32);
 
     // next instruction
     let mut sepc = get_sepc();

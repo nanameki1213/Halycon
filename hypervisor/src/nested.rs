@@ -246,7 +246,7 @@ pub fn reflect_to_l1(
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT {
         match get_stval() as usize {
             MEASURE_NOTIFY_ADDRESS => {
-                let mut instruction = Instruction::new(get_htinst() as u32);
+                let instruction = Instruction::new(get_htinst() as u32);
                 let contexts =
                     unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
                 let rs2 = instruction.get_rs2();
