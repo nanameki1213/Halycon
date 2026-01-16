@@ -132,8 +132,6 @@ pub fn hypervisor_csr_access(
     }
 
     vms[current_vmid].hypervisor = Some(l1_hypervisor);
-
-    return;
 }
 
 #[cfg(feature = "nested_acceleration")]
