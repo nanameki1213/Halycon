@@ -334,6 +334,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     menvcfg |= MENVCFG_STCE as u64;
     set_menvcfg(menvcfg);
 
+    let mut mcounteren = get_mcounteren();
+    mcounteren |= MCOUNTEREN_CY;
+    set_mcounteren(mcounteren);
+
     let mut mstatus = get_mstatus();
     mstatus |= MSTATUS_SIE as u64;
     mstatus |= MSTATUS_MIE as u64;
