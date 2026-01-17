@@ -1,1 +1,1 @@
-echo hello,world
+mw.l 0xd0000000 1
