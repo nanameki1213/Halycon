@@ -84,7 +84,7 @@ impl VM {
 
 pub fn create_vm<T: BlockDevice>(mut fs: Fat32<T>, mmio: Vec<MmioEntry>) -> usize {
     const RAM_VIRTUAL_BASE: usize = 0x80000000;
-    const RAM_SIZE: usize = 0x8000000;
+    const RAM_SIZE: usize = 0x10000000;
 
     let ram_physical_base_address = allocate_pages(RAM_SIZE / paging::PAGE_SIZE, paging::PAGE_SIZE);
     if ram_physical_base_address.is_null() {
