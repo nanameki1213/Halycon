@@ -42,6 +42,7 @@ fn build() -> Result<(), DynError> {
     let base_output_directory = project_root().join("bin");
     let hypervisor_output_directory = base_output_directory.clone().join("disk");
     let l1_hypervisor_output_directory = base_output_directory.clone().join("l1_disk");
+    let l2_disk = base_output_directory.clone().join("l2_disk");
     let script_path = project_root().join("scripts");
 
     let args: Vec<String> = env::args().collect();
@@ -76,6 +77,7 @@ fn build() -> Result<(), DynError> {
 
     if need_l1_build {
         fs::create_dir_all(&l1_hypervisor_output_directory)?;
+        fs::create_dir_all(&l2_disk)?;
         log::info!("build l1 hypervisor");
         let output_path = l1_hypervisor_output_directory.clone().join("hypervisor");
         let mut binary_path = project_root().join(format!("target/{}", target));
@@ -92,6 +94,19 @@ fn build() -> Result<(), DynError> {
         let dts_path = script_path.clone().join("virt_L1hypervisor.dts");
         let output_path = l1_hypervisor_output_directory.clone().join("virt.dtb");
         device_tree::compile_dts(&dts_path, &output_path)?;
+
+        // compile boot script
+        log::info!("compile u-boot boot script for L2 VM");
+        let binary_path = script_path.clone().join("boot_L2hypervisor.script");
+        let output_path = l2_disk.clone().join("boot.scr");
+        mkimage::uboot_mkimage(&binary_path, &output_path)?;
+
+        let entries = read_dir_entries(&l2_disk)?;
+        let files: Vec<&Path> = entries.iter().map(|e| e.as_path()).collect();
+        create_disk::create_fat32_disk(
+            &l1_hypervisor_output_directory.clone().join("vm.img"),
+            &files,
+        )?;
 
         // compile boot script
         log::info!("compile u-boot boot script for L1 Hypervisor");

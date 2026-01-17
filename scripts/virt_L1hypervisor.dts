@@ -8,7 +8,7 @@
 
   memory@80000000 {
     device_type = "memory";
-    reg = <0x0 0x80000000 0x0 0x8000000>;
+    reg = <0x0 0x80000000 0x0 0x10000000>;
   };
 
   cpus {
@@ -60,6 +60,11 @@
 		clock-frequency = <0x384000>;
 		reg = <0x0 0x10000000 0x0 0x100>;
 		compatible = "ns16550a";
+  };
+
+  virtio_mmio@10001000 {
+    reg = <0x0 0x10001000 0x0 0x1000>;
+    compatible = "virtio,mmio";
   };
 
   timer {
