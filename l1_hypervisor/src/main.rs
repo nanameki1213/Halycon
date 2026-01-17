@@ -11,6 +11,7 @@ mod plic;
 mod vector;
 mod vm;
 mod virtual_devices {
+    pub mod virtio;
     pub mod serial {
         pub mod ns16550;
     }
@@ -21,10 +22,13 @@ mod mmio {
 
 use crate::mmio::ns16550::NS16550_ADDR;
 use alloc::boxed::Box;
+use alloc::string::ToString;
+use alloc::vec;
 use alloc::vec::Vec;
 use allocate_pages::allocate_pages;
 use arch::riscv::cpu::*;
 use arch::riscv::sbi;
+use block::mem_blk::MemBlk;
 use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
@@ -36,7 +40,7 @@ use shmem::ShmRing;
 use spin::{Mutex, Once};
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
-use virtio::VirtioMmio;
+use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
 use vm::VM;
 
 // guest device
@@ -203,7 +207,16 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         host_block_device.expect("No block device for hypervisor.")
     };
 
-    let fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
+    let mut fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
+
+    let vm_img_file_name = "VM.IMG".to_string();
+    let file_size = fs
+        .get_file_size(&vm_img_file_name)
+        .expect("Failed to get file size.");
+    let mut buf = vec![0u8; file_size];
+    fs.read_file(&vm_img_file_name, &mut buf)
+        .expect("Failed to read vm disk image.");
+    let mem_block = MemBlk::new(&buf);
 
     // set_mie(get_mie() & (1 << MIE_MEIE_OFFSET));
     // println!("[setup] mie");
@@ -251,6 +264,17 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         Box::new(virtual_devices::serial::ns16550::Ns16550),
     );
     mmio.push(serial_entry);
+
+    let virtio_entry = MmioEntry::new(
+        VIRTIO_MMIO_DEFAULT_ADDRESS,
+        0x1000,
+        Box::new(
+            virtual_devices::virtio::virtio_mmio::VirtioMmioTransport::new(
+                virtual_devices::virtio::virtio_blk::VirtioBlkDevice::new(mem_block),
+            ),
+        ),
+    );
+    mmio.push(virtio_entry);
 
     let stack_size = 0x2000;
     let stack_memory = allocate_pages(stack_size / paging::PAGE_SIZE, paging::PAGE_SIZE);
