@@ -1,3 +1,4 @@
+use crate::CYCLE;
 use crate::paging;
 use crate::println;
 use crate::vector::E_STORE_AMO_GUEST_PAGE_FAULT;
@@ -148,6 +149,7 @@ pub fn timer_flush_to_l1(
     mut mutex_vmid: MutexGuard<'_, usize>,
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
 ) {
+    CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
     if let Some(parent_vmid) = mutex_vms[*mutex_vmid].parent_vmid {
         disable_timer_intr();
         load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
@@ -259,6 +261,7 @@ pub fn reflect_to_l1(
                         CNT_EXIT_MMIO_L1.store(0, Ordering::Release);
                         CNT_ENTRY_TO_L2.store(0, Ordering::Release);
                         CNT_FLUSH_NOTIFY.store(0, Ordering::Release);
+                        CYCLE.store(get_cycle(), Ordering::Release);
                         println!("\nstart measure.");
                     }
                     MEASURE_SHOW => {
@@ -287,6 +290,7 @@ pub fn reflect_to_l1(
                             "cnt_flush_notify: {}",
                             CNT_FLUSH_NOTIFY.load(Ordering::Acquire)
                         );
+                        println!("cycle: {}", get_cycle() - CYCLE.load(Ordering::Acquire));
                     }
                     _ => {}
                 }

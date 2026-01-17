@@ -167,6 +167,7 @@ static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
 static CNT_EXIT_MMIO_L1: AtomicU64 = AtomicU64::new(0);
 static CNT_ENTRY_TO_L2: AtomicU64 = AtomicU64::new(0);
 static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
+static CYCLE: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
