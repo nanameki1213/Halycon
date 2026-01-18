@@ -153,8 +153,8 @@ pub fn create_vm<T: BlockDevice>(mut fs: Fat32<T>, mmio: Vec<MmioEntry>) -> usiz
     fs.read_file(&dtb_file_name, buf)
         .expect("Failed to read file");
 
-    let mut locked_vms = VIRTUAL_MACHINES.lock();
-    let vmid = locked_vms.len();
+    let mut vms = VIRTUAL_MACHINES.write();
+    let vmid = vms.len();
     let vm = VM::new(
         vmid,
         table_address,
@@ -165,7 +165,7 @@ pub fn create_vm<T: BlockDevice>(mut fs: Fat32<T>, mmio: Vec<MmioEntry>) -> usiz
         virtual_dtb_pointer,
         mmio,
     );
-    locked_vms.push(vm);
+    vms.push(vm);
 
     vmid
 }

@@ -14,6 +14,7 @@ pub const MSTATUS_MPRV: usize = 1 << 17;
 pub const MSTATUS_TSR: usize = 1 << 22;
 pub const MSTATUS_MPV: usize = 1 << 39;
 
+pub const SSTATUS_SIE: u64 = 1 << 1;
 pub const SSTATUS_SPP: usize = 1 << 8;
 
 pub const HSTATUS_VSBE: usize = 1 << 5;

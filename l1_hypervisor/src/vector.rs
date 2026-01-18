@@ -22,6 +22,29 @@ pub const I_VIRTUAL_SUPERVISOR_SOFTWARE: usize = 2 | INTERRUPT_ID;
 
 global_asm!(include_str!("./trap.S"));
 
+pub fn enable_intr() {
+    set_sstatus(get_sstatus() | SSTATUS_SIE);
+}
+
+pub fn disable_intr() {
+    set_sstatus(get_sstatus() & !SSTATUS_SIE);
+}
+
+struct IrqSafe;
+
+impl IrqSafe {
+    fn new() -> Self {
+        disable_intr();
+        Self
+    }
+}
+
+impl Drop for IrqSafe {
+    fn drop(&mut self) {
+        enable_intr();
+    }
+}
+
 pub fn setup_vector() {
     unsafe extern "C" {
         static supervisor_vector_table: *const u8;
@@ -41,22 +64,12 @@ fn is_instruction_abort(scause: usize) -> bool {
 
 #[unsafe(no_mangle)]
 pub fn exception_handler(sp: usize) {
-    let mut locked_vm = match VIRTUAL_MACHINES.try_lock() {
-        Some(vms) => vms,
-        None => panic!("VIRTUAL_MACHINES is locked."),
-    };
-    let locked_current_vmid = CURRENT_VMID.lock();
-
     let scause = get_scause() as usize;
 
     let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     if is_data_abort(scause) {
-        // data abort
-        let vm = &mut locked_vm[*locked_current_vmid];
-        let mmio_list = &mut vm.mmio;
-        data_abort_handler(scause, contexts, mmio_list);
+        data_abort_handler(scause, contexts);
     } else if is_instruction_abort(scause) {
-        // instruction abort
         instruction_abort_handler(scause, contexts);
     } else if scause == I_VIRTUAL_SUPERVISOR_SOFTWARE {
         let buf = with_shm_ring(|r| {
@@ -64,7 +77,10 @@ pub fn exception_handler(sp: usize) {
             let n = r.pop(&mut buf);
             buf[0..n].to_vec()
         });
-        let vm = &mut locked_vm[*locked_current_vmid];
+        let _ = IrqSafe::new();
+        let mut vms = VIRTUAL_MACHINES.write();
+        let current_vmid = CURRENT_VMID.write();
+        let vm = &mut vms[*current_vmid];
         let mmio_list = &mut vm.mmio;
         let stval = get_stval() as usize;
         for byte in buf {
@@ -127,17 +143,27 @@ fn read_access(
     panic!();
 }
 
-fn data_abort_handler(scause: usize, registers: &mut [u64], mmios: &mut Vec<MmioEntry>) {
+fn data_abort_handler(scause: usize, registers: &mut [u64]) {
     let instruction = instruction::Instruction::new(get_htinst() as u32);
+    let vmid = CURRENT_VMID.read();
     match scause {
         E_STORE_AMO_GUEST_PAGE_FAULT => {
-            // write access
+            let _ = IrqSafe::new();
+
+            let mut vms = VIRTUAL_MACHINES.write();
+            let vm = &mut vms[*vmid];
+            let mmios = &mut vm.mmio;
+
             let stval = get_stval() as usize;
             let register_idx = instruction.get_rs2();
             let value = registers[register_idx];
             write_access(stval, value, mmios);
         }
         E_LOAD_GUEST_PAGE_FAULT => {
+            let vms = VIRTUAL_MACHINES.read();
+            let vm = &vms[*vmid];
+            let mmios = &vm.mmio;
+
             let stval = get_stval() as usize;
             let register_idx = instruction.get_rd();
             read_access(stval, register_idx, registers, mmios);

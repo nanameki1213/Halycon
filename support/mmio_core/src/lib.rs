@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use core::fmt::Debug;
 
-pub trait MmioHandler: Send + Debug {
+pub trait MmioHandler: Send + Sync + Debug {
     fn read(&self, offset: usize) -> usize;
     fn write(&mut self, offset: usize, value: usize);
 }

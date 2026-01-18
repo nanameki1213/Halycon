@@ -67,7 +67,7 @@ impl<D: VirtioDevice> VirtioMmioTransport<D> {
     }
 }
 
-impl<D: VirtioDevice + Debug + Send> MmioHandler for VirtioMmioTransport<D> {
+impl<D: VirtioDevice + Debug + Send + Sync> MmioHandler for VirtioMmioTransport<D> {
     fn read(&self, offset: usize) -> usize {
         let register = self.device.mmio_state();
 

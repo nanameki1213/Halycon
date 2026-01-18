@@ -37,6 +37,7 @@ use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
 use shmem::ShmRing;
+use spin::RwLock;
 use spin::{Mutex, Once};
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
@@ -99,10 +100,10 @@ impl ShmRingHandle {
 
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
 static SHM_RING: Once<Mutex<ShmRingHandle>> = Once::new();
-static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
+static CURRENT_VMID: RwLock<usize> = RwLock::new(0);
 
 lazy_static! {
-    pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
+    pub static ref VIRTUAL_MACHINES: RwLock<Vec<VM>> = RwLock::new(Vec::new());
 }
 
 pub fn init_shm_ring(base: usize) {
@@ -288,8 +289,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let entry_point: usize;
     let dtb_pointer: usize;
     {
-        let locked_vm = { VIRTUAL_MACHINES.lock() };
-        let vm = &locked_vm[vmid];
+        let vms = { VIRTUAL_MACHINES.read() };
+        let vm = &vms[vmid];
 
         entry_point = vm.get_entry_point() as usize;
         dtb_pointer = vm.get_dtb_pointer();
