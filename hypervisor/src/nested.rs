@@ -187,6 +187,7 @@ pub fn reflect_to_l1(
         *cnt += 1;
         let do_flush = *cnt > 16 || byte == b'\n';
         if do_flush {
+            disable_timer_intr();
             *cnt = 0;
         }
         drop(cnt);
