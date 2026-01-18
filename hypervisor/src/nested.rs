@@ -206,7 +206,7 @@ pub fn reflect_to_l1(
 
         let mut cnt = BUFFER_COUNT.lock();
         *cnt += 1;
-        let do_flush = *cnt > 16;
+        let do_flush = *cnt >= 16;
         if do_flush {
             *cnt = 0;
         }
