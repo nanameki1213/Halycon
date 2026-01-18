@@ -1,4 +1,5 @@
 #![feature(riscv_ext_intrinsics)]
+#![feature(stmt_expr_attributes)]
 #![no_std]
 #![no_main]
 
@@ -158,6 +159,8 @@ static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_acceleration")]
 static SHM_RING: Once<Mutex<shmem_handle::ShmRingHandle>> = Once::new();
 #[cfg(feature = "nested_acceleration")]
+static TIMER_INTR_PENDING: Mutex<bool> = Mutex::new(false);
+#[cfg(feature = "nested_acceleration")]
 static BUFFER_COUNT: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
@@ -167,6 +170,7 @@ static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
 static CNT_EXIT_MMIO_L1: AtomicU64 = AtomicU64::new(0);
 static CNT_ENTRY_TO_L2: AtomicU64 = AtomicU64::new(0);
 static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
+static CYCLE: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
@@ -333,6 +337,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     let mut menvcfg = get_menvcfg();
     menvcfg |= MENVCFG_STCE as u64;
     set_menvcfg(menvcfg);
+
+    let mut mcounteren = get_mcounteren();
+    mcounteren |= MCOUNTEREN_CY;
+    set_mcounteren(mcounteren);
 
     let mut mstatus = get_mstatus();
     mstatus |= MSTATUS_SIE as u64;
