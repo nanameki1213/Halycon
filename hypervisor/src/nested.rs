@@ -397,8 +397,8 @@ pub fn l1_to_l2(
     if get_vscause() as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE
         && get_vstval() as usize == TARGET_ADDRESS
     {
-        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::AcqRel);
-        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::AcqRel);
+        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
     }
 
     // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
