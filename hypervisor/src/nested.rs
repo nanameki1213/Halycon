@@ -262,6 +262,13 @@ pub fn reflect_to_l1(
                         println!("\nstart measure.");
                     }
                     MEASURE_SHOW => {
+                        #[cfg(feature = "nested_acceleration")]
+                        let is_empty = with_shm_ring(|r| r.is_empty());
+                        #[cfg(feature = "nested_acceleration")]
+                        if !is_empty {
+                            return;
+                        }
+
                         println!("End of measure.");
                         println!("cnt_l2_pf_mmio: {}", CNT_L2_PF_MMIO.load(Ordering::Acquire));
                         println!(
