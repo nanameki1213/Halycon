@@ -1,4 +1,5 @@
 #![feature(riscv_ext_intrinsics)]
+#![feature(stmt_expr_attributes)]
 #![no_std]
 #![no_main]
 
@@ -157,6 +158,8 @@ static VIRTUAL_UART_DEVICE: Mutex<Uart> = Mutex::new(Uart::new());
 static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_acceleration")]
 static SHM_RING: Once<Mutex<shmem_handle::ShmRingHandle>> = Once::new();
+#[cfg(feature = "nested_acceleration")]
+static TIMER_INTR_PENDING: Mutex<bool> = Mutex::new(false);
 #[cfg(feature = "nested_acceleration")]
 static BUFFER_COUNT: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]

@@ -17,6 +17,7 @@ use spin::MutexGuard;
 #[cfg(feature = "nested_acceleration")]
 use {
     crate::BUFFER_COUNT,
+    crate::TIMER_INTR_PENDING,
     crate::shmem_handle::*,
     crate::timer::{TIMER_FRQ, disable_timer_intr, start_timer},
     crate::vector::I_VIRTUAL_SUPERVISOR_SOFTWARE,
@@ -150,14 +151,15 @@ pub fn timer_flush_to_l1(
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
 ) {
     CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
+    disable_timer_intr();
     if let Some(parent_vmid) = mutex_vms[*mutex_vmid].parent_vmid {
-        disable_timer_intr();
         load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
         switch_vm_context(parent_vmid, &mut mutex_vmid, &mut mutex_vms);
     } else {
         // print!(".");
         CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
-        start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
+        let mut flag = TIMER_INTR_PENDING.lock();
+        *flag = true;
         return;
     }
     let csr = mutex_vms[*mutex_vmid].vcsr;
@@ -262,6 +264,10 @@ pub fn reflect_to_l1(
                         CNT_ENTRY_TO_L2.store(0, Ordering::Release);
                         CNT_FLUSH_NOTIFY.store(0, Ordering::Release);
                         CYCLE.store(get_cycle(), Ordering::Release);
+                        #[cfg(feature = "nested_acceleration")]
+                        {
+                            *(BUFFER_COUNT.lock()) = 0;
+                        }
                         println!("\nstart measure.");
                     }
                     MEASURE_SHOW => {
@@ -380,17 +386,19 @@ pub fn l1_to_l2(
     // Set L2 VM entry point
     set_sepc(get_vsepc());
 
-    let csr = mutex_vms[current_vmid].vcsr;
-    if csr.scause as usize == E_STORE_AMO_GUEST_PAGE_FAULT && csr.stval as usize == TARGET_ADDRESS {
+    if get_vscause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
+        && get_vstval() as usize == TARGET_ADDRESS
+    {
         CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
         CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
     }
 
     #[cfg(feature = "nested_acceleration")]
-    if csr.scause as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE && csr.stval as usize == TARGET_ADDRESS
+    if get_vscause() as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE
+        && get_vstval() as usize == TARGET_ADDRESS
     {
-        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
-        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::AcqRel);
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::AcqRel);
     }
 
     // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);

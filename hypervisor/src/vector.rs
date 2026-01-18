@@ -1,4 +1,6 @@
 use crate::CURRENT_VMID;
+#[cfg(feature = "nested_acceleration")]
+use crate::TIMER_INTR_PENDING;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
 #[cfg(feature = "nested_acceleration")]
@@ -107,6 +109,14 @@ pub fn exception_handler(sp: usize) {
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
+            #[cfg(feature = "nested_acceleration")]
+            let flag = *(TIMER_INTR_PENDING.lock());
+            #[cfg(feature = "nested_acceleration")]
+            if flag {
+                *(TIMER_INTR_PENDING.lock()) = false;
+                timer_flush_to_l1(sp, locked_current_vmid, locked_vm);
+                return;
+            }
             reflect_to_l1(sp, locked_current_vmid, locked_vm, parent_vmid);
             return;
         }
