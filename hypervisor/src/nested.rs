@@ -402,8 +402,7 @@ pub fn l1_to_l2(
         CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
     }
 
-    #[cfg(feature = "nested_acceleration")]
-    #[cfg(feature = "performance_monitor")]
+    #[cfg(all(feature = "nested_acceleration", feature = "performance_monitor"))]
     if get_vscause() as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE
         && get_vstval() as usize == TARGET_ADDRESS
     {

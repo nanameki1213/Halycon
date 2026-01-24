@@ -271,14 +271,17 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     let mut fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
 
-    let vm_img_file_name = "VM.IMG".to_string();
-    let file_size = fs
-        .get_file_size(&vm_img_file_name)
-        .expect("Failed to get file size.");
-    let mut buf = vec![0u8; file_size];
-    fs.read_file(&vm_img_file_name, &mut buf)
-        .expect("Failed to read vm disk image.");
-    let mem_block = MemBlk::new(&buf);
+    #[cfg(feature = "nested_support")]
+    let mem_block = {
+        let vm_img_file_name = "VM.IMG".to_string();
+        let file_size = fs
+            .get_file_size(&vm_img_file_name)
+            .expect("Failed to get file size.");
+        let mut buf = vec![0u8; file_size];
+        fs.read_file(&vm_img_file_name, &mut buf)
+            .expect("Failed to read vm disk image.");
+        MemBlk::new(&buf)
+    };
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -391,16 +394,19 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     );
     mmio.push(serial_entry);
 
-    let virtio_entry = MmioEntry::new(
-        VIRTIO_MMIO_DEFAULT_ADDRESS,
-        0x1000,
-        Box::new(
-            virtual_devices::virtio::virtio_mmio::VirtioMmioTransport::new(
-                virtual_devices::virtio::virtio_blk::VirtioBlkDevice::new(mem_block),
+    #[cfg(feature = "nested_support")]
+    {
+        let virtio_entry = MmioEntry::new(
+            VIRTIO_MMIO_DEFAULT_ADDRESS,
+            0x1000,
+            Box::new(
+                virtual_devices::virtio::virtio_mmio::VirtioMmioTransport::new(
+                    virtual_devices::virtio::virtio_blk::VirtioBlkDevice::new(mem_block),
+                ),
             ),
-        ),
-    );
-    mmio.push(virtio_entry);
+        );
+        mmio.push(virtio_entry);
+    }
 
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;

@@ -110,13 +110,16 @@ pub fn exception_handler(sp: usize) {
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
             #[cfg(feature = "nested_acceleration")]
-            let flag = *(TIMER_INTR_PENDING.lock());
-            #[cfg(feature = "nested_acceleration")]
-            if flag {
-                *(TIMER_INTR_PENDING.lock()) = false;
-                timer_flush_to_l1(sp, locked_current_vmid, locked_vm);
-                return;
+            {
+                let mut flag = TIMER_INTR_PENDING.lock();
+                if *flag {
+                    *flag = false;
+                    drop(flag);
+                    timer_flush_to_l1(sp, locked_current_vmid, locked_vm);
+                    return;
+                }
             }
+
             reflect_to_l1(sp, locked_current_vmid, locked_vm, parent_vmid);
             return;
         }
