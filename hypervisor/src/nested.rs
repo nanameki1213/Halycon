@@ -1,17 +1,20 @@
-use crate::CYCLE;
 use crate::paging;
+#[cfg(feature = "performance_monitor")]
+use crate::performance_monitor::{
+    CNT_ENTRY_TO_L2, CNT_EXIT_MMIO_L1, CNT_FLUSH_NOTIFY, CNT_L2_PF_MMIO, CNT_REFLECT_L2_TO_L1,
+    CYCLE, MEASURE_NOTIFY_ADDRESS, MEASURE_RESET, MEASURE_SHOW,
+};
 use crate::println;
 use crate::vector::E_STORE_AMO_GUEST_PAGE_FAULT;
 use crate::vm::VM;
 use crate::vm::switch_vm_context;
-use crate::{
-    CNT_ENTRY_TO_L2, CNT_EXIT_MMIO_L1, CNT_FLUSH_NOTIFY, CNT_L2_PF_MMIO, CNT_REFLECT_L2_TO_L1,
-};
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::CsrAccessInstructionType;
+#[cfg(feature = "performance_monitor")]
 use arch::riscv::instruction::Instruction;
+#[cfg(feature = "performance_monitor")]
 use core::sync::atomic::Ordering;
 use spin::MutexGuard;
 #[cfg(feature = "nested_acceleration")]
@@ -30,10 +33,6 @@ use {
 const TARGET_ADDRESS: usize = 0x10000000;
 #[cfg(feature = "nested_acceleration")]
 const FLUSH_INTERVAL: usize = 5;
-
-const MEASURE_NOTIFY_ADDRESS: usize = 0xd000_0000;
-const MEASURE_RESET: usize = 0;
-const MEASURE_SHOW: usize = 1;
 
 pub fn assert_l1_hypervisor(sp: usize, vscause: u64, vsepc: u64, vstval: u64, sepc: u64) -> ! {
     set_vscause(vscause);
@@ -150,6 +149,7 @@ pub fn timer_flush_to_l1(
     mut mutex_vmid: MutexGuard<'_, usize>,
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
 ) {
+    #[cfg(feature = "performance_monitor")]
     CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
     disable_timer_intr();
     if let Some(parent_vmid) = mutex_vms[*mutex_vmid].parent_vmid {
@@ -157,6 +157,7 @@ pub fn timer_flush_to_l1(
         switch_vm_context(parent_vmid, &mut mutex_vmid, &mut mutex_vms);
     } else {
         // print!(".");
+        #[cfg(feature = "performance_monitor")]
         CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
         let mut flag = TIMER_INTR_PENDING.lock();
         *flag = true;
@@ -167,6 +168,7 @@ pub fn timer_flush_to_l1(
     drop(mutex_vmid);
     drop(mutex_vms);
 
+    #[cfg(feature = "performance_monitor")]
     CNT_FLUSH_NOTIFY.fetch_add(1, Ordering::Release);
 
     assert_l1_hypervisor(
@@ -187,6 +189,7 @@ pub fn reflect_to_l1(
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
         && get_stval() as usize == TARGET_ADDRESS
     {
+        #[cfg(feature = "performance_monitor")]
         CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
     }
 
@@ -227,6 +230,7 @@ pub fn reflect_to_l1(
             drop(mutex_vmid);
             drop(mutex_vms);
 
+            #[cfg(feature = "performance_monitor")]
             CNT_FLUSH_NOTIFY.fetch_add(1, Ordering::Release);
 
             assert_l1_hypervisor(
@@ -238,6 +242,7 @@ pub fn reflect_to_l1(
             );
         }
 
+        #[cfg(feature = "performance_monitor")]
         CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
 
         start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
@@ -247,6 +252,7 @@ pub fn reflect_to_l1(
         return;
     }
 
+    #[cfg(feature = "performance_monitor")]
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT {
         match get_stval() as usize {
             MEASURE_NOTIFY_ADDRESS => {
@@ -386,6 +392,7 @@ pub fn l1_to_l2(
     // Set L2 VM entry point
     set_sepc(get_vsepc());
 
+    #[cfg(feature = "performance_monitor")]
     if get_vscause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
         && get_vstval() as usize == TARGET_ADDRESS
     {
@@ -394,6 +401,7 @@ pub fn l1_to_l2(
     }
 
     #[cfg(feature = "nested_acceleration")]
+    #[cfg(feature = "performance_monitor")]
     if get_vscause() as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE
         && get_vstval() as usize == TARGET_ADDRESS
     {

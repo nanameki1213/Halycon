@@ -105,7 +105,6 @@ use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
 use core::ptr::NonNull;
-use core::sync::atomic::AtomicU64;
 use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
 use log::{Level, Metadata, Record};
@@ -165,12 +164,21 @@ static BUFFER_COUNT: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
 
-static CNT_L2_PF_MMIO: AtomicU64 = AtomicU64::new(0);
-static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
-static CNT_EXIT_MMIO_L1: AtomicU64 = AtomicU64::new(0);
-static CNT_ENTRY_TO_L2: AtomicU64 = AtomicU64::new(0);
-static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
-static CYCLE: AtomicU64 = AtomicU64::new(0);
+#[cfg(feature = "performance_monitor")]
+pub mod performance_monitor {
+    use core::sync::atomic::AtomicU64;
+
+    pub const MEASURE_NOTIFY_ADDRESS: usize = 0xd000_0000;
+    pub const MEASURE_RESET: usize = 0;
+    pub const MEASURE_SHOW: usize = 1;
+
+    pub static CNT_L2_PF_MMIO: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_EXIT_MMIO_L1: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_ENTRY_TO_L2: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
+    pub static CYCLE: AtomicU64 = AtomicU64::new(0);
+}
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
