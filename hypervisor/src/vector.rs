@@ -1,4 +1,6 @@
 use crate::CURRENT_VMID;
+#[cfg(feature = "nested_acceleration")]
+use crate::TIMER_INTR_PENDING;
 use crate::VIRTUAL_MACHINES;
 use crate::mmio::ns16550;
 #[cfg(feature = "nested_acceleration")]
@@ -96,7 +98,6 @@ pub fn exception_handler(sp: usize) {
     let locked_current_vmid = CURRENT_VMID.lock();
 
     let scause = get_scause() as usize;
-    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
 
     #[cfg(feature = "nested_acceleration")]
     if scause == I_SUPERVISOR_TIMER {
@@ -104,15 +105,23 @@ pub fn exception_handler(sp: usize) {
         return;
     }
 
+    let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
     #[cfg(feature = "nested_support")]
     match locked_vm[*locked_current_vmid].parent_vmid {
         Some(parent_vmid) => {
-            reflect_to_l1(sp, locked_current_vmid, locked_vm, parent_vmid);
-            if cfg!(feature = "nested_acceleration") {
-                return;
-            } else {
-                unreachable!()
+            #[cfg(feature = "nested_acceleration")]
+            {
+                let mut flag = TIMER_INTR_PENDING.lock();
+                if *flag {
+                    *flag = false;
+                    drop(flag);
+                    timer_flush_to_l1(sp, locked_current_vmid, locked_vm);
+                    return;
+                }
             }
+
+            reflect_to_l1(sp, locked_current_vmid, locked_vm, parent_vmid);
+            return;
         }
         None => {
             // L1 VM
@@ -135,7 +144,7 @@ pub fn exception_handler(sp: usize) {
         panic!();
     }
 
-    let mut instruction = Instruction::new(get_htinst() as u32);
+    let instruction = Instruction::new(get_htinst() as u32);
 
     // next instruction
     let mut sepc = get_sepc();

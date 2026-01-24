@@ -7,14 +7,21 @@ use crate::println;
 pub const SBI_EXT_BASE: usize = 0x10;
 pub const SBI_EXT_0_1_CONSOLE_PUTCHAR: usize = 1;
 pub const SBI_EXT_DBCN: usize = 0x4442434E;
+pub const SBI_EXT_SRST: usize = 0x53525354;
 
+pub const SBI_FID_GET_SBI_SPECIFICATION_VERSION: usize = 0;
+pub const SBI_FID_GET_SBI_IMPLEMENTATION_ID: usize = 1;
 pub const SBI_FID_GET_SBI_IMPLEMENTATION_VERSION: usize = 2;
 pub const SBI_FID_PROBE_SBI_EXT: usize = 3;
 pub const SBI_FID_GET_MACHINE_VENDOR_ID: usize = 4;
+pub const SBI_FID_GET_MACHINE_ARCHITECTURE_ID: usize = 5;
+pub const SBI_FID_GET_MACHINE_IMPLEMENTATION_ID: usize = 6;
 
 pub const SBI_EXT_DBCN_CONSOLE_WRITE: usize = 0;
 pub const SBI_EXT_DBCN_CONSOLE_READ: usize = 1;
 pub const SBI_EXT_DBCN_CONSOLE_WRITE_BYTE: usize = 2;
+
+const SBI_VERSION_MAJOR_OFFSET: usize = 24;
 
 pub struct Sbiret {
     pub error: u64,
@@ -33,9 +40,16 @@ pub fn virtual_sbi(
 ) -> Sbiret {
     match ext {
         SBI_EXT_BASE => match fid {
-            SBI_FID_PROBE_SBI_EXT => Sbiret { error: 0, value: 1 },
+            SBI_FID_GET_SBI_SPECIFICATION_VERSION => Sbiret {
+                error: 0,
+                value: 3 << SBI_VERSION_MAJOR_OFFSET,
+            },
+            SBI_FID_GET_SBI_IMPLEMENTATION_ID => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_SBI_IMPLEMENTATION_VERSION => Sbiret { error: 0, value: 2 },
+            SBI_FID_PROBE_SBI_EXT => Sbiret { error: 0, value: 0 },
             SBI_FID_GET_MACHINE_VENDOR_ID => Sbiret { error: 0, value: 0 },
+            SBI_FID_GET_MACHINE_ARCHITECTURE_ID => Sbiret { error: 0, value: 0 },
+            SBI_FID_GET_MACHINE_IMPLEMENTATION_ID => Sbiret { error: 0, value: 0 },
             _ => {
                 println!("SBI_EXT_BASE: fid: {}", fid);
                 panic!("unrecognized fid");
@@ -64,6 +78,7 @@ pub fn virtual_sbi(
                 panic!("unrecognized fid");
             }
         }
+        SBI_EXT_SRST => Sbiret { error: 0, value: 0 },
         _ => {
             println!("eid: {}", ext);
             panic!("unrecognized eid")

@@ -1,4 +1,5 @@
 #![feature(riscv_ext_intrinsics)]
+#![feature(stmt_expr_attributes)]
 #![no_std]
 #![no_main]
 
@@ -157,9 +158,27 @@ static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_acceleration")]
 static SHM_RING: Once<Mutex<shmem_handle::ShmRingHandle>> = Once::new();
 #[cfg(feature = "nested_acceleration")]
+static TIMER_INTR_PENDING: Mutex<bool> = Mutex::new(false);
+#[cfg(feature = "nested_acceleration")]
 static BUFFER_COUNT: Mutex<usize> = Mutex::new(0);
 #[cfg(feature = "nested_support")]
 static HOST_HYPERVISOR_CSR: Mutex<HypervisorCsr> = Mutex::new(HypervisorCsr::new());
+
+#[cfg(feature = "performance_monitor")]
+pub mod performance_monitor {
+    use core::sync::atomic::AtomicU64;
+
+    pub const MEASURE_NOTIFY_ADDRESS: usize = 0xd000_0000;
+    pub const MEASURE_RESET: usize = 0;
+    pub const MEASURE_SHOW: usize = 1;
+
+    pub static CNT_L2_PF_MMIO: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_REFLECT_L2_TO_L1: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_EXIT_MMIO_L1: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_ENTRY_TO_L2: AtomicU64 = AtomicU64::new(0);
+    pub static CNT_FLUSH_NOTIFY: AtomicU64 = AtomicU64::new(0);
+    pub static CYCLE: AtomicU64 = AtomicU64::new(0);
+}
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
@@ -252,14 +271,17 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     let mut fs = fat32::fat32_init(host_block_device).expect("Failed to init fat32 file system.");
 
-    let vm_img_file_name = "VM.IMG".to_string();
-    let file_size = fs
-        .get_file_size(&vm_img_file_name)
-        .expect("Failed to get file size.");
-    let mut buf = vec![0u8; file_size];
-    fs.read_file(&vm_img_file_name, &mut buf)
-        .expect("Failed to read vm disk image.");
-    let mem_block = MemBlk::new(&buf);
+    #[cfg(feature = "nested_support")]
+    let mem_block = {
+        let vm_img_file_name = "VM.IMG".to_string();
+        let file_size = fs
+            .get_file_size(&vm_img_file_name)
+            .expect("Failed to get file size.");
+        let mut buf = vec![0u8; file_size];
+        fs.read_file(&vm_img_file_name, &mut buf)
+            .expect("Failed to read vm disk image.");
+        MemBlk::new(&buf)
+    };
 
     let xlen = get_xlen_from_misa();
     if xlen != 64 {
@@ -327,6 +349,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     menvcfg |= MENVCFG_STCE as u64;
     set_menvcfg(menvcfg);
 
+    let mut mcounteren = get_mcounteren();
+    mcounteren |= MCOUNTEREN_CY;
+    set_mcounteren(mcounteren);
+
     let mut mstatus = get_mstatus();
     mstatus |= MSTATUS_SIE as u64;
     mstatus |= MSTATUS_MIE as u64;
@@ -368,16 +394,19 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
     );
     mmio.push(serial_entry);
 
-    let virtio_entry = MmioEntry::new(
-        VIRTIO_MMIO_DEFAULT_ADDRESS,
-        0x1000,
-        Box::new(
-            virtual_devices::virtio::virtio_mmio::VirtioMmioTransport::new(
-                virtual_devices::virtio::virtio_blk::VirtioBlkDevice::new(mem_block),
+    #[cfg(feature = "nested_support")]
+    {
+        let virtio_entry = MmioEntry::new(
+            VIRTIO_MMIO_DEFAULT_ADDRESS,
+            0x1000,
+            Box::new(
+                virtual_devices::virtio::virtio_mmio::VirtioMmioTransport::new(
+                    virtual_devices::virtio::virtio_blk::VirtioBlkDevice::new(mem_block),
+                ),
             ),
-        ),
-    );
-    mmio.push(virtio_entry);
+        );
+        mmio.push(virtio_entry);
+    }
 
     // let stack_address = unsafe { allocate_memory(2, paging::PAGE_SIZE).unwrap() };
     let stack_address = 0x0;

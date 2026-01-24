@@ -58,6 +58,9 @@ pub const PMP_A_FIELD_NAPOT: usize = 3;
 
 pub const ENVCFG_ADUE_OFFSET: usize = 61;
 
+pub const MCOUNTEREN_CY: u64 = 1 << 0;
+pub const MCOUNTEREN_TM: u64 = 1 << 1;
+
 // Sstc
 
 pub const MENVCFG_STCE: usize = 1 << 63;
@@ -728,6 +731,29 @@ pub fn halt_loop() -> ! {
     loop {
         unsafe { asm!("wfi") };
     }
+}
+
+// counteren
+
+#[inline(always)]
+pub fn get_mcounteren() -> u64 {
+    let mcounteren: u64;
+    unsafe { asm!("csrr {}, mcounteren", out(reg) mcounteren ) };
+    mcounteren
+}
+
+#[inline(always)]
+pub fn set_mcounteren(mcounteren: u64) {
+    unsafe { asm!("csrw mcounteren, {}", in(reg) mcounteren ) };
+}
+
+// cycle
+
+#[inline(always)]
+pub fn get_cycle() -> u64 {
+    let cycle: u64;
+    unsafe { asm!("rdcycle {}", out(reg) cycle) };
+    cycle
 }
 
 // time

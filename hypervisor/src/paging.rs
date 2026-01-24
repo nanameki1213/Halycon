@@ -1,9 +1,9 @@
-use core::borrow::BorrowMut;
-use core::fmt;
-
 use allocate_pages::callocate_pages;
 use arch::riscv::cpu::*;
-use arch::riscv::instruction::*;
+#[cfg(feature = "nested_support")]
+use arch::riscv::instruction::read_vm_memory;
+use core::borrow::BorrowMut;
+use core::fmt;
 
 pub const DEFAULT_TABLE_LEVEL: i8 = 4;
 pub const VPN_SIZE: i8 = 9;
@@ -105,6 +105,7 @@ pub enum ShadowPageTableError {
     ParentPageFault,
 }
 
+#[cfg(feature = "nested_support")]
 impl fmt::Display for ShadowPageTableError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

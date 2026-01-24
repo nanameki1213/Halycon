@@ -68,7 +68,7 @@ impl Instruction {
         ((self.0 & Self::COMPRESSION_MASK) >> Self::COMPRESSION_OFFSET) as usize
     }
 
-    pub fn is_valid_instruction(&mut self) -> bool {
+    pub fn is_valid_instruction(&self) -> bool {
         self.0 != 0
     }
 

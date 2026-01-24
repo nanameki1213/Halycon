@@ -20,6 +20,68 @@ mod mmio {
     pub mod ns16550;
 }
 
+#[cfg(feature = "nested_acceleration")]
+pub mod shmem_handle {
+    use super::SHM_RING;
+    use core::marker::PhantomData;
+    use shmem::ShmRing;
+
+    pub const SHMEM_VIRTUAL_ADDRESS: usize = 0xb0000000;
+    pub const SHMEM_SIZE: usize = 0x4000000;
+
+    #[derive(Clone, Copy)]
+    pub struct ShmRingHandle {
+        ptr: core::ptr::NonNull<ShmRing>,
+        _p: PhantomData<&'static ShmRing>,
+    }
+
+    unsafe impl Send for ShmRingHandle {}
+    unsafe impl Sync for ShmRingHandle {}
+
+    impl ShmRingHandle {
+        pub unsafe fn from_base(base: usize) -> Self {
+            assert!(
+                base % core::mem::align_of::<ShmRing>() == 0,
+                "ShmRing alignment mismatch"
+            );
+            let ptr = core::ptr::NonNull::new(base as *mut ShmRing).expect("null shm base");
+            Self {
+                ptr,
+                _p: PhantomData,
+            }
+        }
+
+        #[inline]
+        pub fn ring(&self) -> &ShmRing {
+            unsafe { self.ptr.as_ref() }
+        }
+
+        #[inline]
+        pub fn ring_mut(&mut self) -> &mut ShmRing {
+            unsafe { self.ptr.as_mut() }
+        }
+    }
+
+    pub fn init_shm_ring(base: usize) {
+        SHM_RING.call_once(|| {
+            let h = unsafe { ShmRingHandle::from_base(base) };
+            spin::Mutex::new(h)
+        });
+    }
+
+    pub fn with_shm_ring<R>(f: impl FnOnce(&ShmRing) -> R) -> R {
+        let m = SHM_RING.get().expect("call init_shm_ring() first");
+        let h = *m.lock();
+        f(h.ring())
+    }
+
+    pub fn with_shm_ring_mut<R>(f: impl FnOnce(&mut ShmRing) -> R) -> R {
+        let m = SHM_RING.get().expect("call init_shm_ring() first");
+        let mut h = *m.lock();
+        f(h.ring_mut())
+    }
+}
+
 use crate::mmio::ns16550::NS16550_ADDR;
 use alloc::boxed::Box;
 use alloc::string::ToString;
@@ -32,12 +94,14 @@ use block::mem_blk::MemBlk;
 use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
-use core::marker::PhantomData;
 use core::ptr::NonNull;
 use fdt::DeviceTreeInfo;
 use lazy_static::lazy_static;
-use shmem::ShmRing;
-use spin::{Mutex, Once};
+#[cfg(feature = "nested_acceleration")]
+use shmem_handle::*;
+use spin::Mutex;
+#[cfg(feature = "nested_acceleration")]
+use spin::Once;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
 use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
@@ -56,72 +120,17 @@ macro_rules! bitmask {
 const MAX_MEMORY_ENTRIES: usize = 32;
 const MAX_MMIO_ENTRIES: usize = 64;
 
-const SHMEM_ADDRESS: usize = 0xb0000000;
-#[allow(dead_code)]
-const SHMEM_SIZE: usize = 0x4000000;
-
 // fn intr_disable() {
 //     set_mie(get_mie() & !(1 << MIE_MEIE_OFFSET));
 // }
 
-#[derive(Clone, Copy)]
-pub struct ShmRingHandle {
-    ptr: NonNull<ShmRing>,
-    _p: PhantomData<&'static ShmRing>,
-}
-
-unsafe impl Send for ShmRingHandle {}
-unsafe impl Sync for ShmRingHandle {}
-
-impl ShmRingHandle {
-    pub unsafe fn from_base(base: usize) -> Self {
-        assert!(
-            base % align_of::<ShmRing>() == 0,
-            "ShmRing alignment mismatch"
-        );
-        let ptr = NonNull::new(base as *mut ShmRing).expect("null shm base");
-        Self {
-            ptr,
-            _p: PhantomData,
-        }
-    }
-
-    #[inline]
-    pub fn ring(&self) -> &ShmRing {
-        unsafe { self.ptr.as_ref() }
-    }
-
-    #[inline]
-    pub fn ring_mut(&mut self) -> &mut ShmRing {
-        unsafe { self.ptr.as_mut() }
-    }
-}
-
 static MEMORY_ALLOCATOR: Mutex<allocator::Heap<33>> = Mutex::new(allocator::Heap::new());
+#[cfg(feature = "nested_acceleration")]
 static SHM_RING: Once<Mutex<ShmRingHandle>> = Once::new();
 static CURRENT_VMID: Mutex<usize> = Mutex::new(0);
 
 lazy_static! {
     pub static ref VIRTUAL_MACHINES: Mutex<Vec<VM>> = Mutex::new(Vec::new());
-}
-
-pub fn init_shm_ring(base: usize) {
-    SHM_RING.call_once(|| {
-        let h = unsafe { ShmRingHandle::from_base(base) };
-        Mutex::new(h)
-    });
-}
-
-pub fn with_shm_ring<R>(f: impl FnOnce(&ShmRing) -> R) -> R {
-    let m = SHM_RING.get().expect("call init_shm_ring() first");
-    let h = *m.lock();
-    f(h.ring())
-}
-
-pub fn with_shm_ring_mut<R>(f: impl FnOnce(&mut ShmRing) -> R) -> R {
-    let m = SHM_RING.get().expect("call init_shm_ring() first");
-    let mut h = *m.lock();
-    f(h.ring_mut())
 }
 
 struct GlobalAllocator {}
@@ -295,7 +304,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
         dtb_pointer = vm.get_dtb_pointer();
     }
 
-    init_shm_ring(SHMEM_ADDRESS);
+    #[cfg(feature = "nested_acceleration")]
+    init_shm_ring(SHMEM_VIRTUAL_ADDRESS);
 
     println!("switch to guest");
     hs_to_vs(entry_point, stack_pointer, dtb_pointer)

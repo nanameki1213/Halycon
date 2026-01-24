@@ -1,26 +1,33 @@
 use crate::paging;
+#[cfg(feature = "performance_monitor")]
+use crate::performance_monitor::{
+    CNT_ENTRY_TO_L2, CNT_EXIT_MMIO_L1, CNT_FLUSH_NOTIFY, CNT_L2_PF_MMIO, CNT_REFLECT_L2_TO_L1,
+    CYCLE, MEASURE_NOTIFY_ADDRESS, MEASURE_RESET, MEASURE_SHOW,
+};
 use crate::println;
+use crate::vector::E_STORE_AMO_GUEST_PAGE_FAULT;
 use crate::vm::VM;
 use crate::vm::switch_vm_context;
 use alloc::vec::Vec;
 use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::CsrAccessInstructionType;
+#[cfg(feature = "performance_monitor")]
+use core::sync::atomic::Ordering;
 use spin::MutexGuard;
 #[cfg(feature = "nested_acceleration")]
 use {
     crate::BUFFER_COUNT,
+    crate::TIMER_INTR_PENDING,
     crate::shmem_handle::*,
     crate::timer::{TIMER_FRQ, disable_timer_intr, start_timer},
-    crate::vector::{E_STORE_AMO_GUEST_PAGE_FAULT, I_VIRTUAL_SUPERVISOR_SOFTWARE},
-    arch::riscv::instruction,
+    crate::vector::I_VIRTUAL_SUPERVISOR_SOFTWARE,
 };
 use {
     crate::HOST_HYPERVISOR_CSR, crate::emulate_csr::HypervisorCsr, crate::emulate_csr::emulate_csr,
     crate::vm::HypervisorContext,
 };
 
-#[cfg(feature = "nested_acceleration")]
 const TARGET_ADDRESS: usize = 0x10000000;
 #[cfg(feature = "nested_acceleration")]
 const FLUSH_INTERVAL: usize = 5;
@@ -140,19 +147,27 @@ pub fn timer_flush_to_l1(
     mut mutex_vmid: MutexGuard<'_, usize>,
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
 ) {
+    #[cfg(feature = "performance_monitor")]
+    CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
+    disable_timer_intr();
     if let Some(parent_vmid) = mutex_vms[*mutex_vmid].parent_vmid {
-        disable_timer_intr();
         load_hypervisor_context(*(HOST_HYPERVISOR_CSR.lock()));
         switch_vm_context(parent_vmid, &mut mutex_vmid, &mut mutex_vms);
     } else {
         // print!(".");
-        start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
+        #[cfg(feature = "performance_monitor")]
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+        let mut flag = TIMER_INTR_PENDING.lock();
+        *flag = true;
         return;
     }
     let csr = mutex_vms[*mutex_vmid].vcsr;
 
     drop(mutex_vmid);
     drop(mutex_vms);
+
+    #[cfg(feature = "performance_monitor")]
+    CNT_FLUSH_NOTIFY.fetch_add(1, Ordering::Release);
 
     assert_l1_hypervisor(
         sp,
@@ -169,13 +184,22 @@ pub fn reflect_to_l1(
     mut mutex_vms: MutexGuard<'_, Vec<VM>>,
     parent_vmid: usize,
 ) {
+    if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
+        && get_stval() as usize == TARGET_ADDRESS
+    {
+        #[cfg(feature = "performance_monitor")]
+        CNT_L2_PF_MMIO.fetch_add(1, Ordering::Release);
+    }
+
     // return to L2
     #[cfg(feature = "nested_acceleration")]
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
         && get_stval() as usize == TARGET_ADDRESS
     {
+        use arch::riscv::instruction::Instruction;
+
         let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
-        let instruction = instruction::Instruction::new(get_htinst() as u32);
+        let instruction = Instruction::new(get_htinst() as u32);
         let rs2 = instruction.get_rs2();
         let byte = contexts[rs2] as u8;
 
@@ -185,7 +209,7 @@ pub fn reflect_to_l1(
 
         let mut cnt = BUFFER_COUNT.lock();
         *cnt += 1;
-        let do_flush = *cnt > 16 || byte == b'\n';
+        let do_flush = *cnt >= 16;
         if do_flush {
             *cnt = 0;
         }
@@ -206,6 +230,9 @@ pub fn reflect_to_l1(
             drop(mutex_vmid);
             drop(mutex_vms);
 
+            #[cfg(feature = "performance_monitor")]
+            CNT_FLUSH_NOTIFY.fetch_add(1, Ordering::Release);
+
             assert_l1_hypervisor(
                 sp,
                 I_VIRTUAL_SUPERVISOR_SOFTWARE as u64,
@@ -215,11 +242,93 @@ pub fn reflect_to_l1(
             );
         }
 
+        #[cfg(feature = "performance_monitor")]
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+
         start_timer((FLUSH_INTERVAL * TIMER_FRQ) as u64);
 
         set_sepc(get_sepc() + inst_len);
 
         return;
+    }
+
+    #[cfg(feature = "performance_monitor")]
+    if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT {
+        use arch::riscv::instruction::Instruction;
+
+        match get_stval() as usize {
+            MEASURE_NOTIFY_ADDRESS => {
+                let instruction = Instruction::new(get_htinst() as u32);
+                let contexts =
+                    unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
+                let rs2 = instruction.get_rs2();
+                let value = contexts[rs2];
+
+                match value as usize {
+                    MEASURE_RESET => {
+                        CNT_L2_PF_MMIO.store(0, Ordering::Release);
+                        CNT_REFLECT_L2_TO_L1.store(0, Ordering::Release);
+                        CNT_EXIT_MMIO_L1.store(0, Ordering::Release);
+                        CNT_ENTRY_TO_L2.store(0, Ordering::Release);
+                        CNT_FLUSH_NOTIFY.store(0, Ordering::Release);
+                        CYCLE.store(get_cycle(), Ordering::Release);
+                        #[cfg(feature = "nested_acceleration")]
+                        {
+                            *(BUFFER_COUNT.lock()) = 0;
+                        }
+                        println!("\nstart measure.");
+                    }
+                    MEASURE_SHOW => {
+                        #[cfg(feature = "nested_acceleration")]
+                        let is_empty = with_shm_ring(|r| r.is_empty());
+                        #[cfg(feature = "nested_acceleration")]
+                        if !is_empty {
+                            return;
+                        }
+
+                        println!("End of measure.");
+                        println!("cnt_l2_pf_mmio: {}", CNT_L2_PF_MMIO.load(Ordering::Acquire));
+                        println!(
+                            "cnt_reflect_l2_to_l1: {}",
+                            CNT_REFLECT_L2_TO_L1.load(Ordering::Acquire)
+                        );
+                        println!(
+                            "cnt_exit_mmio_l1: {}",
+                            CNT_EXIT_MMIO_L1.load(Ordering::Acquire)
+                        );
+                        println!(
+                            "cnt_entry_to_l2: {}",
+                            CNT_ENTRY_TO_L2.load(Ordering::Acquire)
+                        );
+                        println!(
+                            "cnt_flush_notify: {}",
+                            CNT_FLUSH_NOTIFY.load(Ordering::Acquire)
+                        );
+                        println!("cycle: {}", get_cycle() - CYCLE.load(Ordering::Acquire));
+                    }
+                    _ => {}
+                }
+
+                // next instruction
+                let mut sepc = get_sepc();
+                let instruction_size = if instruction.is_valid_instruction() {
+                    if instruction.is_compression_instruction() {
+                        2
+                    } else {
+                        4
+                    }
+                } else {
+                    4
+                };
+                sepc += instruction_size;
+                set_sepc(sepc);
+                return;
+            }
+            TARGET_ADDRESS => {
+                CNT_REFLECT_L2_TO_L1.fetch_add(1, Ordering::Release);
+            }
+            _ => {}
+        }
     }
 
     // assert to L1
@@ -284,6 +393,22 @@ pub fn l1_to_l2(
 
     // Set L2 VM entry point
     set_sepc(get_vsepc());
+
+    #[cfg(feature = "performance_monitor")]
+    if get_vscause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
+        && get_vstval() as usize == TARGET_ADDRESS
+    {
+        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+    }
+
+    #[cfg(all(feature = "nested_acceleration", feature = "performance_monitor"))]
+    if get_vscause() as usize == I_VIRTUAL_SUPERVISOR_SOFTWARE
+        && get_vstval() as usize == TARGET_ADDRESS
+    {
+        CNT_EXIT_MMIO_L1.fetch_add(1, Ordering::Release);
+        CNT_ENTRY_TO_L2.fetch_add(1, Ordering::Release);
+    }
 
     // println!("L2 VM entry point: {:#x}", get_vsepc() as usize);
 
