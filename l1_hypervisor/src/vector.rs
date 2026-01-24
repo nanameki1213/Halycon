@@ -3,7 +3,8 @@ use crate::VIRTUAL_MACHINES;
 use crate::paging;
 use crate::println;
 use crate::sbi;
-use crate::with_shm_ring;
+#[cfg(feature = "nested_acceleration")]
+use crate::shmem_handle::*;
 use alloc::vec::Vec;
 
 use arch::riscv::cpu::csr_address::CSR_TIME_ADDRESS;
@@ -17,7 +18,9 @@ pub const E_VIRTUAL_INSTRUCTION: usize = 22;
 pub const E_STORE_AMO_GUEST_PAGE_FAULT: usize = 23;
 pub const E_ENVIRONMENT_CALL_FROM_VS_MODE: usize = 10;
 
+#[cfg(feature = "nested_acceleration")]
 pub const INTERRUPT_ID: usize = 1 << (MXLEN - 1);
+#[cfg(feature = "nested_acceleration")]
 pub const I_VIRTUAL_SUPERVISOR_SOFTWARE: usize = 2 | INTERRUPT_ID;
 
 global_asm!(include_str!("./trap.S"));
@@ -58,20 +61,23 @@ pub fn exception_handler(sp: usize) {
     } else if is_instruction_abort(scause) {
         // instruction abort
         instruction_abort_handler(scause, contexts);
-    } else if scause == I_VIRTUAL_SUPERVISOR_SOFTWARE {
-        let buf = with_shm_ring(|r| {
-            let mut buf = [0u8; 256];
-            let n = r.pop(&mut buf);
-            buf[0..n].to_vec()
-        });
-        let vm = &mut locked_vm[*locked_current_vmid];
-        let mmio_list = &mut vm.mmio;
-        let stval = get_stval() as usize;
-        for byte in buf {
-            write_access(stval, byte as u64, mmio_list);
-        }
-        return;
     } else {
+        #[cfg(feature = "nested_acceleration")]
+        if scause == I_VIRTUAL_SUPERVISOR_SOFTWARE {
+            let buf = with_shm_ring(|r| {
+                let mut buf = [0u8; 256];
+                let n = r.pop(&mut buf);
+                buf[0..n].to_vec()
+            });
+            let vm = &mut locked_vm[*locked_current_vmid];
+            let mmio_list = &mut vm.mmio;
+            let stval = get_stval() as usize;
+            for byte in buf {
+                write_access(stval, byte as u64, mmio_list);
+            }
+            return;
+        }
+
         println!("Exception from S-Mode has occured!");
         println!("[info] scause: {:#X}", get_scause());
         println!("[info] stval: {:#X}", get_stval());

@@ -13,8 +13,6 @@ use arch::riscv::cpu::csr_address::CSR_HGATP_ADDRESS;
 use arch::riscv::cpu::*;
 use arch::riscv::instruction::CsrAccessInstructionType;
 #[cfg(feature = "performance_monitor")]
-use arch::riscv::instruction::Instruction;
-#[cfg(feature = "performance_monitor")]
 use core::sync::atomic::Ordering;
 use spin::MutexGuard;
 #[cfg(feature = "nested_acceleration")]
@@ -198,6 +196,8 @@ pub fn reflect_to_l1(
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT
         && get_stval() as usize == TARGET_ADDRESS
     {
+        use arch::riscv::instruction::Instruction;
+
         let contexts = unsafe { &mut *core::ptr::slice_from_raw_parts_mut(sp as *mut u64, 32) };
         let instruction = Instruction::new(get_htinst() as u32);
         let rs2 = instruction.get_rs2();
@@ -254,6 +254,8 @@ pub fn reflect_to_l1(
 
     #[cfg(feature = "performance_monitor")]
     if get_scause() as usize == E_STORE_AMO_GUEST_PAGE_FAULT {
+        use arch::riscv::instruction::Instruction;
+
         match get_stval() as usize {
             MEASURE_NOTIFY_ADDRESS => {
                 let instruction = Instruction::new(get_htinst() as u32);

@@ -17,3 +17,6 @@ spin = "0.10.0"
 string_utils.workspace = true
 virtio = { version = "0.1.0", path = "../support/devices/virtio" }
 virtio_core = { version = "0.1.0", path = "../support/virtio_core" }
+
+[features]
+nested_acceleration = []

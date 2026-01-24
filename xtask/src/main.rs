@@ -86,7 +86,14 @@ fn build() -> Result<(), DynError> {
         } else {
             binary_path.push("debug/l1_hypervisor");
         }
-        build_l1_hypervisor(is_release)?;
+
+        let l1_cargo_features: Vec<String> = cargo_features
+            .iter()
+            .filter(|&f| f == "nested_acceleration")
+            .cloned()
+            .collect();
+
+        build_l1_hypervisor(&l1_cargo_features, is_release)?;
         fs::rename(&binary_path, &output_path)?;
 
         // compile device tree script
@@ -184,12 +191,17 @@ fn build_hypervisor(features: &[String], is_release: bool) -> Result<(), DynErro
     Ok(())
 }
 
-fn build_l1_hypervisor(is_release: bool) -> Result<(), DynError> {
+fn build_l1_hypervisor(features: &[String], is_release: bool) -> Result<(), DynError> {
     let l1_hypervisor_path = project_root().join("l1_hypervisor");
     let mut l1_hypervisor_cargo_args: Vec<String> = vec!["build".to_string()];
 
     if is_release {
         l1_hypervisor_cargo_args.push("--release".to_string());
+    }
+
+    if !features.is_empty() {
+        l1_hypervisor_cargo_args.push("--features".to_string());
+        l1_hypervisor_cargo_args.push(features.join(","));
     }
 
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
