@@ -92,15 +92,12 @@ pub mod shmem_handle {
     }
 }
 
-use crate::alloc::string::ToString;
 #[cfg(feature = "nested_support")]
 use crate::emulate_csr::HypervisorCsr;
 use crate::mmio::ns16550::NS16550_ADDR;
 use alloc::boxed::Box;
-use alloc::vec;
 use alloc::vec::Vec;
 use arch::riscv::cpu::*;
-use block::mem_blk::MemBlk;
 use block::virtio_blk::VirtioBlk;
 use core::alloc::{GlobalAlloc, Layout};
 use core::arch::asm;
@@ -115,7 +112,7 @@ use spin::Mutex;
 use spin::Once;
 use string_utils::hex_ptr_to_usize;
 use vector::setup_vector;
-use virtio::{VIRTIO_MMIO_DEFAULT_ADDRESS, VirtioMmio};
+use virtio::VirtioMmio;
 use vm::VM;
 
 struct SimpleLogger;
@@ -273,6 +270,10 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     #[cfg(feature = "nested_support")]
     let mem_block = {
+        use block::mem_blk::MemBlk;
+        use crate::alloc::string::ToString;
+        use alloc::vec;
+
         let vm_img_file_name = "VM.IMG".to_string();
         let file_size = fs
             .get_file_size(&vm_img_file_name)
@@ -396,6 +397,8 @@ extern "C" fn main(argc: usize, argv: *const *const u8) -> usize {
 
     #[cfg(feature = "nested_support")]
     {
+        use virtio::VIRTIO_MMIO_DEFAULT_ADDRESS;
+
         let virtio_entry = MmioEntry::new(
             VIRTIO_MMIO_DEFAULT_ADDRESS,
             0x1000,
